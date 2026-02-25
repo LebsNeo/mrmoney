@@ -1,7 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { BookingSource, BookingStatus } from "@prisma/client";
+import { onBookingConfirmed } from "@/lib/booking-finance";
 
 export interface BookingFilters {
   status?: BookingStatus;
@@ -66,4 +68,104 @@ export async function getBookingById(id: string) {
       },
     },
   });
+}
+
+/** Fetch all active properties with their rooms (for forms) */
+export async function getPropertiesWithRooms() {
+  return prisma.property.findMany({
+    where: { isActive: true, deletedAt: null },
+    include: {
+      rooms: {
+        where: { status: "ACTIVE", deletedAt: null },
+        select: { id: true, name: true, type: true, baseRate: true },
+        orderBy: { name: "asc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export interface CreateBookingInput {
+  propertyId: string;
+  roomId: string;
+  guestName: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  checkIn: string; // ISO date string YYYY-MM-DD
+  checkOut: string;
+  source: BookingSource;
+  otaCommissionPct: number; // e.g. 0.15 for 15%
+  roomRate: number;
+  grossAmount: number;
+  isVatInclusive: boolean;
+  vatRate: number;
+  externalRef?: string;
+}
+
+/** Create a new booking + trigger finance engine for DIRECT bookings */
+export async function createBooking(input: CreateBookingInput) {
+  try {
+    const {
+      propertyId,
+      roomId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      checkIn,
+      checkOut,
+      source,
+      otaCommissionPct,
+      roomRate,
+      grossAmount,
+      isVatInclusive,
+      vatRate,
+      externalRef,
+    } = input;
+
+    const otaCommission = grossAmount * otaCommissionPct;
+    const netAmount = grossAmount - otaCommission;
+
+    // Calculate VAT
+    let vatAmount = 0;
+    if (vatRate > 0) {
+      if (isVatInclusive) {
+        vatAmount = grossAmount - grossAmount / (1 + vatRate);
+      } else {
+        vatAmount = grossAmount * vatRate;
+      }
+    }
+
+    const booking = await prisma.booking.create({
+      data: {
+        propertyId,
+        roomId,
+        guestName,
+        guestEmail: guestEmail || null,
+        guestPhone: guestPhone || null,
+        checkIn: new Date(checkIn),
+        checkOut: new Date(checkOut),
+        source,
+        roomRate,
+        grossAmount,
+        otaCommission,
+        netAmount,
+        vatRate,
+        vatAmount,
+        isVatInclusive,
+        externalRef: externalRef || null,
+        status: BookingStatus.CONFIRMED,
+      },
+    });
+
+    // Auto-create DRAFT invoice for direct bookings
+    if (source === BookingSource.DIRECT || source === BookingSource.WALKIN) {
+      await onBookingConfirmed(booking.id);
+    }
+
+    revalidatePath("/bookings");
+    return { success: true, bookingId: booking.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, message: msg, bookingId: null };
+  }
 }

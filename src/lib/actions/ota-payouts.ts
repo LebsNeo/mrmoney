@@ -1,0 +1,149 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { OTAPlatform } from "@prisma/client";
+import {
+  parseAirbnbCSV,
+  parseBookingComCSV,
+  createOTAPayout,
+  type OTAImportResult,
+} from "@/lib/ota-import";
+
+export interface OTAPayoutFilters {
+  platform?: OTAPlatform;
+  propertyId?: string;
+  page?: number;
+  limit?: number;
+}
+
+/** List all OTA payouts with summary */
+export async function getOTAPayouts(filters: OTAPayoutFilters = {}) {
+  const { platform, propertyId, page = 1, limit = 20 } = filters;
+  const skip = (page - 1) * limit;
+
+  const where = {
+    deletedAt: null,
+    ...(platform && { platform }),
+    ...(propertyId && { propertyId }),
+  };
+
+  const [payouts, total] = await Promise.all([
+    prisma.oTAPayout.findMany({
+      where,
+      include: {
+        property: { select: { name: true } },
+        _count: { select: { items: true } },
+      },
+      orderBy: { payoutDate: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.oTAPayout.count({ where }),
+  ]);
+
+  return { payouts, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+/** Get a single OTA payout with all items */
+export async function getOTAPayoutById(id: string) {
+  return prisma.oTAPayout.findUnique({
+    where: { id },
+    include: {
+      property: true,
+      items: {
+        include: {
+          booking: {
+            select: {
+              id: true,
+              guestName: true,
+              status: true,
+              netAmount: true,
+            },
+          },
+        },
+        orderBy: { checkIn: "asc" },
+      },
+    },
+  });
+}
+
+/** Platform summary for the payouts list */
+export async function getPayoutPlatformSummary() {
+  const platforms = Object.values(OTAPlatform);
+  const results = await Promise.all(
+    platforms.map(async (platform) => {
+      const agg = await prisma.oTAPayout.aggregate({
+        where: { platform, deletedAt: null },
+        _sum: {
+          grossAmount: true,
+          totalCommission: true,
+          netAmount: true,
+        },
+        _count: true,
+      });
+      return {
+        platform,
+        count: agg._count,
+        grossAmount: Number(agg._sum.grossAmount ?? 0),
+        totalCommission: Number(agg._sum.totalCommission ?? 0),
+        netAmount: Number(agg._sum.netAmount ?? 0),
+      };
+    })
+  );
+  return results.filter((r) => r.count > 0);
+}
+
+/** Manual match: assign a booking to an unmatched payout item */
+export async function matchPayoutItem(payoutItemId: string, bookingId: string) {
+  try {
+    await prisma.oTAPayoutItem.update({
+      where: { id: payoutItemId },
+      data: { bookingId, isMatched: true },
+    });
+    revalidatePath("/ota-payouts");
+    return { success: true, message: "Matched successfully" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, message: msg };
+  }
+}
+
+/** Import a CSV file — parse + create payout */
+export async function importOTAPayoutCSV(
+  propertyId: string,
+  platform: OTAPlatform,
+  csvContent: string,
+  filename: string
+): Promise<OTAImportResult> {
+  let items;
+
+  if (platform === OTAPlatform.AIRBNB) {
+    items = parseAirbnbCSV(csvContent);
+  } else if (platform === OTAPlatform.BOOKING_COM) {
+    items = parseBookingComCSV(csvContent);
+  } else {
+    // Generic: try Airbnb format first, then Booking.com
+    items = parseAirbnbCSV(csvContent);
+    if (items.length === 0) {
+      items = parseBookingComCSV(csvContent);
+    }
+  }
+
+  if (items.length === 0) {
+    return {
+      success: false,
+      message: "Could not parse any payout items from the CSV. Check the file format.",
+      totalItems: 0,
+      matchedItems: 0,
+    };
+  }
+
+  const result = await createOTAPayout(propertyId, platform, items, filename);
+
+  if (result.success) {
+    revalidatePath("/ota-payouts");
+  }
+
+  return result;
+}

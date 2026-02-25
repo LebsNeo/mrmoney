@@ -47,6 +47,14 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       <PageHeader
         title="Bookings"
         description={`${total} booking${total !== 1 ? "s" : ""} total`}
+        action={
+          <Link
+            href="/bookings/new"
+            className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+          >
+            + New Booking
+          </Link>
+        }
       />
 
       {/* Filters */}
@@ -134,12 +142,12 @@ export default async function BookingsPage({ searchParams }: PageProps) {
                   return (
                     <tr key={booking.id} className="hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3">
-                        <div>
-                          <p className="text-white font-medium">{booking.guestName}</p>
+                        <Link href={`/bookings/${booking.id}`}>
+                          <p className="text-white font-medium hover:text-emerald-400 transition-colors">{booking.guestName}</p>
                           {booking.guestEmail && (
                             <p className="text-xs text-gray-500">{booking.guestEmail}</p>
                           )}
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-gray-300">{booking.room.name}</td>
                       <td className="px-4 py-3 text-gray-300">{formatDate(booking.checkIn)}</td>
