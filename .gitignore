@@ -21,3 +21,8 @@ npm-debug.log*
 # Prisma
 prisma/migrations/**/migration_lock.toml
 .vercel
+.env
+.env.local
+.next
+node_modules
+*.log
