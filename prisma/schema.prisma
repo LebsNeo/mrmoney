@@ -1,0 +1,532 @@
+// MrMoney — Hospitality Financial Operating System
+// Phase 1 Schema — Financial Nervous System
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  ACCOUNTANT
+  STAFF
+}
+
+enum PropertyType {
+  HOTEL
+  GUESTHOUSE
+  LODGE
+  BOUTIQUE
+  AIRBNB_PORTFOLIO
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TWIN
+  QUEEN
+  KING
+  SUITE
+  DORM
+}
+
+enum RoomStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum VendorCategory {
+  FOOD
+  CLEANING
+  UTILITIES
+  MAINTENANCE
+  LAUNDRY
+  SALARIES
+  LINEN
+  MARKETING
+  OTHER
+}
+
+enum BookingSource {
+  DIRECT
+  BOOKING_COM
+  AIRBNB
+  EXPEDIA
+  WALKIN
+  OTHER
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionSource {
+  BOOKING
+  MANUAL
+  OTA_IMPORT
+  CSV_IMPORT
+  SYSTEM
+}
+
+enum TransactionCategory {
+  ACCOMMODATION
+  FB
+  LAUNDRY
+  CLEANING
+  MAINTENANCE
+  UTILITIES
+  SALARIES
+  MARKETING
+  SUPPLIES
+  OTA_COMMISSION
+  VAT_OUTPUT
+  VAT_INPUT
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  CLEARED
+  RECONCILED
+  VOID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  EFT
+  OTA_PAYOUT
+  OTHER
+}
+
+enum OTAPlatform {
+  BOOKING_COM
+  AIRBNB
+  EXPEDIA
+  OTHER
+}
+
+enum OTAPayoutStatus {
+  IMPORTED
+  RECONCILED
+  DISPUTED
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model Organisation {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  plan           Plan     @default(FREE)
+  currency       String   @default("ZAR")
+  // VAT
+  vatRegistered  Boolean  @default(false)
+  vatNumber      String?
+  defaultVatRate Decimal  @default(0.15) @db.Decimal(5, 4)
+  // Audit
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  users        User[]
+  properties   Property[]
+  vendors      Vendor[]
+  transactions Transaction[]
+  invoices     Invoice[]
+  receipts     Receipt[]
+  otaPayouts   OTAPayout[]
+
+  @@index([slug])
+  @@map("organisations")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  organisationId String
+  email          String    @unique
+  name           String
+  passwordHash   String
+  role           UserRole  @default(OWNER)
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  // Audit
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@index([organisationId])
+  @@index([email])
+  @@map("users")
+}
+
+model Property {
+  id             String       @id @default(uuid())
+  organisationId String
+  name           String
+  type           PropertyType @default(GUESTHOUSE)
+  address        String?
+  city           String?
+  country        String       @default("ZA")
+  timezone       String       @default("Africa/Johannesburg")
+  currency       String       @default("ZAR")
+  isActive       Boolean      @default(true)
+  // Audit
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  rooms        Room[]
+  departments  Department[]
+  bookings     Booking[]
+  transactions Transaction[]
+  otaPayouts   OTAPayout[]
+  budgetItems  BudgetItem[]
+  invoices     Invoice[]
+
+  @@index([organisationId])
+  @@map("properties")
+}
+
+model Room {
+  id            String     @id @default(uuid())
+  propertyId    String
+  name          String
+  type          RoomType   @default(DOUBLE)
+  baseRate      Decimal    @db.Decimal(19, 4)
+  maxOccupancy  Int        @default(2)
+  status        RoomStatus @default(ACTIVE)
+  // Audit
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  property Property  @relation(fields: [propertyId], references: [id])
+  bookings Booking[]
+
+  @@index([propertyId])
+  @@map("rooms")
+}
+
+model Department {
+  id         String   @id @default(uuid())
+  propertyId String
+  name       String
+  // Audit
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  // Relations
+  property     Property      @relation(fields: [propertyId], references: [id])
+  transactions Transaction[]
+  budgetItems  BudgetItem[]
+
+  @@index([propertyId])
+  @@map("departments")
+}
+
+model Vendor {
+  id            String         @id @default(uuid())
+  organisationId String
+  name          String
+  category      VendorCategory @default(OTHER)
+  contactName   String?
+  email         String?
+  phone         String?
+  vatNumber     String?
+  // Audit
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  transactions Transaction[]
+  invoices     Invoice[]
+
+  @@index([organisationId])
+  @@map("vendors")
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  propertyId     String
+  roomId         String
+  source         BookingSource @default(DIRECT)
+  guestName      String
+  guestEmail     String?
+  guestPhone     String?
+  checkIn        DateTime      @db.Date
+  checkOut       DateTime      @db.Date
+  // NOTE: nights is always derived — checkOut - checkIn. Never stored.
+  roomRate       Decimal       @db.Decimal(19, 4)
+  grossAmount    Decimal       @db.Decimal(19, 4)
+  otaCommission  Decimal       @default(0) @db.Decimal(19, 4)
+  netAmount      Decimal       @db.Decimal(19, 4)
+  // VAT
+  vatRate        Decimal       @default(0) @db.Decimal(5, 4)
+  vatAmount      Decimal       @default(0) @db.Decimal(19, 4)
+  isVatInclusive Boolean       @default(false)
+  // Status
+  status        BookingStatus  @default(CONFIRMED)
+  externalRef   String?
+  notes         String?
+  // Audit
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  property      Property       @relation(fields: [propertyId], references: [id])
+  room          Room           @relation(fields: [roomId], references: [id])
+  transactions  Transaction[]
+  invoices      Invoice[]
+  otaPayoutItems OTAPayoutItem[]
+
+  @@index([propertyId])
+  @@index([roomId])
+  @@index([checkIn])
+  @@index([checkOut])
+  @@index([status])
+  @@index([source])
+  @@map("bookings")
+}
+
+model Transaction {
+  id             String              @id @default(uuid())
+  organisationId String
+  propertyId     String
+  departmentId   String?
+  bookingId      String?
+  vendorId       String?
+  invoiceId      String?
+  payoutItemId   String?
+  type           TransactionType
+  source         TransactionSource   @default(MANUAL)
+  category       TransactionCategory @default(OTHER)
+  amount         Decimal             @db.Decimal(19, 4)
+  currency       String              @default("ZAR")
+  date           DateTime            @db.Date
+  description    String
+  reference      String?
+  // VAT
+  vatRate        Decimal             @default(0) @db.Decimal(5, 4)
+  vatAmount      Decimal             @default(0) @db.Decimal(19, 4)
+  isVatInclusive Boolean             @default(false)
+  // Status
+  status         TransactionStatus   @default(PENDING)
+  // Audit
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation  Organisation   @relation(fields: [organisationId], references: [id])
+  property      Property       @relation(fields: [propertyId], references: [id])
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  booking       Booking?       @relation(fields: [bookingId], references: [id])
+  vendor        Vendor?        @relation(fields: [vendorId], references: [id])
+  invoice       Invoice?       @relation(fields: [invoiceId], references: [id])
+  payoutItem    OTAPayoutItem? @relation(fields: [payoutItemId], references: [id])
+  receipts      Receipt[]
+
+  @@index([organisationId])
+  @@index([propertyId])
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([type])
+  @@index([category])
+  @@index([date])
+  @@index([status])
+  @@index([source])
+  @@map("transactions")
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  organisationId String
+  propertyId     String
+  bookingId      String?
+  vendorId       String?
+  invoiceNumber  String
+  issueDate      DateTime      @db.Date
+  dueDate        DateTime      @db.Date
+  subtotal       Decimal       @db.Decimal(19, 4)
+  taxRate        Decimal       @default(0) @db.Decimal(5, 4)
+  taxAmount      Decimal       @default(0) @db.Decimal(19, 4)
+  isTaxInclusive Boolean       @default(false)
+  totalAmount    Decimal       @db.Decimal(19, 4)
+  status         InvoiceStatus @default(DRAFT)
+  notes          String?
+  // Audit
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  property     Property      @relation(fields: [propertyId], references: [id])
+  booking      Booking?      @relation(fields: [bookingId], references: [id])
+  vendor       Vendor?       @relation(fields: [vendorId], references: [id])
+  transactions Transaction[]
+  receipts     Receipt[]
+
+  @@unique([organisationId, invoiceNumber])
+  @@index([organisationId])
+  @@index([propertyId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model Receipt {
+  id             String        @id @default(uuid())
+  organisationId String
+  transactionId  String
+  invoiceId      String?
+  amount         Decimal       @db.Decimal(19, 4)
+  paymentMethod  PaymentMethod @default(EFT)
+  date           DateTime      @db.Date
+  reference      String?
+  notes          String?
+  // Audit
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  transaction  Transaction  @relation(fields: [transactionId], references: [id])
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+
+  @@index([organisationId])
+  @@index([transactionId])
+  @@index([invoiceId])
+  @@map("receipts")
+}
+
+model OTAPayout {
+  id             String          @id @default(uuid())
+  organisationId String
+  propertyId     String
+  platform       OTAPlatform
+  periodStart    DateTime        @db.Date
+  periodEnd      DateTime        @db.Date
+  payoutDate     DateTime        @db.Date
+  grossAmount    Decimal         @db.Decimal(19, 4)
+  totalCommission Decimal        @db.Decimal(19, 4)
+  netAmount      Decimal         @db.Decimal(19, 4)
+  status         OTAPayoutStatus @default(IMPORTED)
+  importFilename String?
+  notes          String?
+  // Audit
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation Organisation   @relation(fields: [organisationId], references: [id])
+  property     Property       @relation(fields: [propertyId], references: [id])
+  items        OTAPayoutItem[]
+
+  @@index([organisationId])
+  @@index([propertyId])
+  @@index([platform])
+  @@index([status])
+  @@index([payoutDate])
+  @@map("ota_payouts")
+}
+
+model OTAPayoutItem {
+  id                  String   @id @default(uuid())
+  payoutId            String
+  bookingId           String?
+  externalBookingRef  String
+  guestName           String
+  checkIn             DateTime @db.Date
+  checkOut            DateTime @db.Date
+  grossAmount         Decimal  @db.Decimal(19, 4)
+  commission          Decimal  @db.Decimal(19, 4)
+  netAmount           Decimal  @db.Decimal(19, 4)
+  isMatched           Boolean  @default(false)
+  // Audit
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  // Relations
+  payout       OTAPayout     @relation(fields: [payoutId], references: [id])
+  booking      Booking?      @relation(fields: [bookingId], references: [id])
+  transactions Transaction[]
+
+  @@index([payoutId])
+  @@index([bookingId])
+  @@index([externalBookingRef])
+  @@map("ota_payout_items")
+}
+
+model BudgetItem {
+  id           String   @id @default(uuid())
+  propertyId   String
+  departmentId String?
+  category     TransactionCategory
+  period       String   // Format: YYYY-MM
+  budgetedAmount Decimal @db.Decimal(19, 4)
+  // Audit
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  property   Property    @relation(fields: [propertyId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@index([propertyId])
+  @@index([period])
+  @@index([category])
+  @@map("budget_items")
+}
