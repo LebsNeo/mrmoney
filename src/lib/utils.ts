@@ -5,7 +5,9 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, parseISO } from "date-fns";
-import { Decimal } from "@prisma/client/runtime/library";
+
+// Prisma Decimal compatible type
+type DecimalLike = { toString(): string } | number | string;
 
 // ─────────────────────────────────────────────
 // TAILWIND
@@ -26,7 +28,7 @@ export function cn(...inputs: ClassValue[]) {
  * @param locale - Locale string (default: en-ZA)
  */
 export function formatCurrency(
-  amount: Decimal | number | string,
+  amount: DecimalLike,
   currency = "ZAR",
   locale = "en-ZA"
 ): string {
@@ -42,7 +44,7 @@ export function formatCurrency(
 /**
  * Format a Decimal or number as a plain number string
  */
-export function formatAmount(amount: Decimal | number | string): string {
+export function formatAmount(amount: DecimalLike): string {
   const num = typeof amount === "object" ? parseFloat(amount.toString()) : Number(amount);
   return num.toFixed(2);
 }
@@ -50,7 +52,7 @@ export function formatAmount(amount: Decimal | number | string): string {
 /**
  * Convert Decimal to number safely
  */
-export function toNumber(value: Decimal | number | string): number {
+export function toNumber(value: DecimalLike): number {
   if (typeof value === "number") return value;
   return parseFloat(value.toString());
 }
