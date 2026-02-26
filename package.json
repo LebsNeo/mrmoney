@@ -10,7 +10,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "seed:golfbnb": "tsx prisma/seed-golfbnb.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

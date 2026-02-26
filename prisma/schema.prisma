@@ -254,6 +254,7 @@ model Room {
   id            String     @id @default(uuid())
   propertyId    String
   name          String
+  description   String?
   type          RoomType   @default(DOUBLE)
   baseRate      Decimal    @db.Decimal(19, 4)
   maxOccupancy  Int        @default(2)
