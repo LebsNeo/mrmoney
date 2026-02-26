@@ -85,6 +85,8 @@ function otaPayoutDelay(source: BookingSource): number {
       return 14;
     case BookingSource.BOOKING_COM:
       return 30;
+    case BookingSource.LEKKERSLAAP:
+      return 21;
     default:
       return 0;
   }

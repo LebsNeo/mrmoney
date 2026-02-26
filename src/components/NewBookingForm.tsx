@@ -26,6 +26,7 @@ const OTA_COMMISSION: Record<string, number> = {
   AIRBNB: 0.03,
   BOOKING_COM: 0.15,
   EXPEDIA: 0.15,
+  LEKKERSLAAP: 0.10,
   DIRECT: 0,
   WALKIN: 0,
   OTHER: 0,

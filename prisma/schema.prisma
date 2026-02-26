@@ -68,6 +68,7 @@ enum BookingSource {
   BOOKING_COM
   AIRBNB
   EXPEDIA
+  LEKKERSLAAP
   WALKIN
   OTHER
 }
@@ -136,6 +137,7 @@ enum OTAPlatform {
   BOOKING_COM
   AIRBNB
   EXPEDIA
+  LEKKERSLAAP
   OTHER
 }
 
