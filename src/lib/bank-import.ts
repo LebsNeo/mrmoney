@@ -196,7 +196,8 @@ export async function parseBankStatementCSV(
   csvContent: string,
   bankFormat: string,
   propertyId: string,
-  _organisationId: string
+  _organisationId: string,
+  skipDuplicateCheck = false
 ): Promise<BankImportResult> {
   const lines = csvContent.split(/\r?\n/).filter((l) => l.trim() !== "");
   const transactions: ParsedTransaction[] = [];
@@ -242,7 +243,9 @@ export async function parseBankStatementCSV(
     const absAmount = Math.abs(rawAmount);
 
     const cat = autoCategoriseTransaction(parsed.description);
-    const isDuplicate = await checkDuplicate(absAmount, parsed.date, propertyId);
+    const isDuplicate = skipDuplicateCheck
+      ? false
+      : await checkDuplicate(absAmount, parsed.date, propertyId);
 
     const tx: ParsedTransaction = {
       date: parsed.date,

@@ -38,7 +38,7 @@ async function importStatement(
         organisationId: ORG_ID,
         propertyId,
         type: tx.type as TransactionType,
-        source: TransactionSource.BANK_IMPORT,
+        source: TransactionSource.CSV_IMPORT,
         category: tx.category,
         description: tx.description,
         amount: tx.amount,

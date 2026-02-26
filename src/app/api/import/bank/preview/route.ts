@@ -26,11 +26,13 @@ export async function POST(req: NextRequest) {
     if (!bankFormat || !file) return apiError("Missing required fields");
 
     const csvContent = await file.text();
+    // skipDuplicateCheck=true: no per-row DB calls — preview is instant
     const result = await parseBankStatementCSV(
       csvContent,
       bankFormat,
       firstProperty.id,
-      orgId
+      orgId,
+      true
     );
 
     // Serialize dates for JSON transport

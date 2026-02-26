@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import { importBankTransactions } from "@/lib/actions/automation";
 import { TransactionCategory } from "@prisma/client";
 
@@ -25,7 +25,8 @@ interface PreviewRow {
 }
 
 export default function BankImportPage() {
-  const [bank, setBank] = useState<string>("FNB");
+  const router = useRouter();
+  const [bank, setBank] = useState<string>("CAPITEC");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [duplicates, setDuplicates] = useState<PreviewRow[]>([]);
@@ -139,13 +140,17 @@ export default function BankImportPage() {
 
         {/* Format hints */}
         <div className="bg-gray-800/50 rounded-xl p-3">
-          <p className="text-xs text-gray-500 font-medium mb-1">Expected {bank} format:</p>
+          <p className="text-xs text-gray-500 font-medium mb-1">Expected {bank.replace("_"," ")} CSV format:</p>
           <p className="text-xs text-gray-600 font-mono">
             {bank === "FNB" && "Date (DD MMM YYYY), Description, Amount, Balance"}
-            {bank === "ABSA" && "Date (DD/MM/YYYY), Description, Debit Amount, Credit Amount, Balance"}
+            {bank === "ABSA" && "Date (DD/MM/YYYY), Description, Debit, Credit, Balance"}
             {bank === "NEDBANK" && "Date (YYYY/MM/DD), Description, Debit, Credit, Balance"}
-            {bank === "STANDARD_BANK" && "Date (DD/MM/YYYY), Description, Amount, Balance"}
-            {bank === "CAPITEC" && "Date (YYYY-MM-DD), Description, Out, In, Balance"}
+            {bank === "STANDARD_BANK" && "HIST rows: HIST, Date(YYYYMMDD), [##], Amount, Description, Reference"}
+            {bank === "CAPITEC" && "Account, Date(DD/MM/YYYY), Description, Reference, Amount, Fees, Balance"}
+          </p>
+          <p className="text-xs text-gray-600 mt-1">
+            {bank === "STANDARD_BANK" && "Export: Internet Banking → Account → View Statements → Export CSV"}
+            {bank === "CAPITEC" && "Export: Capitec Business App → Accounts → Statement → Export CSV"}
           </p>
         </div>
       </div>
@@ -166,16 +171,37 @@ export default function BankImportPage() {
 
       {/* Result */}
       {result && (
-        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 mb-6">
-          <p className="text-sm text-emerald-400 font-semibold">
-            ✓ Import complete — {result.saved} transaction{result.saved !== 1 ? "s" : ""} saved
-          </p>
-          {result.duplicates > 0 && (
-            <p className="text-xs text-amber-400 mt-1">{result.duplicates} potential duplicate{result.duplicates !== 1 ? "s" : ""} skipped</p>
-          )}
-          {result.unrecognised > 0 && (
-            <p className="text-xs text-gray-500 mt-1">{result.unrecognised} unrecognised row{result.unrecognised !== 1 ? "s" : ""} skipped</p>
-          )}
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 mb-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-base text-emerald-400 font-semibold">
+                ✅ Import complete!
+              </p>
+              <p className="text-sm text-white mt-1">
+                {result.saved} transaction{result.saved !== 1 ? "s" : ""} saved successfully
+              </p>
+              {result.duplicates > 0 && (
+                <p className="text-xs text-amber-400 mt-1">⚠ {result.duplicates} potential duplicate{result.duplicates !== 1 ? "s" : ""} skipped</p>
+              )}
+              {result.unrecognised > 0 && (
+                <p className="text-xs text-gray-500 mt-1">{result.unrecognised} unrecognised row{result.unrecognised !== 1 ? "s" : ""} skipped</p>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => { setResult(null); setFile(null); }}
+                className="px-3 py-2 rounded-xl text-sm bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
+              >
+                Import Another
+              </button>
+              <button
+                onClick={() => router.push("/transactions")}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors"
+              >
+                View Transactions →
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
