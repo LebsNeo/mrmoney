@@ -113,31 +113,49 @@ function parseNEDBankRow(fields: string[]): { date: Date; description: string; a
 }
 
 function parseStandardBankRow(fields: string[]): { date: Date; description: string; amount: number } | null {
-  // STANDARD_BANK: Date, Description, Amount, Balance
-  if (fields.length < 3) return null;
-  const date = safeParseDate(fields[0], "dd/MM/yyyy");
+  // STANDARD_BANK real export format:
+  //   HIST, Date(YYYYMMDD), [## for fees | empty], Amount, Description, Reference, Code, 0
+  // Only process HIST rows — header/balance rows are skipped automatically
+  if ((fields[0]?.trim() ?? "") !== "HIST") return null;
+  if (fields.length < 5) return null;
+
+  const date = safeParseDate(fields[1]?.trim() ?? "", "yyyyMMdd");
   if (!date) return null;
-  const description = fields[1] ?? "";
-  const amount = tryParseAmount(fields[2]);
+
+  const amount = tryParseAmount(fields[3] ?? "");
   if (amount === null) return null;
-  return { date, description, amount };
+
+  const description = (fields[4] ?? "").trim();
+  const reference = (fields[5] ?? "").trim();
+
+  // Append reference if it contains useful text (not just a numeric code)
+  const fullDesc = reference && !/^\d+$/.test(reference)
+    ? `${description} | ${reference}`
+    : description;
+
+  return { date, description: fullDesc, amount };
 }
 
 function parseCapitecRow(fields: string[]): { date: Date; description: string; amount: number } | null {
-  // CAPITEC: Date, Description, Out, In, Balance
-  if (fields.length < 4) return null;
-  const date = safeParseDate(fields[0], "yyyy-MM-dd");
+  // CAPITEC Business real export format:
+  //   Account, Date(DD/MM/YYYY), Description, Reference, Amount, Fees, Balance
+  // Non-data rows (header, balance brought forward, totals) fail date parse → return null
+  if (fields.length < 5) return null;
+
+  const date = safeParseDate(fields[1]?.trim() ?? "", "dd/MM/yyyy");
   if (!date) return null;
-  const description = fields[1] ?? "";
-  const outVal = tryParseAmount(fields[2]);
-  const inVal = tryParseAmount(fields[3]);
-  if (inVal !== null && inVal !== 0) {
-    return { date, description, amount: Math.abs(inVal) };
-  }
-  if (outVal !== null && outVal !== 0) {
-    return { date, description, amount: -Math.abs(outVal) };
-  }
-  return null;
+
+  const description = (fields[2] ?? "").trim();
+  const reference = (fields[3] ?? "").trim();
+  const amount = tryParseAmount(fields[4] ?? "");
+  if (amount === null) return null;
+
+  // Append reference for context (payee name / transaction ID)
+  const fullDesc = reference && reference.length > 0
+    ? `${description} | ${reference}`
+    : description;
+
+  return { date, description: fullDesc, amount };
 }
 
 // ─────────────────────────────────────────────
