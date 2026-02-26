@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { getBudgetAlerts } from "@/lib/actions/budget";
 import { getBreakEvenRate } from "@/lib/forecasting";
 import { generateProfitabilityInsights } from "@/lib/profitability";
+import { getKPITrends, getPerformanceBenchmarks } from "@/lib/kpi-engine";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -50,6 +51,38 @@ export default async function DashboardPage() {
         topInsights = allInsights.slice(0, 3);
       } catch {
         topInsights = [];
+      }
+    }
+  }
+
+  // Phase 6: KPI widgets
+  interface KPITrendRow { period: string; RevPAR: { value: number }; cancellationRate: { value: number }; avgLengthOfStay: { value: number } }
+  let kpiTrends: KPITrendRow[] = [];
+  let isBestRevPAREver = false;
+  let currentAvgStay = 0;
+  let currentCancellationRate = 0;
+
+  if (orgId) {
+    const kpiProp = await prisma.property.findFirst({
+      where: { organisationId: orgId, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (kpiProp) {
+      try {
+        const [trends, benchmarks] = await Promise.all([
+          getKPITrends(kpiProp.id, 6),
+          getPerformanceBenchmarks(kpiProp.id, currentPeriod()),
+        ]);
+        kpiTrends = trends as KPITrendRow[];
+        const currentSnap = trends[trends.length - 1];
+        if (currentSnap) {
+          currentCancellationRate = currentSnap.cancellationRate.value;
+          currentAvgStay = currentSnap.avgLengthOfStay.value;
+        }
+        const revParBenchmark = benchmarks.benchmarks.find((b) => b.kpi === "RevPAR");
+        isBestRevPAREver = revParBenchmark?.isBestEver ?? false;
+      } catch {
+        kpiTrends = [];
       }
     }
   }
