@@ -107,7 +107,10 @@ export default function OTAImportForm({
         body: formData,
       });
 
-      const data = await response.json();
+      const json = await response.json();
+      // apiSuccess wraps payload as { success: true, data: {...} }
+      // apiError wraps as { success: false, error: "..." }
+      const data = json.data ?? json;
 
       if (response.ok) {
         setResult({
@@ -119,7 +122,7 @@ export default function OTAImportForm({
       } else {
         setResult({
           success: false,
-          message: data.error || "Import failed. Please try again.",
+          message: json.error || data.error || "Import failed. Please try again.",
         });
       }
     } catch {
@@ -277,7 +280,7 @@ export default function OTAImportForm({
               <li>✅ {result.details.payoutsCreated} payout batch(es) created</li>
               <li>📋 {result.details.itemsCreated} booking items imported</li>
               <li>🔗 {result.details.itemsMatched} matched to existing bookings</li>
-              {result.details.warnings.map((w, i) => (
+              {(result.details.warnings ?? []).map((w, i) => (
                 <li key={i} className="text-amber-700">⚠️ {w}</li>
               ))}
             </ul>
