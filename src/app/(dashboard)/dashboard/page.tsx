@@ -2,11 +2,43 @@ import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { KPICard } from "@/components/KPICard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
-import { formatCurrency, formatDate, formatPercent } from "@/lib/utils";
+import { formatCurrency, formatDate, formatPercent, currentPeriod } from "@/lib/utils";
 import { calcNights as computeNights } from "@/lib/kpi";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getBudgetAlerts } from "@/lib/actions/budget";
+import { getBreakEvenRate } from "@/lib/forecasting";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const data = await getDashboardKPIs();
+
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string | undefined;
+
+  // Phase 4: budget alerts + break-even
+  let budgetAlerts: Awaited<ReturnType<typeof getBudgetAlerts>> = [];
+  let breakEven: Awaited<ReturnType<typeof getBreakEvenRate>> | null = null;
+
+  if (orgId) {
+    const firstProperty = await prisma.property.findFirst({
+      where: { organisationId: orgId, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+
+    [budgetAlerts] = await Promise.all([
+      getBudgetAlerts(orgId),
+    ]);
+
+    if (firstProperty) {
+      breakEven = await getBreakEvenRate(firstProperty.id, currentPeriod());
+    }
+  }
+
+  const overBudgetCount = budgetAlerts.filter((a) => a.status === "OVER_BUDGET").length;
+  const warningCount = budgetAlerts.filter((a) => a.status === "WARNING").length;
+  const totalAlerts = overBudgetCount + warningCount;
 
   return (
     <div>
@@ -80,6 +112,72 @@ export default async function DashboardPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75" />
           </svg>
         </div>
+      </div>
+
+      {/* Phase 4 — Budget Alert + Break-even + Forecast Link */}
+      {totalAlerts > 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-amber-400 text-lg">⚠</span>
+            <p className="text-sm text-amber-400">
+              {overBudgetCount > 0 && `${overBudgetCount} ${overBudgetCount === 1 ? "category" : "categories"} over budget`}
+              {overBudgetCount > 0 && warningCount > 0 && " · "}
+              {warningCount > 0 && `${warningCount} ${warningCount === 1 ? "category" : "categories"} approaching limit`}
+              {" "}this month.
+            </p>
+          </div>
+          <Link href="/budget" className="text-xs text-amber-400 hover:text-amber-300 font-medium shrink-0">
+            View →
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+        {/* Break-even card */}
+        {breakEven && (
+          <div className={`rounded-2xl border p-4 ${breakEven.isAboveBreakEven ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+            <p className="text-xs text-gray-500 mb-2">Break-Even Status</p>
+            <p className="text-sm text-white">
+              Room rate <span className="font-semibold text-white">{formatCurrency(breakEven.currentADR)}</span>
+              {" "}| Break-even <span className="font-semibold">{formatCurrency(breakEven.breakEvenADR)}</span>
+            </p>
+            <p className={`text-xs mt-1 font-medium ${breakEven.isAboveBreakEven ? "text-emerald-400" : "text-red-400"}`}>
+              {breakEven.isAboveBreakEven
+                ? `✓ Above break-even by ${formatCurrency(breakEven.gap)}`
+                : `✗ Below break-even by ${formatCurrency(Math.abs(breakEven.gap))}`}
+            </p>
+          </div>
+        )}
+
+        {/* View Forecast link card */}
+        <Link
+          href="/forecast"
+          className="rounded-2xl border border-gray-800 bg-gray-900 p-4 hover:bg-gray-800 transition-colors group flex items-center justify-between"
+        >
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Forecasting</p>
+            <p className="text-sm text-white font-medium">Cash Flow & Revenue Forecast</p>
+            <p className="text-xs text-gray-500 mt-1">30-day outlook, budget vs actual</p>
+          </div>
+          <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-400 transition-colors shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </Link>
+
+        {/* Budget link card */}
+        <Link
+          href="/budget"
+          className="rounded-2xl border border-gray-800 bg-gray-900 p-4 hover:bg-gray-800 transition-colors group flex items-center justify-between"
+        >
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Budget</p>
+            <p className="text-sm text-white font-medium">Budget vs Actual</p>
+            <p className="text-xs text-gray-500 mt-1">Track spend against targets</p>
+          </div>
+          <svg className="w-5 h-5 text-gray-600 group-hover:text-emerald-400 transition-colors shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
