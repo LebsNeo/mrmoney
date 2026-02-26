@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PaymentMethod } from "@prisma/client";
 import { markInvoicePaid } from "@/lib/actions/invoices";
+import { useToast } from "@/context/ToastContext";
 
 interface MarkInvoicePaidButtonProps {
   invoiceId: string;
@@ -12,6 +13,7 @@ interface MarkInvoicePaidButtonProps {
 
 export function MarkInvoicePaidButton({ invoiceId, invoiceNumber }: MarkInvoicePaidButtonProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.EFT);
   const [reference, setReference] = useState("");
@@ -20,6 +22,7 @@ export function MarkInvoicePaidButton({ invoiceId, invoiceNumber }: MarkInvoiceP
 
   async function handlePaid() {
     if (!reference.trim()) {
+      showToast("Payment reference is required", "warning");
       setError("Payment reference is required");
       return;
     }
@@ -28,13 +31,17 @@ export function MarkInvoicePaidButton({ invoiceId, invoiceNumber }: MarkInvoiceP
     try {
       const result = await markInvoicePaid(invoiceId, paymentMethod, reference.trim());
       if (!result.success) {
+        showToast(result.message, "error");
         setError(result.message);
       } else {
+        showToast(`Invoice ${invoiceNumber} marked as paid ✓`, "success");
         setOpen(false);
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to mark as paid");
+      const msg = err instanceof Error ? err.message : "Failed to mark as paid";
+      showToast(msg, "error");
+      setError(msg);
     } finally {
       setLoading(false);
     }

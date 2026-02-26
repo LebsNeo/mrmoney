@@ -2,6 +2,8 @@ import { getTransactions } from "@/lib/actions/transactions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { CategorySelect } from "@/components/CategorySelect";
+import { EmptyState } from "@/components/EmptyState";
+import { ExportButton } from "@/components/ExportButton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { TransactionType, TransactionCategory } from "@prisma/client";
@@ -41,11 +43,24 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
   const categoryOptions = Object.values(TransactionCategory);
 
+  // CSV data
+  const csvData = transactions.map((tx) => ({
+    date: formatDate(tx.date),
+    description: tx.description,
+    vendor: tx.vendor?.name ?? "",
+    category: tx.category.replace(/_/g, " "),
+    type: tx.type,
+    amount: parseFloat(tx.amount.toString()),
+    vatAmount: parseFloat(tx.vatAmount.toString()),
+    status: tx.status,
+  }));
+
   return (
     <div>
       <PageHeader
         title="Transactions"
         description={`${total} transaction${total !== 1 ? "s" : ""} total`}
+        action={<ExportButton data={csvData} filename="transactions-export" />}
       />
 
       {/* Filters */}
@@ -93,30 +108,37 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      {/* Empty state */}
+      {transactions.length === 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl">
+          <EmptyState
+            icon="💳"
+            title="No transactions yet"
+            message="Import your bank statement or add one manually."
+            actionLabel="Import Bank Statement"
+            actionHref="/import/bank"
+          />
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">VAT</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                    No transactions found
-                  </td>
+      {transactions.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Category</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">VAT</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                 </tr>
-              ) : (
-                transactions.map((tx) => (
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {transactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-gray-800/50 transition-colors">
                     <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{formatDate(tx.date)}</td>
                     <td className="px-4 py-3">
@@ -147,39 +169,39 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                       <StatusBadge status={tx.status.toLowerCase()} />
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="border-t border-gray-800 px-4 py-3 flex items-center justify-between">
-            <p className="text-xs text-gray-500">
-              Page {page} of {totalPages} · {total} results
-            </p>
-            <div className="flex gap-2">
-              {page > 1 && (
-                <Link
-                  href={`/transactions${buildQuery({ page: String(page - 1) })}`}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
-                >
-                  ← Prev
-                </Link>
-              )}
-              {page < totalPages && (
-                <Link
-                  href={`/transactions${buildQuery({ page: String(page + 1) })}`}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
-                >
-                  Next →
-                </Link>
-              )}
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="border-t border-gray-800 px-4 py-3 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Page {page} of {totalPages} · {total} results
+              </p>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={`/transactions${buildQuery({ page: String(page - 1) })}`}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
+                  >
+                    ← Prev
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link
+                    href={`/transactions${buildQuery({ page: String(page + 1) })}`}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
+                  >
+                    Next →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

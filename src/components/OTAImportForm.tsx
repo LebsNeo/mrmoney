@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { OTAPlatform } from "@prisma/client";
 import { importOTAPayoutCSV } from "@/lib/actions/ota-payouts";
+import { useToast } from "@/context/ToastContext";
 
 interface Property {
   id: string;
@@ -16,6 +17,7 @@ interface OTAImportFormProps {
 
 export function OTAImportForm({ properties }: OTAImportFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [platform, setPlatform] = useState<OTAPlatform>(OTAPlatform.AIRBNB);
   const [csvContent, setCsvContent] = useState("");
@@ -54,14 +56,20 @@ export function OTAImportForm({ properties }: OTAImportFormProps) {
       const res = await importOTAPayoutCSV(propertyId, platform, csvContent, filename);
       setResult(res);
 
-      if (res.success && res.payoutId) {
-        // Small delay then redirect to payout detail
-        setTimeout(() => {
-          router.push(`/ota-payouts/${res.payoutId}`);
-        }, 2000);
+      if (res.success) {
+        showToast(`Import successful! ${res.totalItems ?? 0} items imported, ${res.matchedItems ?? 0} matched`, "success");
+        if (res.payoutId) {
+          setTimeout(() => {
+            router.push(`/ota-payouts/${res.payoutId}`);
+          }, 2000);
+        }
+      } else {
+        showToast(res.message, "error");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      const msg = err instanceof Error ? err.message : "Import failed";
+      showToast(msg, "error");
+      setError(msg);
     } finally {
       setLoading(false);
     }

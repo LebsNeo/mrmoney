@@ -9,6 +9,7 @@ import {
   cancelBooking,
   markNoShow,
 } from "@/lib/actions/booking-status";
+import { useToast } from "@/context/ToastContext";
 
 interface BookingActionsProps {
   bookingId: string;
@@ -17,6 +18,7 @@ interface BookingActionsProps {
 
 export function BookingActions({ bookingId, currentStatus }: BookingActionsProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -31,12 +33,16 @@ export function BookingActions({ bookingId, currentStatus }: BookingActionsProps
     try {
       const result = await action();
       if (!result.success) {
+        showToast(result.message, "error");
         setError(result.message);
       } else {
+        showToast("Action completed successfully", "success");
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      showToast(msg, "error");
+      setError(msg);
     } finally {
       setLoading(null);
     }
@@ -44,6 +50,7 @@ export function BookingActions({ bookingId, currentStatus }: BookingActionsProps
 
   async function handleCancel() {
     if (!cancelReason.trim()) {
+      showToast("Please provide a cancellation reason", "warning");
       setError("Please provide a cancellation reason");
       return;
     }

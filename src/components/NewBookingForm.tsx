@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "@/lib/actions/bookings";
 import { BookingSource } from "@prisma/client";
+import { useToast } from "@/context/ToastContext";
 
 interface Room {
   id: string;
@@ -36,6 +37,7 @@ const ORG_VAT_RATE = 0.15; // ZA default
 
 export function NewBookingForm({ properties }: NewBookingFormProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,12 +136,17 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       });
 
       if (!result.success) {
-        setError(result.message ?? "Failed to create booking");
+        const msg = result.message ?? "Failed to create booking";
+        showToast(msg, "error");
+        setError(msg);
       } else {
+        showToast("Booking created successfully!", "success");
         router.push(`/bookings/${result.bookingId}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      showToast(msg, "error");
+      setError(msg);
     } finally {
       setLoading(false);
     }

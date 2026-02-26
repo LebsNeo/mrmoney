@@ -3,6 +3,7 @@ import { getInvoices } from "@/lib/actions/invoices";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MarkInvoicePaidButton } from "@/components/MarkInvoicePaidButton";
+import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { InvoiceStatus } from "@prisma/client";
 
@@ -92,8 +93,12 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
             <tbody className="divide-y divide-gray-800">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                    No invoices found
+                  <td colSpan={7}>
+                    <EmptyState
+                      icon="🧾"
+                      title="No invoices yet"
+                      message="Invoices are created automatically when bookings are confirmed."
+                    />
                   </td>
                 </tr>
               ) : (

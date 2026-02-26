@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { generateAlerts } from "@/lib/alerts";
 import { getOverdueRecurring } from "@/lib/recurring";
@@ -194,9 +195,11 @@ export default async function AutomationPage() {
         </div>
 
         {alerts.length === 0 ? (
-          <p className="px-6 py-8 text-center text-gray-500 text-sm">
-            🎉 No unread alerts. Everything looks good!
-          </p>
+          <EmptyState
+            icon="✅"
+            title="All clear!"
+            message="No issues need your attention right now."
+          />
         ) : (
           <div className="divide-y divide-gray-800">
             {alerts.map((alert) => (

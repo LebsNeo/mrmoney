@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getOTAPayouts, getPayoutPlatformSummary } from "@/lib/actions/ota-payouts";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OTAPlatform } from "@prisma/client";
 
@@ -134,11 +135,14 @@ export default async function OTAPayoutsPage({ searchParams }: PageProps) {
             <tbody className="divide-y divide-gray-800">
               {payouts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
-                    No payouts imported yet.{" "}
-                    <Link href="/ota-payouts/import" className="text-emerald-400 hover:text-emerald-300">
-                      Import your first CSV
-                    </Link>
+                  <td colSpan={8}>
+                    <EmptyState
+                      icon="📦"
+                      title="No payout imports yet"
+                      message="Upload your first Booking.com or Airbnb payout CSV."
+                      actionLabel="Import Payout"
+                      actionHref="/ota-payouts/import"
+                    />
                   </td>
                 </tr>
               ) : (

@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
 import { OccupancyCalendar } from "@/components/OccupancyCalendar";
+import { ExportButton } from "@/components/ExportButton";
 import {
   getKPITrends,
   getKPISummary,
@@ -160,9 +161,25 @@ export default async function KPIsPage({
           SECTION 1 — KPI Trend Table
       ════════════════════════════════════════ */}
       <section>
-        <h2 className="text-sm font-semibold text-white mb-4">
-          Monthly KPI Trends — Last {months} Months
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">
+            Monthly KPI Trends — Last {months} Months
+          </h2>
+          <ExportButton
+            data={trends.map((t) => ({
+              period: t.period,
+              occupancyRate: (t.occupancyRate.value * 100).toFixed(1) + "%",
+              ADR: t.ADR.value.toFixed(2),
+              RevPAR: t.RevPAR.value.toFixed(2),
+              totalRevenue: t.totalRevenue.value.toFixed(2),
+              netProfit: t.netProfit.value.toFixed(2),
+              totalBookings: t.totalBookings.value,
+              avgLengthOfStay: t.avgLengthOfStay.value.toFixed(1),
+              cancellationRate: (t.cancellationRate.value * 100).toFixed(1) + "%",
+            }))}
+            filename="kpi-trends"
+          />
+        </div>
         <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">

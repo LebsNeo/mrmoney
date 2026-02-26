@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 import { getBudgetVsActual } from "@/lib/budget-analysis";
 import { getBudgetAlerts } from "@/lib/actions/budget";
 import { formatCurrency, currentPeriod } from "@/lib/utils";
@@ -126,15 +127,13 @@ export default async function BudgetPage() {
         </div>
 
         {budgetItems.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-gray-500 text-sm">No budget set for this period.</p>
-            <Link
-              href="/budget/edit"
-              className="mt-3 inline-block text-sm text-emerald-400 hover:text-emerald-300"
-            >
-              Create budget →
-            </Link>
-          </div>
+          <EmptyState
+            icon="📊"
+            title="No budget set"
+            message="Set a monthly budget to track spending vs targets."
+            actionLabel="Set Budget"
+            actionHref="/budget/edit"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
