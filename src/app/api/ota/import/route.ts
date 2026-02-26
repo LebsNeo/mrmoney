@@ -4,14 +4,11 @@ import { authOptions } from "@/lib/auth";
 import {
   parseLekkerslaapCSV,
   parseBookingComCSV,
-  parseAirbnbPDFText,
-  airbnbResultToOTAPayouts,
+  parseAirbnbCSV,
   saveOTAPayoutsToDb,
 } from "@/lib/ota-import";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
-
-export const runtime = "nodejs"; // Required for pdf-parse
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,24 +37,15 @@ export async function POST(req: NextRequest) {
 
     let parseResult;
 
+    // All three platforms use CSV export
+    const text = await file.text();
     if (platform === "AIRBNB") {
-      // PDF parsing
-      const buffer = Buffer.from(await file.arrayBuffer());
-      // Dynamically import pdf-parse (server-side only)
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require("pdf-parse");
-      const pdfData = await pdfParse(buffer);
-      const parsedAirbnb = parseAirbnbPDFText(pdfData.text);
-      parseResult = airbnbResultToOTAPayouts(parsedAirbnb);
+      parseResult = parseAirbnbCSV(text);
+    } else if (platform === "LEKKERSLAAP") {
+      parseResult = parseLekkerslaapCSV(text);
     } else {
-      // CSV parsing
-      const text = await file.text();
-      if (platform === "LEKKERSLAAP") {
-        parseResult = parseLekkerslaapCSV(text);
-      } else {
-        // BOOKING_COM
-        parseResult = parseBookingComCSV(text);
-      }
+      // BOOKING_COM
+      parseResult = parseBookingComCSV(text);
     }
 
     // Save to database

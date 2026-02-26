@@ -449,200 +449,181 @@ export function parseBookingComCSV(csvContent: string): OTAParseResult {
 }
 
 // ─────────────────────────────────────────────
-// 3. AIRBNB PDF PARSER
+// 3. AIRBNB CSV PARSER
 // ─────────────────────────────────────────────
 //
-// Real format: Annual earnings report PDF
-// Structure:
-//   - Host name, User ID, Report period
-//   - Summary: Gross earnings, Adjustments, Service fees, Tax withheld, Total
-//   - Per-home breakdown (property name → totals)
-//   - Monthly earnings (Month → Gross earnings, Total)
+// Real format: "airbnb-upcoming-all" CSV export from Airbnb Host dashboard
+// Path: Earnings → Upcoming Payouts → Download CSV (or Transaction History)
 //
-// Limitation: This is a SUMMARY report, not a transaction list.
-// Individual reservation details are NOT available in this format.
-// We create one OTAPayout per month with the gross/net totals.
+// Columns:
+//   Date            — payout date (MM/DD/YYYY)
+//   Type            — "Reservation" | "Cancellation Fee" | "Adjustment" etc.
+//   Confirmation Code — Airbnb booking ref (e.g. HMYKHMDZM2)
+//   Booking date    — when guest booked (MM/DD/YYYY)
+//   Start date      — check-in (MM/DD/YYYY)
+//   End date        — check-out (MM/DD/YYYY)
+//   Nights          — integer (provided but NOT stored — derived from dates)
+//   Guest           — guest name
+//   Listing         — property/listing name
+//   Details         — usually empty
+//   Reference code  — usually empty
+//   Currency        — ZAR
+//   Amount          — net payout to host (Gross earnings − Service fee)
+//   Paid out        — empty for upcoming / date when actually disbursed
+//   Service fee     — Airbnb's host-side fee (~3.45%, always positive)
+//   Fast Pay Fee    — optional fast-payout fee (usually empty)
+//   Cleaning fee    — cleaning fee if applicable
+//   Gross earnings  — total before Airbnb deducts their service fee
+//   Occupancy taxes — tax withheld by Airbnb (0 for ZAR in ZA)
+//   Earnings year   — fiscal year label (usually empty)
 //
-// Text extraction requires pdf-parse (installed separately).
+// Row type behaviour:
+//   "Reservation"       → positive Amount & Gross earnings — normal payout
+//   "Cancellation Fee"  → negative Amount, 0 service fee — refund deduction
+//   Anything else       → treated as adjustment; Amount used directly
+//
+// Payout batches: rows with the same Date are grouped into one batch.
+// Note: actual Airbnb service fee is ~3.45% (not 3% flat).
 
-export interface AirbnbMonthlyEarning {
-  month: string;       // e.g. "May", "June"
-  year: number;
-  grossEarnings: number;
-  serviceFees: number;
-  adjustments: number;
-  taxWithheld: number;
-  total: number;
+function parseAirbnbDate(val: string): Date | undefined {
+  if (!val || val.trim() === "") return undefined;
+  // MM/DD/YYYY → YYYY-MM-DD
+  const parts = val.trim().split("/");
+  if (parts.length !== 3) return undefined;
+  const [mm, dd, yyyy] = parts;
+  const d = new Date(`${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`);
+  return isNaN(d.getTime()) ? undefined : d;
 }
 
-export interface AirbnbParseResult {
-  hostName: string;
-  userId: string;
-  reportYear: number;
-  properties: { name: string; grossEarnings: number; serviceFees: number; total: number }[];
-  monthlyEarnings: AirbnbMonthlyEarning[];
-  summary: {
-    grossEarnings: number;
-    adjustments: number;
-    serviceFees: number;
-    taxWithheld: number;
-    total: number;
-    nightsBooked: number;
-    avgNightStay: number;
-  };
-  warnings: string[];
-}
-
-export function parseAirbnbPDFText(text: string): AirbnbParseResult {
+export function parseAirbnbCSV(csvContent: string): OTAParseResult {
   const warnings: string[] = [];
-  const result: AirbnbParseResult = {
-    hostName: "",
-    userId: "",
-    reportYear: new Date().getFullYear(),
-    properties: [],
-    monthlyEarnings: [],
-    summary: {
-      grossEarnings: 0,
-      adjustments: 0,
-      serviceFees: 0,
-      taxWithheld: 0,
-      total: 0,
-      nightsBooked: 0,
-      avgNightStay: 0,
-    },
-    warnings,
-  };
+  const { headers, rows } = parseCSV(csvContent);
 
-  // Extract host name
-  const hostMatch = text.match(/Host name:\s*(.+?)(?:\n|User ID)/);
-  if (hostMatch) result.hostName = hostMatch[1].trim();
-
-  // Extract user ID
-  const userMatch = text.match(/User ID:\s*(\d+)/);
-  if (userMatch) result.userId = userMatch[1].trim();
-
-  // Extract report year from filename or report title
-  const yearMatch = text.match(/(\d{4})\s+Earnings report/);
-  if (yearMatch) result.reportYear = parseInt(yearMatch[1]);
-
-  // Extract nights booked
-  const nightsMatch = text.match(/Nights booked\s+(\d+)/);
-  if (nightsMatch) result.summary.nightsBooked = parseInt(nightsMatch[1]);
-
-  // Extract avg night stay
-  const avgMatch = text.match(/Avg night stay\s+([\d.]+)/);
-  if (avgMatch) result.summary.avgNightStay = parseFloat(avgMatch[1]);
-
-  // Extract ZAR amounts - pattern: "R X.XX ZAR" or "R 0.00 ZAR"
-  const amountPattern = /R\s*([\d,]+\.?\d*)\s*ZAR/g;
-  const amounts: number[] = [];
-  let match;
-  while ((match = amountPattern.exec(text)) !== null) {
-    amounts.push(parseFloat(match[1].replace(/,/g, "")));
+  if (headers.length === 0) {
+    return {
+      platform: "AIRBNB",
+      payouts: [],
+      periodStart: new Date(),
+      periodEnd: new Date(),
+      totalGross: 0,
+      totalCommission: 0,
+      totalServiceFees: 0,
+      totalNet: 0,
+      bookingCount: 0,
+      warnings: ["Empty or invalid Airbnb CSV file"],
+    };
   }
 
-  // Parse monthly earnings - look for month names followed by amounts
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ];
-
-  const monthlyPattern = new RegExp(
-    `(${months.join("|")})\\s+R\\s*([\\d,]+\\.?\\d*)\\s*ZAR\\s+R\\s*([\\d,]+\\.?\\d*)\\s*ZAR`,
-    "g"
-  );
-
-  while ((match = monthlyPattern.exec(text)) !== null) {
-    const monthName = match[1];
-    const monthNum = months.indexOf(monthName);
-    result.monthlyEarnings.push({
-      month: monthName,
-      year: result.reportYear,
-      grossEarnings: parseFloat(match[2].replace(/,/g, "")),
-      serviceFees: 0, // Not broken down per month in this format
-      adjustments: 0,
-      taxWithheld: 0,
-      total: parseFloat(match[3].replace(/,/g, "")),
-    });
-  }
-
-  // Extract summary totals from the first set of 5 amounts (Summary row)
-  if (amounts.length >= 5) {
-    result.summary.grossEarnings = amounts[0];
-    result.summary.adjustments = amounts[1];
-    result.summary.serviceFees = amounts[2];
-    result.summary.taxWithheld = amounts[3];
-    result.summary.total = amounts[4];
-  }
-
-  if (result.monthlyEarnings.length === 0) {
-    warnings.push(
-      "No monthly earnings data found. This may be an unsupported Airbnb report format."
+  // Case-insensitive column index helper (handles BOM on first column)
+  const col = (name: string) =>
+    headers.findIndex(
+      (h) => h.replace(/^\uFEFF/, "").toLowerCase().trim() === name.toLowerCase().trim()
     );
+
+  const iDate        = col("date");
+  const iType        = col("type");
+  const iCode        = col("confirmation code");
+  const iBookingDate = col("booking date");
+  const iStartDate   = col("start date");
+  const iEndDate     = col("end date");
+  const iGuest       = col("guest");
+  const iListing     = col("listing");
+  const iCurrency    = col("currency");
+  const iAmount      = col("amount");
+  const iPaidOut     = col("paid out");
+  const iServiceFee  = col("service fee");
+  const iCleaning    = col("cleaning fee");
+  const iGross       = col("gross earnings");
+  const iOccTax      = col("occupancy taxes");
+
+  // Group bookings by payout date (each unique date = one batch)
+  const batchMap = new Map<string, ParsedOTABooking[]>();
+
+  let reservationCount = 0;
+
+  for (const row of rows) {
+    const rowType   = (row[iType] || "").trim();
+    const confCode  = (row[iCode] || "").trim();
+    const dateStr   = (row[iDate] || "").trim();
+    const payoutDate = parseAirbnbDate(dateStr);
+    const batchKey  = dateStr || "unknown";
+
+    // Parse amounts
+    const grossEarnings = parseAmount(row[iGross] || "");
+    const serviceFee    = parseAmount(row[iServiceFee] || "");
+    const cleaningFee   = parseAmount(row[iCleaning] || "");
+    const occTax        = parseAmount(row[iOccTax] || "");
+    const amount        = parseAmount(row[iAmount] || "");
+
+    // Derive net: Amount column IS the net (Airbnb already subtracted service fee)
+    // For cancellations, amount is negative — keep as-is.
+    const netAmount  = amount;
+    const gross      = grossEarnings || (rowType === "Reservation" ? Math.abs(amount) + serviceFee : 0);
+    const commission = serviceFee; // Airbnb calls it "service fee" on host side
+
+    const booking: ParsedOTABooking = {
+      externalRef:    confCode || `AIR-${dateStr}-${Math.random().toString(36).slice(2, 7)}`,
+      checkIn:        parseAirbnbDate(row[iStartDate] || ""),
+      checkOut:       parseAirbnbDate(row[iEndDate] || ""),
+      grossAmount:    gross,
+      commission,
+      serviceFee:     0,     // commission already captures the host-side fee
+      vatAmount:      occTax,
+      netAmount,
+      status:         rowType === "Cancellation Fee" ? "Canceled" : "Okay",
+      propertyName:   (row[iListing] || "").trim(),
+      payoutDate,
+      payoutBatchRef: batchKey,
+    };
+
+    if (rowType === "Reservation") reservationCount++;
+
+    if (!batchMap.has(batchKey)) batchMap.set(batchKey, []);
+    batchMap.get(batchKey)!.push(booking);
   }
 
-  if (result.summary.grossEarnings === 0 && result.summary.nightsBooked > 0) {
-    warnings.push(
-      "Report shows bookings but R0 earnings — this is likely an annual tax summary. " +
-      "For detailed payout data, download your Transaction History from Airbnb."
-    );
-  }
-
-  return result;
-}
-
-/**
- * Convert AirbnbParseResult to OTAParseResult (monthly payout batches)
- * Each month with earnings becomes one OTAPayout record
- */
-export function airbnbResultToOTAPayouts(
-  parsed: AirbnbParseResult
-): OTAParseResult {
+  // Build payouts
   const payouts: ParsedOTAPayout[] = [];
+  const allBookings: ParsedOTABooking[] = [];
 
-  for (const month of parsed.monthlyEarnings) {
-    if (month.total <= 0 && month.grossEarnings <= 0) continue;
-
-    const monthNum =
-      [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
-      ].indexOf(month.month) + 1;
-
-    const payoutDate = new Date(month.year, monthNum - 1, 28); // end of month approx
+  for (const [batchKey, bookings] of batchMap) {
+    const payoutDate  = bookings[0]?.payoutDate || new Date(batchKey);
+    const payoutAmount = bookings.reduce((s, b) => s + b.netAmount, 0);
+    allBookings.push(...bookings);
 
     payouts.push({
-      batchRef: `AIR-${month.year}-${String(monthNum).padStart(2, "0")}`,
+      batchRef:     `AIR-BATCH-${batchKey.replace(/\//g, "")}`,
       payoutDate,
-      payoutAmount: month.total,
-      bookings: [], // Monthly summary has no individual booking detail
+      payoutAmount,
+      propertyName: bookings[0]?.propertyName,
+      bookings,
     });
   }
 
-  const allPayoutAmounts = payouts.map((p) => p.payoutDate.getTime());
-  const periodStart =
-    allPayoutAmounts.length > 0
-      ? new Date(Math.min(...allPayoutAmounts))
-      : new Date();
-  const periodEnd =
-    allPayoutAmounts.length > 0
-      ? new Date(Math.max(...allPayoutAmounts))
-      : new Date();
+  if (allBookings.length === 0) {
+    warnings.push("No rows found in Airbnb CSV");
+  }
+  if (reservationCount === 0 && allBookings.length > 0) {
+    warnings.push("No 'Reservation' rows found — file may contain only cancellations/adjustments");
+  }
+
+  const dates = allBookings
+    .filter((b) => b.payoutDate)
+    .map((b) => b.payoutDate!.getTime());
+  const periodStart = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
+  const periodEnd   = dates.length > 0 ? new Date(Math.max(...dates)) : new Date();
 
   return {
-    platform: "AIRBNB",
+    platform:        "AIRBNB",
     payouts,
     periodStart,
     periodEnd,
-    totalGross: parsed.summary.grossEarnings,
-    totalCommission: parsed.summary.serviceFees,
-    totalServiceFees: parsed.summary.serviceFees,
-    totalNet: parsed.summary.total,
-    bookingCount: parsed.summary.nightsBooked,
-    warnings: [
-      ...parsed.warnings,
-      "Airbnb PDF imports monthly totals only — individual booking matching is not available from this report format.",
-    ],
+    totalGross:      allBookings.reduce((s, b) => s + b.grossAmount, 0),
+    totalCommission: allBookings.reduce((s, b) => s + b.commission, 0),
+    totalServiceFees: allBookings.reduce((s, b) => s + b.serviceFee, 0),
+    totalNet:        allBookings.reduce((s, b) => s + b.netAmount, 0),
+    bookingCount:    reservationCount,
+    warnings,
   };
 }
 

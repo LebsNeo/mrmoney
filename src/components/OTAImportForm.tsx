@@ -47,18 +47,17 @@ const PLATFORM_CONFIG: Record<
   },
   AIRBNB: {
     label: "Airbnb",
-    fileType: "pdf",
-    accept: ".pdf",
-    commissionRate: "~3%",
+    fileType: "csv",
+    accept: ".csv",
+    commissionRate: "~3.45%",
     color: "bg-red-500",
     instructions: [
       "Log in to your Airbnb host account",
-      'Go to "Menu" → "Earnings" → "Earnings report"',
-      "Select your date range and click Download PDF",
-      "Upload the downloaded PDF file below",
+      'Go to "Menu" → "Earnings"',
+      'Click "Completed payouts" or "Upcoming payouts"',
+      'Click the download icon → "Download CSV"',
+      "Upload the downloaded CSV file below",
     ],
-    warning:
-      "Airbnb only exports a monthly summary PDF — individual booking matching is not available. Monthly totals will be imported.",
   },
 };
 
