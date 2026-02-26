@@ -9,6 +9,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBudgetAlerts } from "@/lib/actions/budget";
 import { getBreakEvenRate } from "@/lib/forecasting";
+import { generateProfitabilityInsights } from "@/lib/profitability";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -33,6 +34,23 @@ export default async function DashboardPage() {
 
     if (firstProperty) {
       breakEven = await getBreakEvenRate(firstProperty.id, currentPeriod());
+    }
+  }
+
+  // Phase 5: Profitability insights
+  let topInsights: string[] = [];
+  if (orgId) {
+    const prop = await prisma.property.findFirst({
+      where: { organisationId: orgId, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+    if (prop) {
+      try {
+        const allInsights = await generateProfitabilityInsights(prop.id, currentPeriod());
+        topInsights = allInsights.slice(0, 3);
+      } catch {
+        topInsights = [];
+      }
     }
   }
 
@@ -241,6 +259,58 @@ export default async function DashboardPage() {
               })
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Phase 5 — Profitability Insights */}
+      <div className="mt-8 bg-gray-900 border border-gray-800 rounded-2xl">
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Profitability Insights</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Auto-generated from your data this month</p>
+          </div>
+          <Link
+            href="/profitability"
+            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+          >
+            View full profitability report →
+          </Link>
+        </div>
+        <div className="p-6">
+          {topInsights.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-gray-500 text-sm">No insights for this period.</p>
+              <Link href="/profitability" className="text-xs text-emerald-400 hover:text-emerald-300 mt-1 inline-block">
+                View full profitability report →
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {topInsights.map((insight, idx) => {
+                const isWarning = insight.includes("low margin") || insight.includes("up ");
+                const isPositive = insight.includes("more profitable");
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-3 rounded-xl p-4 border ${
+                      isWarning
+                        ? "bg-amber-500/5 border-amber-500/20"
+                        : isPositive
+                        ? "bg-emerald-500/5 border-emerald-500/20"
+                        : "bg-blue-500/5 border-blue-500/20"
+                    }`}
+                  >
+                    <span className="text-base shrink-0">
+                      {isWarning ? "⚠️" : isPositive ? "📈" : "💡"}
+                    </span>
+                    <p className={`text-xs ${isWarning ? "text-amber-300" : isPositive ? "text-emerald-300" : "text-blue-300"}`}>
+                      {insight}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
