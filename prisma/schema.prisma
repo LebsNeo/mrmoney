@@ -147,6 +147,23 @@ enum OTAPayoutStatus {
   DISPUTED
 }
 
+enum AlertType {
+  FINANCIAL
+  OPERATIONAL
+  INFO
+}
+
+enum AlertPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecurringFrequency {
+  MONTHLY
+  WEEKLY
+}
+
 // ─────────────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────────────
@@ -174,6 +191,7 @@ model Organisation {
   invoices     Invoice[]
   receipts     Receipt[]
   otaPayouts   OTAPayout[]
+  alerts       Alert[]
 
   @@index([slug])
   @@map("organisations")
@@ -218,14 +236,15 @@ model Property {
   deletedAt      DateTime?
 
   // Relations
-  organisation Organisation  @relation(fields: [organisationId], references: [id])
-  rooms        Room[]
-  departments  Department[]
-  bookings     Booking[]
-  transactions Transaction[]
-  otaPayouts   OTAPayout[]
-  budgetItems  BudgetItem[]
-  invoices     Invoice[]
+  organisation      Organisation      @relation(fields: [organisationId], references: [id])
+  rooms             Room[]
+  departments       Department[]
+  bookings          Booking[]
+  transactions      Transaction[]
+  otaPayouts        OTAPayout[]
+  budgetItems       BudgetItem[]
+  invoices          Invoice[]
+  recurringExpenses RecurringExpense[]
 
   @@index([organisationId])
   @@map("properties")
@@ -285,9 +304,10 @@ model Vendor {
   deletedAt     DateTime?
 
   // Relations
-  organisation Organisation  @relation(fields: [organisationId], references: [id])
-  transactions Transaction[]
-  invoices     Invoice[]
+  organisation      Organisation      @relation(fields: [organisationId], references: [id])
+  transactions      Transaction[]
+  invoices          Invoice[]
+  recurringExpenses RecurringExpense[]
 
   @@index([organisationId])
   @@map("vendors")
@@ -531,4 +551,51 @@ model BudgetItem {
   @@index([period])
   @@index([category])
   @@map("budget_items")
+}
+
+model RecurringExpense {
+  id                 String              @id @default(uuid())
+  propertyId         String
+  vendorId           String?
+  category           TransactionCategory
+  avgAmount          Decimal             @db.Decimal(19, 4)
+  tolerancePercent   Decimal             @default(20) @db.Decimal(5, 2)
+  frequency          RecurringFrequency  @default(MONTHLY)
+  lastDetectedDate   DateTime            @db.Date
+  nextExpectedDate   DateTime            @db.Date
+  isActive           Boolean             @default(true)
+  // Audit
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id])
+  vendor   Vendor?  @relation(fields: [vendorId], references: [id])
+
+  @@index([propertyId])
+  @@map("recurring_expenses")
+}
+
+model Alert {
+  id             String        @id @default(uuid())
+  organisationId String
+  alertType      AlertType
+  priority       AlertPriority
+  title          String
+  message        String
+  actionUrl      String?
+  isRead         Boolean       @default(false)
+  readAt         DateTime?
+  // Audit
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@index([organisationId])
+  @@index([isRead])
+  @@index([priority])
+  @@map("alerts")
 }

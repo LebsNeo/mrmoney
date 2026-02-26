@@ -2,6 +2,7 @@ import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { KPICard } from "@/components/KPICard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
+import { AlertBell } from "@/components/AlertBell";
 import { formatCurrency, formatDate, formatPercent, currentPeriod } from "@/lib/utils";
 import { calcNights as computeNights } from "@/lib/kpi";
 import { getServerSession } from "next-auth";
@@ -11,6 +12,7 @@ import { getBudgetAlerts } from "@/lib/actions/budget";
 import { getBreakEvenRate } from "@/lib/forecasting";
 import { generateProfitabilityInsights } from "@/lib/profitability";
 import { getKPITrends, getPerformanceBenchmarks } from "@/lib/kpi-engine";
+import { generateDailyDigest } from "@/lib/digest";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -91,12 +93,66 @@ export default async function DashboardPage() {
   const warningCount = budgetAlerts.filter((a) => a.status === "WARNING").length;
   const totalAlerts = overBudgetCount + warningCount;
 
+  // Phase 7: Daily Digest preview + alert count
+  let digest: Awaited<ReturnType<typeof generateDailyDigest>> | null = null;
+  let unreadAlertCount = 0;
+
+  if (orgId) {
+    const digestProp = await prisma.property.findFirst({
+      where: { organisationId: orgId, isActive: true, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (digestProp) {
+      try {
+        digest = await generateDailyDigest(orgId, digestProp.id);
+      } catch {
+        digest = null;
+      }
+    }
+
+    try {
+      unreadAlertCount = await prisma.alert.count({
+        where: { organisationId: orgId, isRead: false },
+      });
+    } catch {
+      unreadAlertCount = 0;
+    }
+  }
+
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        description={`Overview for ${formatDate(data.period.start, "MMMM yyyy")}`}
-      />
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader
+          title="Dashboard"
+          description={`Overview for ${formatDate(data.period.start, "MMMM yyyy")}`}
+        />
+        <AlertBell unreadCount={unreadAlertCount} />
+      </div>
+
+      {/* Phase 7 — Daily Digest Preview */}
+      {digest && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-xs text-gray-500 mb-1">Today Check-ins</p>
+            <p className="text-xl font-bold text-emerald-400">{digest.todayCheckIns}</p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-xs text-gray-500 mb-1">Today Check-outs</p>
+            <p className="text-xl font-bold text-blue-400">{digest.todayCheckOuts}</p>
+          </div>
+          <div className={`rounded-xl border p-4 ${digest.cashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+            <p className="text-xs text-gray-500 mb-1">Cash Position</p>
+            <p className={`text-base font-bold truncate ${digest.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {formatCurrency(digest.cashPosition)}
+            </p>
+          </div>
+          <Link href="/digest" className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:bg-gray-800 transition-colors group">
+            <p className="text-xs text-gray-500 mb-1">Daily Digest</p>
+            <p className="text-sm font-medium text-white group-hover:text-emerald-400 transition-colors">View full digest →</p>
+          </Link>
+        </div>
+      )}
 
       {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
