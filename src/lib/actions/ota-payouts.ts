@@ -12,19 +12,21 @@ import {
 export interface OTAPayoutFilters {
   platform?: OTAPlatform;
   propertyId?: string;
+  organisationId?: string;
   page?: number;
   limit?: number;
 }
 
 /** List all OTA payouts with summary */
 export async function getOTAPayouts(filters: OTAPayoutFilters = {}) {
-  const { platform, propertyId, page = 1, limit = 20 } = filters;
+  const { platform, propertyId, organisationId, page = 1, limit = 20 } = filters;
   const skip = (page - 1) * limit;
 
   const where = {
     deletedAt: null,
     ...(platform && { platform }),
     ...(propertyId && { propertyId }),
+    ...(organisationId && { organisationId }),
   };
 
   const [payouts, total] = await Promise.all([
@@ -68,12 +70,16 @@ export async function getOTAPayoutById(id: string) {
 }
 
 /** Platform summary for the payouts list */
-export async function getPayoutPlatformSummary() {
+export async function getPayoutPlatformSummary(organisationId?: string) {
   const platforms = Object.values(OTAPlatform);
   const results = await Promise.all(
     platforms.map(async (platform) => {
       const agg = await prisma.oTAPayout.aggregate({
-        where: { platform, deletedAt: null },
+        where: {
+          platform,
+          deletedAt: null,
+          ...(organisationId && { organisationId }),
+        },
         _sum: {
           grossAmount: true,
           totalCommission: true,

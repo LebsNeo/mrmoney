@@ -8,6 +8,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { calcNights } from "@/lib/kpi";
 import Link from "next/link";
 import { BookingStatus, BookingSource } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface PageProps {
   searchParams: Promise<{
@@ -23,11 +25,15 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const status = params.status as BookingStatus | undefined;
   const source = params.source as BookingSource | undefined;
 
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string | undefined;
+
   const { bookings, total, totalPages } = await getBookings({
     status,
     source,
     page,
     limit: 20,
+    organisationId: orgId,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {

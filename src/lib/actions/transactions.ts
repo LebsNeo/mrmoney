@@ -8,6 +8,7 @@ export interface TransactionFilters {
   category?: TransactionCategory;
   status?: TransactionStatus;
   propertyId?: string;
+  organisationId?: string;
   page?: number;
   limit?: number;
 }
@@ -18,6 +19,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
     category,
     status,
     propertyId,
+    organisationId,
     page = 1,
     limit = 20,
   } = filters;
@@ -30,6 +32,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
     ...(category && { category }),
     ...(status && { status }),
     ...(propertyId && { propertyId }),
+    ...(organisationId && { organisationId }),
   };
 
   const [transactions, total] = await Promise.all([

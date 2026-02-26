@@ -7,6 +7,8 @@ import { ExportButton } from "@/components/ExportButton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { TransactionType, TransactionCategory } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface PageProps {
   searchParams: Promise<{
@@ -22,11 +24,15 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const type = params.type as TransactionType | undefined;
   const category = params.category as TransactionCategory | undefined;
 
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string | undefined;
+
   const { transactions, total, totalPages } = await getTransactions({
     type,
     category,
     page,
     limit: 20,
+    organisationId: orgId,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {

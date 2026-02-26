@@ -6,6 +6,8 @@ import { MarkInvoicePaidButton } from "@/components/MarkInvoicePaidButton";
 import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { InvoiceStatus } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface PageProps {
   searchParams: Promise<{
@@ -22,10 +24,14 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
   const page = parseInt(params.page ?? "1", 10);
   const rawStatus = params.status;
 
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string | undefined;
+
   const { invoices, total, totalPages } = await getInvoices({
     status: rawStatus as InvoiceStatus | undefined,
     page,
     limit: 20,
+    organisationId: orgId,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {

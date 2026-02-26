@@ -90,12 +90,13 @@ export async function markInvoicePaid(
 export interface InvoiceFilters {
   status?: InvoiceStatus;
   propertyId?: string;
+  organisationId?: string;
   page?: number;
   limit?: number;
 }
 
 export async function getInvoices(filters: InvoiceFilters = {}) {
-  const { status, propertyId, page = 1, limit = 20 } = filters;
+  const { status, propertyId, organisationId, page = 1, limit = 20 } = filters;
   const skip = (page - 1) * limit;
 
   const now = new Date();
@@ -117,6 +118,7 @@ export async function getInvoices(filters: InvoiceFilters = {}) {
       ? { status }
       : {}),
     ...(propertyId && { propertyId }),
+    ...(organisationId && { organisationId }),
   };
 
   const [invoices, total] = await Promise.all([

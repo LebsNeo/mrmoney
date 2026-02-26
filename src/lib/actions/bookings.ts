@@ -10,6 +10,7 @@ export interface BookingFilters {
   status?: BookingStatus;
   source?: BookingSource;
   propertyId?: string;
+  organisationId?: string;
   page?: number;
   limit?: number;
 }
@@ -19,6 +20,7 @@ export async function getBookings(filters: BookingFilters = {}) {
     status,
     source,
     propertyId,
+    organisationId,
     page = 1,
     limit = 20,
   } = filters;
@@ -30,6 +32,7 @@ export async function getBookings(filters: BookingFilters = {}) {
     ...(status && { status }),
     ...(source && { source }),
     ...(propertyId && { propertyId }),
+    ...(organisationId && { property: { organisationId } }),
   };
 
   const [bookings, total] = await Promise.all([

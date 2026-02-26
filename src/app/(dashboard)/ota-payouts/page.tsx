@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OTAPlatform } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface PageProps {
   searchParams: Promise<{
@@ -25,9 +27,12 @@ export default async function OTAPayoutsPage({ searchParams }: PageProps) {
   const page = parseInt(params.page ?? "1", 10);
   const platform = params.platform as OTAPlatform | undefined;
 
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string | undefined;
+
   const [{ payouts, total, totalPages }, platformSummary] = await Promise.all([
-    getOTAPayouts({ platform, page }),
-    getPayoutPlatformSummary(),
+    getOTAPayouts({ platform, page, organisationId: orgId }),
+    getPayoutPlatformSummary(orgId),
   ]);
 
   function buildQuery(overrides: Record<string, string | undefined>) {
