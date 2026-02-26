@@ -2,21 +2,22 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import OTAImportForm from "@/components/OTAImportForm";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-async function getData() {
-  const [properties, org] = await Promise.all([
-    prisma.property.findMany({
-      where: { isActive: true, deletedAt: null },
-      select: { id: true, name: true, organisationId: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.organisation.findFirst({ select: { id: true } }),
-  ]);
-  return { properties, organisationId: org?.id || "" };
+async function getData(orgId: string) {
+  const properties = await prisma.property.findMany({
+    where: { organisationId: orgId, isActive: true, deletedAt: null },
+    select: { id: true, name: true, organisationId: true },
+    orderBy: { name: "asc" },
+  });
+  return { properties, organisationId: orgId };
 }
 
 export default async function OTAImportPage() {
-  const { properties, organisationId } = await getData();
+  const session = await getServerSession(authOptions);
+  const orgId = (session?.user as any)?.organisationId as string ?? "";
+  const { properties, organisationId } = await getData(orgId);
 
   return (
     <div className="max-w-2xl">
