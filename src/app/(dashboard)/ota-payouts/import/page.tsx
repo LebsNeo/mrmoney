@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
-import { OTAImportForm } from "@/components/OTAImportForm";
+import OTAImportForm from "@/components/OTAImportForm";
 import { prisma } from "@/lib/prisma";
 
-async function getProperties() {
-  return prisma.property.findMany({
-    where: { isActive: true, deletedAt: null },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+async function getData() {
+  const [properties, org] = await Promise.all([
+    prisma.property.findMany({
+      where: { isActive: true, deletedAt: null },
+      select: { id: true, name: true, organisationId: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.organisation.findFirst({ select: { id: true } }),
+  ]);
+  return { properties, organisationId: org?.id || "" };
 }
 
 export default async function OTAImportPage() {
-  const properties = await getProperties();
+  const { properties, organisationId } = await getData();
 
   return (
     <div className="max-w-2xl">
@@ -42,7 +46,7 @@ export default async function OTAImportPage() {
           </Link>
         </div>
       ) : (
-        <OTAImportForm properties={properties} />
+        <OTAImportForm properties={properties} organisationId={organisationId} />
       )}
     </div>
   );

@@ -1,44 +1,61 @@
 /**
- * MrMoney — OTA CSV Import Engine
- * Phase 3: OTA Payout CSV Parser + Matcher
- *
- * Supports Airbnb and Booking.com CSV formats.
- * Matches payout items to bookings via externalRef, then guest name + date proximity.
+ * MrMoney — OTA Import Engine (v2)
+ * Parsers built from real payout file analysis:
+ *   - Lekkerslaap: CSV with booking-level line items
+ *   - Booking.com: CSV with payout batches + reservation rows
+ *   - Airbnb: PDF annual earnings report (monthly summaries)
  */
 
 import { prisma } from "@/lib/prisma";
-import { OTAPlatform } from "@prisma/client";
 import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────
-// TYPES
+// SHARED TYPES
 // ─────────────────────────────────────────────
 
-export interface ParsedPayoutItem {
-  externalBookingRef: string;
-  guestName: string;
-  checkIn: Date;
-  checkOut: Date;
+export interface ParsedOTABooking {
+  externalRef: string;         // OTA booking/reservation reference
+  checkIn?: Date;
+  checkOut?: Date;
   grossAmount: number;
-  commission: number;
-  netAmount: number;
+  commission: number;          // OTA commission (always positive)
+  serviceFee: number;          // Payment handling / service fee (positive)
+  vatAmount: number;           // VAT withheld (positive)
+  netAmount: number;           // What host actually receives
+  status: string;              // Okay, Canceled, Partially canceled
+  propertyId?: string;         // OTA's property ID (for multi-property matching)
+  propertyName?: string;       // OTA's property name
+  roomNights?: number;
+  payoutDate?: Date;
+  payoutBatchRef?: string;     // Groups bookings into a payout batch
 }
 
-export interface OTAImportResult {
-  success: boolean;
-  payoutId?: string;
-  message: string;
-  totalItems: number;
-  matchedItems: number;
+export interface ParsedOTAPayout {
+  batchRef: string;
+  payoutDate: Date;
+  payoutAmount: number;
+  propertyId?: string;
+  propertyName?: string;
+  bookings: ParsedOTABooking[];
+}
+
+export interface OTAParseResult {
+  platform: "LEKKERSLAAP" | "BOOKING_COM" | "AIRBNB";
+  payouts: ParsedOTAPayout[];
+  periodStart: Date;
+  periodEnd: Date;
+  totalGross: number;
+  totalCommission: number;
+  totalServiceFees: number;
+  totalNet: number;
+  bookingCount: number;
+  warnings: string[];
 }
 
 // ─────────────────────────────────────────────
-// CSV PARSER HELPERS
+// CSV PARSER HELPER
 // ─────────────────────────────────────────────
 
-/**
- * Parse a CSV line handling quoted fields
- */
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
@@ -47,12 +64,7 @@ function parseCSVLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
+      inQuotes = !inQuotes;
     } else if (char === "," && !inQuotes) {
       result.push(current.trim());
       current = "";
@@ -64,380 +76,724 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-/**
- * Parse CSV content into rows (array of header→value maps)
- */
-function parseCSV(csvContent: string): Array<Record<string, string>> {
-  const lines = csvContent
-    .split(/\r?\n/)
+function parseCSV(content: string): { headers: string[]; rows: string[][] } {
+  const lines = content
+    .split("\n")
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter((l) => l.length > 0);
 
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return { headers: [], rows: [] };
 
-  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().trim());
-  const rows: Array<Record<string, string>> = [];
+  const headers = parseCSVLine(lines[0]);
+  const rows = lines.slice(1).map((l) => parseCSVLine(l));
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      row[h] = values[idx] ?? "";
-    });
-    rows.push(row);
-  }
-
-  return rows;
+  return { headers, rows };
 }
 
 function parseAmount(val: string): number {
+  if (!val || val === "-" || val === "") return 0;
   const cleaned = val.replace(/[^0-9.\-]/g, "");
   return parseFloat(cleaned) || 0;
 }
 
-function parseDate(val: string): Date {
-  const cleaned = val.trim();
-  // Try ISO first (2024-12-25)
-  if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
-    return new Date(cleaned);
-  }
-  // Try DD/MM/YYYY
-  const dmy = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (dmy) {
-    return new Date(`${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`);
-  }
-  // Try MM/DD/YYYY
-  const mdy = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdy) {
-    return new Date(`${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`);
-  }
-  return new Date(cleaned);
+function parseDateStr(val: string): Date | undefined {
+  if (!val || val === "-" || val === "") return undefined;
+  // Handles YYYY-MM-DD format
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? undefined : d;
 }
 
 // ─────────────────────────────────────────────
-// AIRBNB CSV PARSER
-// Expected columns (flexible matching):
-//   confirmation_code, guest, check-in, checkout, amount, host_fee, payout
+// 1. LEKKERSLAAP CSV PARSER
 // ─────────────────────────────────────────────
+//
+// Real format:
+//   Date, "Booking reference", Description, Amount, Balance
+//
+// Row types per booking:
+//   "Guest payment"        → gross amount (positive)
+//   "Commission"           → LS commission (negative)
+//   "Payment handling fee" → processing fee (negative)
+//   "Payout"               → actual transfer date (negative = paid out)
+//
+// Special rows (no booking ref):
+//   "Opening Balance" / "Closing Balance" → skip
 
-export function parseAirbnbCSV(csvContent: string): ParsedPayoutItem[] {
-  const rows = parseCSV(csvContent);
-  const items: ParsedPayoutItem[] = [];
+export function parseLekkerslaapCSV(csvContent: string): OTAParseResult {
+  const warnings: string[] = [];
+  const { rows } = parseCSV(csvContent);
+
+  // Group rows by booking reference
+  const bookingMap = new Map<
+    string,
+    {
+      guestPayment: number;
+      commission: number;
+      handlingFee: number;
+      payoutDate?: Date;
+      rowDate?: Date;
+    }
+  >();
 
   for (const row of rows) {
-    // Try multiple column name variants
-    const ref =
-      row["confirmation_code"] ||
-      row["confirmation code"] ||
-      row["booking_id"] ||
-      row["booking id"] ||
-      row["ref"] ||
-      "";
+    const [dateStr, bookingRef, description, amountStr] = row;
 
-    const guest =
-      row["guest"] ||
-      row["guest name"] ||
-      row["guest_name"] ||
-      row["name"] ||
-      "";
-
-    const checkInRaw =
-      row["check-in"] || row["checkin"] || row["check_in"] || row["arrival"] || "";
-    const checkOutRaw =
-      row["checkout"] || row["check-out"] || row["check_out"] || row["departure"] || "";
-
-    const grossRaw =
-      row["amount"] || row["gross_amount"] || row["gross amount"] || row["total_paid"] || "0";
-    const commissionRaw =
-      row["host_fee"] ||
-      row["host fee"] ||
-      row["service_fee"] ||
-      row["airbnb_fee"] ||
-      row["commission"] ||
-      "0";
-    const netRaw =
-      row["payout"] || row["net_amount"] || row["net amount"] || row["you_earned"] || "0";
-
-    if (!ref && !guest) continue; // Skip empty rows
-
-    const grossAmount = Math.abs(parseAmount(grossRaw));
-    const commission = Math.abs(parseAmount(commissionRaw));
-    const netAmount =
-      parseAmount(netRaw) !== 0
-        ? Math.abs(parseAmount(netRaw))
-        : grossAmount - commission;
-
-    if (grossAmount === 0 && netAmount === 0) continue;
-
-    let checkIn: Date;
-    let checkOut: Date;
-    try {
-      checkIn = parseDate(checkInRaw);
-      checkOut = parseDate(checkOutRaw);
-    } catch {
+    // Skip summary rows
+    if (
+      !bookingRef ||
+      description === "Opening Balance" ||
+      description === "Closing Balance"
+    ) {
       continue;
     }
 
-    items.push({
-      externalBookingRef: ref || `AIRBNB-${guest.replace(/\s+/g, "").slice(0, 8)}-${Date.now()}`,
-      guestName: guest,
-      checkIn,
-      checkOut,
-      grossAmount,
-      commission,
-      netAmount,
-    });
-  }
+    const ref = bookingRef.trim();
+    const amount = parseAmount(amountStr);
+    const rowDate = parseDateStr(dateStr);
+    const desc = description.toLowerCase().trim();
 
-  return items;
-}
-
-// ─────────────────────────────────────────────
-// BOOKING.COM CSV PARSER
-// Expected columns (flexible matching):
-//   reservation_id, guest_name, arrival_date, departure_date, room_revenue, commission, net_revenue
-// ─────────────────────────────────────────────
-
-export function parseBookingComCSV(csvContent: string): ParsedPayoutItem[] {
-  const rows = parseCSV(csvContent);
-  const items: ParsedPayoutItem[] = [];
-
-  for (const row of rows) {
-    const ref =
-      row["reservation_id"] ||
-      row["reservation id"] ||
-      row["booking_id"] ||
-      row["booking id"] ||
-      row["id"] ||
-      "";
-
-    const guest =
-      row["guest_name"] ||
-      row["guest name"] ||
-      row["booker name"] ||
-      row["booker_name"] ||
-      row["name"] ||
-      "";
-
-    const checkInRaw =
-      row["arrival_date"] || row["arrival date"] || row["check-in"] || row["checkin"] || "";
-    const checkOutRaw =
-      row["departure_date"] || row["departure date"] || row["check-out"] || row["checkout"] || "";
-
-    const grossRaw =
-      row["room_revenue"] ||
-      row["room revenue"] ||
-      row["gross_amount"] ||
-      row["gross amount"] ||
-      row["total"] ||
-      "0";
-    const commissionRaw =
-      row["commission"] || row["booking_commission"] || row["platform_fee"] || "0";
-    const netRaw =
-      row["net_revenue"] ||
-      row["net revenue"] ||
-      row["payout"] ||
-      row["net_amount"] ||
-      "0";
-
-    if (!ref && !guest) continue;
-
-    const grossAmount = Math.abs(parseAmount(grossRaw));
-    const commission = Math.abs(parseAmount(commissionRaw));
-    const netAmount =
-      parseAmount(netRaw) !== 0
-        ? Math.abs(parseAmount(netRaw))
-        : grossAmount - commission;
-
-    if (grossAmount === 0 && netAmount === 0) continue;
-
-    let checkIn: Date;
-    let checkOut: Date;
-    try {
-      checkIn = parseDate(checkInRaw);
-      checkOut = parseDate(checkOutRaw);
-    } catch {
-      continue;
+    if (!bookingMap.has(ref)) {
+      bookingMap.set(ref, {
+        guestPayment: 0,
+        commission: 0,
+        handlingFee: 0,
+      });
     }
 
-    items.push({
-      externalBookingRef: ref || `BDC-${guest.replace(/\s+/g, "").slice(0, 8)}-${Date.now()}`,
-      guestName: guest,
-      checkIn,
-      checkOut,
-      grossAmount,
-      commission,
+    const entry = bookingMap.get(ref)!;
+    if (!entry.rowDate && rowDate) entry.rowDate = rowDate;
+
+    if (desc === "guest payment") {
+      entry.guestPayment = amount; // positive
+    } else if (desc === "commission") {
+      entry.commission = Math.abs(amount); // store as positive
+    } else if (desc === "payment handling fee") {
+      entry.handlingFee = Math.abs(amount); // store as positive
+    } else if (desc === "payout") {
+      entry.payoutDate = rowDate;
+    }
+  }
+
+  // Group bookings by payout date (each payout date = one batch)
+  const payoutBatches = new Map<string, ParsedOTABooking[]>();
+
+  for (const [ref, data] of bookingMap) {
+    const netAmount =
+      data.guestPayment - data.commission - data.handlingFee;
+    const payoutKey = data.payoutDate
+      ? data.payoutDate.toISOString().split("T")[0]
+      : data.rowDate?.toISOString().split("T")[0] || "unknown";
+
+    const booking: ParsedOTABooking = {
+      externalRef: ref, // e.g. LS-5MJZMM
+      grossAmount: data.guestPayment,
+      commission: data.commission,
+      serviceFee: data.handlingFee,
+      vatAmount: 0, // Lekkerslaap doesn't separate VAT
       netAmount,
+      status: "Okay",
+      payoutDate: data.payoutDate,
+      payoutBatchRef: payoutKey,
+    };
+
+    if (!payoutBatches.has(payoutKey)) {
+      payoutBatches.set(payoutKey, []);
+    }
+    payoutBatches.get(payoutKey)!.push(booking);
+  }
+
+  // Build payouts array
+  const payouts: ParsedOTAPayout[] = [];
+  const allBookings: ParsedOTABooking[] = [];
+
+  for (const [batchKey, bookings] of payoutBatches) {
+    const payoutAmount = bookings.reduce((s, b) => s + b.netAmount, 0);
+    const payoutDate = bookings[0]?.payoutDate || new Date(batchKey);
+    allBookings.push(...bookings);
+
+    payouts.push({
+      batchRef: `LS-BATCH-${batchKey}`,
+      payoutDate,
+      payoutAmount,
+      bookings,
     });
   }
 
-  return items;
+  if (allBookings.length === 0) {
+    warnings.push("No bookings found in Lekkerslaap CSV");
+  }
+
+  const allDates = allBookings
+    .filter((b) => b.payoutDate)
+    .map((b) => b.payoutDate!.getTime());
+  const periodStart =
+    allDates.length > 0 ? new Date(Math.min(...allDates)) : new Date();
+  const periodEnd =
+    allDates.length > 0 ? new Date(Math.max(...allDates)) : new Date();
+
+  return {
+    platform: "LEKKERSLAAP",
+    payouts,
+    periodStart,
+    periodEnd,
+    totalGross: allBookings.reduce((s, b) => s + b.grossAmount, 0),
+    totalCommission: allBookings.reduce((s, b) => s + b.commission, 0),
+    totalServiceFees: allBookings.reduce((s, b) => s + b.serviceFee, 0),
+    totalNet: allBookings.reduce((s, b) => s + b.netAmount, 0),
+    bookingCount: allBookings.length,
+    warnings,
+  };
 }
 
 // ─────────────────────────────────────────────
-// MATCH PAYOUT ITEMS TO BOOKINGS
-// 1. Match by externalRef (exact)
-// 2. Fallback: guest name similarity + date proximity (±1 day)
+// 2. BOOKING.COM CSV PARSER
 // ─────────────────────────────────────────────
+//
+// Real format columns:
+//   Type/Transaction type, Statement Descriptor, Reference number,
+//   Check-in date, Check-out date, Issue date, Reservation status,
+//   Rooms, Room nights, Property ID, Property name, Legal ID, Legal name,
+//   Country, Payout type, Gross amount, Commission, Commission %,
+//   Payments Service Fee, Payments Service Fee %, VAT, Tax,
+//   Transaction amount, Transaction currency, Exchange rate,
+//   Payable amount, Payout amount, Payout currency, Payout date,
+//   Payout frequency, Bank account
+//
+// Row types:
+//   "(Payout)"    → payout batch summary row
+//   "Reservation" → individual booking linked to a payout batch
+//
+// Key: Statement Descriptor groups Reservation rows into a (Payout) batch
 
-export async function matchPayoutItemsToBookings(
-  items: ParsedPayoutItem[],
-  propertyId: string
-): Promise<Map<number, string>> {
-  // Fetch all bookings for the property (with externalRef and guest info)
+export function parseBookingComCSV(csvContent: string): OTAParseResult {
+  const warnings: string[] = [];
+  const { headers, rows } = parseCSV(csvContent);
+
+  if (headers.length === 0) {
+    return {
+      platform: "BOOKING_COM",
+      payouts: [],
+      periodStart: new Date(),
+      periodEnd: new Date(),
+      totalGross: 0,
+      totalCommission: 0,
+      totalServiceFees: 0,
+      totalNet: 0,
+      bookingCount: 0,
+      warnings: ["Empty or invalid CSV file"],
+    };
+  }
+
+  // Map column names to indices (case-insensitive, handles BOM)
+  const colIdx = (name: string) => {
+    const idx = headers.findIndex(
+      (h) => h.replace(/^\uFEFF/, "").toLowerCase().trim() === name.toLowerCase().trim()
+    );
+    return idx;
+  };
+
+  const idxType = colIdx("type/transaction type");
+  const idxDescriptor = colIdx("statement descriptor");
+  const idxRef = colIdx("reference number");
+  const idxCheckIn = colIdx("check-in date");
+  const idxCheckOut = colIdx("check-out date");
+  const idxStatus = colIdx("reservation status");
+  const idxRoomNights = colIdx("room nights");
+  const idxPropertyId = colIdx("property id");
+  const idxPropertyName = colIdx("property name");
+  const idxGross = colIdx("gross amount");
+  const idxCommission = colIdx("commission");
+  const idxServiceFee = colIdx("payments service fee");
+  const idxVAT = colIdx("vat");
+  const idxTransactionAmount = colIdx("transaction amount");
+  const idxPayoutAmount = colIdx("payout amount");
+  const idxPayoutDate = colIdx("payout date");
+
+  // First pass: collect payout batch summaries
+  const payoutBatchMap = new Map<
+    string,
+    {
+      payoutDate: Date;
+      payoutAmount: number;
+      propertyId?: string;
+      propertyName?: string;
+    }
+  >();
+
+  // Second pass: collect reservations grouped by Statement Descriptor
+  const reservationMap = new Map<string, ParsedOTABooking[]>();
+
+  for (const row of rows) {
+    const rowType = row[idxType]?.trim() || "";
+    const descriptor = row[idxDescriptor]?.trim() || "";
+
+    if (rowType === "(Payout)") {
+      const payoutDate = parseDateStr(row[idxPayoutDate]) || new Date();
+      const payoutAmount = parseAmount(row[idxPayoutAmount]);
+      const propertyId = row[idxPropertyId]?.trim();
+      const propertyName = row[idxPropertyName]?.replace(/"/g, "").trim();
+
+      payoutBatchMap.set(descriptor, {
+        payoutDate,
+        payoutAmount,
+        propertyId,
+        propertyName,
+      });
+    } else if (rowType === "Reservation") {
+      const ref = row[idxRef]?.trim() || "";
+      const status = row[idxStatus]?.trim() || "Okay";
+      const checkIn = parseDateStr(row[idxCheckIn]);
+      const checkOut = parseDateStr(row[idxCheckOut]);
+      const roomNights = parseInt(row[idxRoomNights] || "1") || 1;
+      const propertyId = row[idxPropertyId]?.trim();
+      const propertyName = row[idxPropertyName]?.replace(/"/g, "").trim();
+      const payoutDate = parseDateStr(row[idxPayoutDate]);
+
+      // Booking.com commission and service fee are negative in the file
+      const grossAmount = parseAmount(row[idxGross]);
+      const commission = Math.abs(parseAmount(row[idxCommission]));
+      const serviceFeeParsed = parseAmount(row[idxServiceFee]);
+      const serviceFee = Math.abs(serviceFeeParsed);
+      const vatAmount = Math.abs(parseAmount(row[idxVAT]));
+      const netAmount = parseAmount(row[idxTransactionAmount]);
+
+      if (!ref) {
+        warnings.push(`Skipping reservation row with no reference number`);
+        continue;
+      }
+
+      const booking: ParsedOTABooking = {
+        externalRef: ref,
+        checkIn,
+        checkOut,
+        grossAmount,
+        commission,
+        serviceFee: serviceFee,
+        vatAmount,
+        netAmount,
+        status,
+        propertyId,
+        propertyName,
+        roomNights,
+        payoutDate,
+        payoutBatchRef: descriptor,
+      };
+
+      if (!reservationMap.has(descriptor)) {
+        reservationMap.set(descriptor, []);
+      }
+      reservationMap.get(descriptor)!.push(booking);
+    }
+  }
+
+  // Build payouts array: match reservations to their payout batch
+  const payouts: ParsedOTAPayout[] = [];
+  const allBookings: ParsedOTABooking[] = [];
+
+  for (const [descriptor, batchInfo] of payoutBatchMap) {
+    const bookings = reservationMap.get(descriptor) || [];
+    allBookings.push(...bookings);
+
+    payouts.push({
+      batchRef: descriptor,
+      payoutDate: batchInfo.payoutDate,
+      payoutAmount: batchInfo.payoutAmount,
+      propertyId: batchInfo.propertyId,
+      propertyName: batchInfo.propertyName,
+      bookings,
+    });
+  }
+
+  // Handle any orphan reservations (not linked to a payout batch)
+  for (const [descriptor, bookings] of reservationMap) {
+    if (!payoutBatchMap.has(descriptor)) {
+      warnings.push(
+        `Reservations found for batch "${descriptor}" with no matching payout row`
+      );
+      allBookings.push(...bookings);
+      const payoutDate = bookings[0]?.payoutDate || new Date();
+      payouts.push({
+        batchRef: descriptor,
+        payoutDate,
+        payoutAmount: bookings.reduce((s, b) => s + b.netAmount, 0),
+        bookings,
+      });
+    }
+  }
+
+  if (allBookings.length === 0) {
+    warnings.push("No reservations found in Booking.com CSV");
+  }
+
+  const payoutDates = payouts.map((p) => p.payoutDate.getTime());
+  const periodStart =
+    payoutDates.length > 0 ? new Date(Math.min(...payoutDates)) : new Date();
+  const periodEnd =
+    payoutDates.length > 0 ? new Date(Math.max(...payoutDates)) : new Date();
+
+  return {
+    platform: "BOOKING_COM",
+    payouts,
+    periodStart,
+    periodEnd,
+    totalGross: allBookings.reduce((s, b) => s + b.grossAmount, 0),
+    totalCommission: allBookings.reduce((s, b) => s + b.commission, 0),
+    totalServiceFees: allBookings.reduce(
+      (s, b) => s + b.serviceFee + b.vatAmount,
+      0
+    ),
+    totalNet: allBookings.reduce((s, b) => s + b.netAmount, 0),
+    bookingCount: allBookings.length,
+    warnings,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 3. AIRBNB PDF PARSER
+// ─────────────────────────────────────────────
+//
+// Real format: Annual earnings report PDF
+// Structure:
+//   - Host name, User ID, Report period
+//   - Summary: Gross earnings, Adjustments, Service fees, Tax withheld, Total
+//   - Per-home breakdown (property name → totals)
+//   - Monthly earnings (Month → Gross earnings, Total)
+//
+// Limitation: This is a SUMMARY report, not a transaction list.
+// Individual reservation details are NOT available in this format.
+// We create one OTAPayout per month with the gross/net totals.
+//
+// Text extraction requires pdf-parse (installed separately).
+
+export interface AirbnbMonthlyEarning {
+  month: string;       // e.g. "May", "June"
+  year: number;
+  grossEarnings: number;
+  serviceFees: number;
+  adjustments: number;
+  taxWithheld: number;
+  total: number;
+}
+
+export interface AirbnbParseResult {
+  hostName: string;
+  userId: string;
+  reportYear: number;
+  properties: { name: string; grossEarnings: number; serviceFees: number; total: number }[];
+  monthlyEarnings: AirbnbMonthlyEarning[];
+  summary: {
+    grossEarnings: number;
+    adjustments: number;
+    serviceFees: number;
+    taxWithheld: number;
+    total: number;
+    nightsBooked: number;
+    avgNightStay: number;
+  };
+  warnings: string[];
+}
+
+export function parseAirbnbPDFText(text: string): AirbnbParseResult {
+  const warnings: string[] = [];
+  const result: AirbnbParseResult = {
+    hostName: "",
+    userId: "",
+    reportYear: new Date().getFullYear(),
+    properties: [],
+    monthlyEarnings: [],
+    summary: {
+      grossEarnings: 0,
+      adjustments: 0,
+      serviceFees: 0,
+      taxWithheld: 0,
+      total: 0,
+      nightsBooked: 0,
+      avgNightStay: 0,
+    },
+    warnings,
+  };
+
+  // Extract host name
+  const hostMatch = text.match(/Host name:\s*(.+?)(?:\n|User ID)/);
+  if (hostMatch) result.hostName = hostMatch[1].trim();
+
+  // Extract user ID
+  const userMatch = text.match(/User ID:\s*(\d+)/);
+  if (userMatch) result.userId = userMatch[1].trim();
+
+  // Extract report year from filename or report title
+  const yearMatch = text.match(/(\d{4})\s+Earnings report/);
+  if (yearMatch) result.reportYear = parseInt(yearMatch[1]);
+
+  // Extract nights booked
+  const nightsMatch = text.match(/Nights booked\s+(\d+)/);
+  if (nightsMatch) result.summary.nightsBooked = parseInt(nightsMatch[1]);
+
+  // Extract avg night stay
+  const avgMatch = text.match(/Avg night stay\s+([\d.]+)/);
+  if (avgMatch) result.summary.avgNightStay = parseFloat(avgMatch[1]);
+
+  // Extract ZAR amounts - pattern: "R X.XX ZAR" or "R 0.00 ZAR"
+  const amountPattern = /R\s*([\d,]+\.?\d*)\s*ZAR/g;
+  const amounts: number[] = [];
+  let match;
+  while ((match = amountPattern.exec(text)) !== null) {
+    amounts.push(parseFloat(match[1].replace(/,/g, "")));
+  }
+
+  // Parse monthly earnings - look for month names followed by amounts
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ];
+
+  const monthlyPattern = new RegExp(
+    `(${months.join("|")})\\s+R\\s*([\\d,]+\\.?\\d*)\\s*ZAR\\s+R\\s*([\\d,]+\\.?\\d*)\\s*ZAR`,
+    "g"
+  );
+
+  while ((match = monthlyPattern.exec(text)) !== null) {
+    const monthName = match[1];
+    const monthNum = months.indexOf(monthName);
+    result.monthlyEarnings.push({
+      month: monthName,
+      year: result.reportYear,
+      grossEarnings: parseFloat(match[2].replace(/,/g, "")),
+      serviceFees: 0, // Not broken down per month in this format
+      adjustments: 0,
+      taxWithheld: 0,
+      total: parseFloat(match[3].replace(/,/g, "")),
+    });
+  }
+
+  // Extract summary totals from the first set of 5 amounts (Summary row)
+  if (amounts.length >= 5) {
+    result.summary.grossEarnings = amounts[0];
+    result.summary.adjustments = amounts[1];
+    result.summary.serviceFees = amounts[2];
+    result.summary.taxWithheld = amounts[3];
+    result.summary.total = amounts[4];
+  }
+
+  if (result.monthlyEarnings.length === 0) {
+    warnings.push(
+      "No monthly earnings data found. This may be an unsupported Airbnb report format."
+    );
+  }
+
+  if (result.summary.grossEarnings === 0 && result.summary.nightsBooked > 0) {
+    warnings.push(
+      "Report shows bookings but R0 earnings — this is likely an annual tax summary. " +
+      "For detailed payout data, download your Transaction History from Airbnb."
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Convert AirbnbParseResult to OTAParseResult (monthly payout batches)
+ * Each month with earnings becomes one OTAPayout record
+ */
+export function airbnbResultToOTAPayouts(
+  parsed: AirbnbParseResult
+): OTAParseResult {
+  const payouts: ParsedOTAPayout[] = [];
+
+  for (const month of parsed.monthlyEarnings) {
+    if (month.total <= 0 && month.grossEarnings <= 0) continue;
+
+    const monthNum =
+      [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ].indexOf(month.month) + 1;
+
+    const payoutDate = new Date(month.year, monthNum - 1, 28); // end of month approx
+
+    payouts.push({
+      batchRef: `AIR-${month.year}-${String(monthNum).padStart(2, "0")}`,
+      payoutDate,
+      payoutAmount: month.total,
+      bookings: [], // Monthly summary has no individual booking detail
+    });
+  }
+
+  const allPayoutAmounts = payouts.map((p) => p.payoutDate.getTime());
+  const periodStart =
+    allPayoutAmounts.length > 0
+      ? new Date(Math.min(...allPayoutAmounts))
+      : new Date();
+  const periodEnd =
+    allPayoutAmounts.length > 0
+      ? new Date(Math.max(...allPayoutAmounts))
+      : new Date();
+
+  return {
+    platform: "AIRBNB",
+    payouts,
+    periodStart,
+    periodEnd,
+    totalGross: parsed.summary.grossEarnings,
+    totalCommission: parsed.summary.serviceFees,
+    totalServiceFees: parsed.summary.serviceFees,
+    totalNet: parsed.summary.total,
+    bookingCount: parsed.summary.nightsBooked,
+    warnings: [
+      ...parsed.warnings,
+      "Airbnb PDF imports monthly totals only — individual booking matching is not available from this report format.",
+    ],
+  };
+}
+
+// ─────────────────────────────────────────────
+// BOOKING MATCHER
+// ─────────────────────────────────────────────
+// Tries to match OTA payout items to existing bookings in DB
+
+export async function matchPayoutBookingsToLocal(
+  items: ParsedOTABooking[],
+  propertyDbId: string
+): Promise<Map<string, string>> {
+  const matchMap = new Map<string, string>(); // externalRef → booking.id
+
+  if (items.length === 0) return matchMap;
+
+  // Batch fetch bookings that might match
   const bookings = await prisma.booking.findMany({
-    where: { propertyId, deletedAt: null },
+    where: {
+      propertyId: propertyDbId,
+      deletedAt: null,
+    },
     select: {
       id: true,
       externalRef: true,
-      guestName: true,
       checkIn: true,
       checkOut: true,
+      guestName: true,
+      source: true,
     },
   });
 
-  const matches = new Map<number, string>(); // item index → booking id
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-
+  for (const item of items) {
     // Strategy 1: exact externalRef match
-    const byRef = bookings.find(
+    const exactMatch = bookings.find(
       (b) =>
         b.externalRef &&
-        b.externalRef.toLowerCase() === item.externalBookingRef.toLowerCase()
+        b.externalRef.toLowerCase() === item.externalRef.toLowerCase()
     );
-    if (byRef) {
-      matches.set(i, byRef.id);
+    if (exactMatch) {
+      matchMap.set(item.externalRef, exactMatch.id);
       continue;
     }
 
-    // Strategy 2: guest name + date proximity (within 1 day)
-    const normalizedItemGuest = item.guestName.toLowerCase().trim();
-    const itemCheckInTime = item.checkIn.getTime();
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-    const byNameAndDate = bookings.find((b) => {
-      const bGuestNorm = b.guestName.toLowerCase().trim();
-      const bCheckInTime = new Date(b.checkIn).getTime();
-
-      const nameMatch =
-        bGuestNorm === normalizedItemGuest ||
-        bGuestNorm.includes(normalizedItemGuest) ||
-        normalizedItemGuest.includes(bGuestNorm);
-
-      const dateMatch = Math.abs(bCheckInTime - itemCheckInTime) <= ONE_DAY_MS;
-
-      return nameMatch && dateMatch;
-    });
-
-    if (byNameAndDate) {
-      matches.set(i, byNameAndDate.id);
+    // Strategy 2: check-in date match (within 1 day) + approximate amount
+    if (item.checkIn) {
+      const checkInTime = item.checkIn.getTime();
+      const dayMs = 86400000;
+      const dateMatch = bookings.find((b) => {
+        const bTime = new Date(b.checkIn).getTime();
+        return Math.abs(bTime - checkInTime) <= dayMs;
+      });
+      if (dateMatch) {
+        matchMap.set(item.externalRef, dateMatch.id);
+        logger.info("OTA match via check-in date", {
+          externalRef: item.externalRef,
+          bookingId: dateMatch.id,
+        });
+      }
     }
   }
 
-  return matches;
+  return matchMap;
 }
 
 // ─────────────────────────────────────────────
-// CREATE OTA PAYOUT — atomically creates payout + items + runs matching
+// SAVE TO DATABASE
 // ─────────────────────────────────────────────
 
-export async function createOTAPayout(
-  propertyId: string,
-  platform: OTAPlatform,
-  items: ParsedPayoutItem[],
-  filename: string
-): Promise<OTAImportResult> {
-  if (items.length === 0) {
-    return { success: false, message: "No valid payout items found in CSV", totalItems: 0, matchedItems: 0 };
-  }
+export async function saveOTAPayoutsToDb(
+  parseResult: OTAParseResult,
+  propertyDbId: string,
+  organisationId: string,
+  importFilename: string
+): Promise<{
+  payoutsCreated: number;
+  itemsCreated: number;
+  itemsMatched: number;
+  warnings: string[];
+}> {
+  let payoutsCreated = 0;
+  let itemsCreated = 0;
+  let itemsMatched = 0;
+  const warnings = [...parseResult.warnings];
 
-  try {
-    // Get organisationId from property
-    const property = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { organisationId: true },
+  for (const payout of parseResult.payouts) {
+    // Collect all bookings that need matching
+    const matchMap = await matchPayoutBookingsToLocal(
+      payout.bookings,
+      propertyDbId
+    );
+
+    const grossAmount = payout.bookings.reduce(
+      (s, b) => s + b.grossAmount,
+      0
+    );
+    const totalCommission = payout.bookings.reduce(
+      (s, b) => s + b.commission + b.serviceFee,
+      0
+    );
+    const netAmount = payout.payoutAmount || payout.bookings.reduce(
+      (s, b) => s + b.netAmount,
+      0
+    );
+
+    const dbPayout = await prisma.oTAPayout.create({
+      data: {
+        organisationId,
+        propertyId: propertyDbId,
+        platform: parseResult.platform,
+        periodStart: parseResult.periodStart,
+        periodEnd: parseResult.periodEnd,
+        payoutDate: payout.payoutDate,
+        grossAmount,
+        totalCommission,
+        netAmount,
+        status: "IMPORTED",
+        importFilename,
+      },
     });
-    if (!property) {
-      return { success: false, message: "Property not found", totalItems: 0, matchedItems: 0 };
-    }
+    payoutsCreated++;
 
-    // Run matching before transaction
-    const matches = await matchPayoutItemsToBookings(items, propertyId);
+    // Create payout items for booking-level data (not available for Airbnb monthly)
+    for (const booking of payout.bookings) {
+      const matchedBookingId = matchMap.get(booking.externalRef);
+      if (matchedBookingId) itemsMatched++;
 
-    // Compute aggregates
-    const grossAmount = items.reduce((sum, i) => sum + i.grossAmount, 0);
-    const totalCommission = items.reduce((sum, i) => sum + i.commission, 0);
-    const netAmount = items.reduce((sum, i) => sum + i.netAmount, 0);
-
-    // Period: min checkIn → max checkOut
-    const periodStart = items.reduce(
-      (min, i) => (i.checkIn < min ? i.checkIn : min),
-      items[0].checkIn
-    );
-    const periodEnd = items.reduce(
-      (max, i) => (i.checkOut > max ? i.checkOut : max),
-      items[0].checkOut
-    );
-
-    let payoutId: string;
-
-    await prisma.$transaction(async (tx) => {
-      const payout = await tx.oTAPayout.create({
+      await prisma.oTAPayoutItem.create({
         data: {
-          organisationId: property.organisationId,
-          propertyId,
-          platform,
-          periodStart,
-          periodEnd,
-          payoutDate: new Date(),
-          grossAmount,
-          totalCommission,
-          netAmount,
-          status: "IMPORTED",
-          importFilename: filename,
+          payoutId: dbPayout.id,
+          bookingId: matchedBookingId || null,
+          externalBookingRef: booking.externalRef,
+          guestName: "–",
+          checkIn: booking.checkIn || payout.payoutDate,
+          checkOut: booking.checkOut || payout.payoutDate,
+          grossAmount: booking.grossAmount,
+          commission: booking.commission + booking.serviceFee,
+          netAmount: booking.netAmount,
+          isMatched: !!matchedBookingId,
         },
       });
-      payoutId = payout.id;
-
-      // Create payout items
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const matchedBookingId = matches.get(i);
-
-        await tx.oTAPayoutItem.create({
-          data: {
-            payoutId: payout.id,
-            bookingId: matchedBookingId ?? null,
-            externalBookingRef: item.externalBookingRef,
-            guestName: item.guestName,
-            checkIn: item.checkIn,
-            checkOut: item.checkOut,
-            grossAmount: item.grossAmount,
-            commission: item.commission,
-            netAmount: item.netAmount,
-            isMatched: !!matchedBookingId,
-          },
-        });
-      }
-    });
-
-    logger.info("OTA payout imported", {
-      payoutId: payoutId!,
-      totalItems: items.length,
-      matchedItems: matches.size,
-    });
-    return {
-      success: true,
-      payoutId: payoutId!,
-      message: `Imported ${items.length} items. ${matches.size} matched to bookings.`,
-      totalItems: items.length,
-      matchedItems: matches.size,
-    };
-  } catch (err) {
-    logger.error("OTA payout import failed", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, message: msg, totalItems: items.length, matchedItems: 0 };
+      itemsCreated++;
+    }
   }
+
+  logger.info("OTA import complete", {
+    platform: parseResult.platform,
+    payoutsCreated,
+    itemsCreated,
+    itemsMatched,
+  });
+
+  return { payoutsCreated, itemsCreated, itemsMatched, warnings };
 }

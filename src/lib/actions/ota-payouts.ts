@@ -4,10 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { OTAPlatform } from "@prisma/client";
 import {
-  parseAirbnbCSV,
+  parseLekkerslaapCSV,
   parseBookingComCSV,
-  createOTAPayout,
-  type OTAImportResult,
+  saveOTAPayoutsToDb,
 } from "@/lib/ota-import";
 
 export interface OTAPayoutFilters {
@@ -109,41 +108,33 @@ export async function matchPayoutItem(payoutItemId: string, bookingId: string) {
   }
 }
 
-/** Import a CSV file — parse + create payout */
+/** Import a CSV file — parse + save payouts */
 export async function importOTAPayoutCSV(
+  organisationId: string,
   propertyId: string,
   platform: OTAPlatform,
   csvContent: string,
   filename: string
-): Promise<OTAImportResult> {
-  let items;
+) {
+  const parseResult =
+    platform === OTAPlatform.LEKKERSLAAP
+      ? parseLekkerslaapCSV(csvContent)
+      : parseBookingComCSV(csvContent);
 
-  if (platform === OTAPlatform.AIRBNB) {
-    items = parseAirbnbCSV(csvContent);
-  } else if (platform === OTAPlatform.BOOKING_COM) {
-    items = parseBookingComCSV(csvContent);
-  } else {
-    // Generic: try Airbnb format first, then Booking.com
-    items = parseAirbnbCSV(csvContent);
-    if (items.length === 0) {
-      items = parseBookingComCSV(csvContent);
-    }
-  }
-
-  if (items.length === 0) {
+  if (parseResult.bookingCount === 0 && parseResult.payouts.length === 0) {
     return {
       success: false,
-      message: "Could not parse any payout items from the CSV. Check the file format.",
-      totalItems: 0,
-      matchedItems: 0,
+      message: "No payout data found. Check the file format.",
     };
   }
 
-  const result = await createOTAPayout(propertyId, platform, items, filename);
+  const result = await saveOTAPayoutsToDb(
+    parseResult,
+    propertyId,
+    organisationId,
+    filename
+  );
 
-  if (result.success) {
-    revalidatePath("/ota-payouts");
-  }
-
-  return result;
+  revalidatePath("/ota-payouts");
+  return { success: true, ...result };
 }
