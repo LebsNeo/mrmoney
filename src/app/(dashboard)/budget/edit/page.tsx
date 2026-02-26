@@ -39,8 +39,8 @@ export default async function BudgetEditPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const period = params.period ?? currentPeriod();
-  const previousPeriod = getPreviousPeriod(period);
-  const availablePeriods = getAvailablePeriods();
+  const previousPeriod = await getPreviousPeriod(period);
+  const availablePeriods = await getAvailablePeriods();
 
   // Get all active properties
   const properties = await prisma.property.findMany({

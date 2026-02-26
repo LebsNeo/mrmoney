@@ -100,7 +100,7 @@ export async function getBudgetItems(propertyId: string, period: string) {
 // GET AVAILABLE PERIODS (current + next 3 months)
 // ─────────────────────────────────────────────
 
-export function getAvailablePeriods(): string[] {
+export async function getAvailablePeriods(): Promise<string[]> {
   const now = new Date();
   const periods: string[] = [];
   for (let i = 0; i < 4; i++) {
@@ -110,7 +110,7 @@ export function getAvailablePeriods(): string[] {
   return periods;
 }
 
-export function getPreviousPeriod(period: string): string {
+export async function getPreviousPeriod(period: string): Promise<string> {
   const [year, month] = period.split("-").map(Number);
   const d = subMonths(new Date(year, month - 1, 1), 1);
   return format(d, "yyyy-MM");
