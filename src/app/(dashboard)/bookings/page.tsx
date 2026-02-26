@@ -1,6 +1,7 @@
 import { getBookings } from "@/lib/actions/bookings";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { EmptyState } from "@/components/EmptyState";
 import { BookingCard } from "@/components/BookingCard";
 import { ExportButton } from "@/components/ExportButton";
@@ -10,9 +11,12 @@ import Link from "next/link";
 import { BookingStatus, BookingSource } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Suspense } from "react";
 
 interface PageProps {
   searchParams: Promise<{
+    propertyId?: string;
     status?: string;
     source?: string;
     page?: string;
@@ -28,12 +32,23 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
 
+  // Load properties for the switcher
+  const allProperties = orgId
+    ? await prisma.property.findMany({
+        where: { organisationId: orgId, isActive: true, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+
   const { bookings, total, totalPages } = await getBookings({
     status,
     source,
     page,
     limit: 20,
     organisationId: orgId,
+    // Only filter by property if explicitly selected
+    propertyId: params.propertyId,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {
@@ -75,6 +90,9 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         description={`${total} booking${total !== 1 ? "s" : ""} total`}
         action={
           <div className="flex items-center gap-2">
+            <Suspense fallback={null}>
+              <PropertySwitcher properties={allProperties} currentPropertyId={params.propertyId ?? null} />
+            </Suspense>
             <ExportButton data={csvData} filename="bookings-export" />
             <Link
               href="/bookings/new"

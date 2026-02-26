@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import {
   getCashFlowForecast,
   getRevenueForecast,
@@ -12,6 +13,7 @@ import { getBudgetVsActual } from "@/lib/budget-analysis";
 import { formatCurrency, formatDate, formatPercent, currentPeriod } from "@/lib/utils";
 import { format, addDays } from "date-fns";
 import Link from "next/link";
+import { Suspense } from "react";
 
 function weekLabel(weekIndex: number) {
   return `Week ${weekIndex + 1}`;
@@ -41,19 +43,26 @@ function StatusBadgeInline({ status }: { status: string }) {
   );
 }
 
-export default async function ForecastPage() {
+export default async function ForecastPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ propertyId?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
 
+  const params = await searchParams;
   const orgId = (session.user as any).organisationId as string;
 
-  // Get first active property for the org
-  const property = await prisma.property.findFirst({
+  // Load all properties for the switcher
+  const allProperties = await prisma.property.findMany({
     where: { organisationId: orgId, isActive: true, deletedAt: null },
     select: { id: true, name: true },
+    orderBy: { name: "asc" },
   });
+  const selectedPropertyId = params.propertyId ?? allProperties[0]?.id ?? "";
 
-  if (!property) {
+  if (!selectedPropertyId) {
     return (
       <div>
         <PageHeader title="Forecast" description="No active property found." />
@@ -64,7 +73,8 @@ export default async function ForecastPage() {
     );
   }
 
-  const propertyId = property.id;
+  const propertyId = selectedPropertyId;
+  const propertyName = allProperties.find((p) => p.id === propertyId)?.name ?? "";
   const period = currentPeriod();
 
   // Fetch all data in parallel
@@ -120,7 +130,12 @@ export default async function ForecastPage() {
     <div>
       <PageHeader
         title="Forecast & Budget"
-        description={`Property: ${property.name}`}
+        description={`Property: ${propertyName}`}
+        action={
+          <Suspense fallback={null}>
+            <PropertySwitcher properties={allProperties} currentPropertyId={selectedPropertyId} />
+          </Suspense>
+        }
       />
 
       {/* ─── SECTION 1: CASH FLOW ─── */}

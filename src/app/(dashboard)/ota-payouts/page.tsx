@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { getOTAPayouts, getPayoutPlatformSummary } from "@/lib/actions/ota-payouts";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OTAPlatform } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Suspense } from "react";
 
 interface PageProps {
   searchParams: Promise<{
+    propertyId?: string;
     platform?: string;
     page?: string;
   }>;
@@ -30,8 +34,17 @@ export default async function OTAPayoutsPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
 
+  // Load properties for the switcher
+  const allProperties = orgId
+    ? await prisma.property.findMany({
+        where: { organisationId: orgId, isActive: true, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+
   const [{ payouts, total, totalPages }, platformSummary] = await Promise.all([
-    getOTAPayouts({ platform, page, organisationId: orgId }),
+    getOTAPayouts({ platform, page, organisationId: orgId, propertyId: params.propertyId }),
     getPayoutPlatformSummary(orgId),
   ]);
 
@@ -52,12 +65,17 @@ export default async function OTAPayoutsPage({ searchParams }: PageProps) {
         title="OTA Payouts"
         description={`${total} payout${total !== 1 ? "s" : ""} imported`}
         action={
-          <Link
-            href="/ota-payouts/import"
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
-          >
-            Import CSV
-          </Link>
+          <div className="flex items-center gap-2">
+            <Suspense fallback={null}>
+              <PropertySwitcher properties={allProperties} currentPropertyId={params.propertyId ?? null} />
+            </Suspense>
+            <Link
+              href="/ota-payouts/import"
+              className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+            >
+              Import CSV
+            </Link>
+          </div>
         }
       />
 

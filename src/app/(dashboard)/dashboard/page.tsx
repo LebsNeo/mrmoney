@@ -3,6 +3,7 @@ import { KPICard } from "@/components/KPICard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { AlertBell } from "@/components/AlertBell";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { formatCurrency, formatDate, formatPercent, currentPeriod } from "@/lib/utils";
 import { calcNights as computeNights } from "@/lib/kpi";
 import { getServerSession } from "next-auth";
@@ -14,46 +15,51 @@ import { generateProfitabilityInsights } from "@/lib/profitability";
 import { getKPITrends, getPerformanceBenchmarks } from "@/lib/kpi-engine";
 import { generateDailyDigest } from "@/lib/digest";
 import Link from "next/link";
+import { Suspense } from "react";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ propertyId?: string }>;
+}) {
   const data = await getDashboardKPIs();
+  const params = await searchParams;
 
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
+
+  // Fetch all properties for the switcher + determine selected property
+  const allProperties = orgId
+    ? await prisma.property.findMany({
+        where: { organisationId: orgId, isActive: true, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const selectedPropertyId = params.propertyId ?? allProperties[0]?.id ?? "";
 
   // Phase 4: budget alerts + break-even
   let budgetAlerts: Awaited<ReturnType<typeof getBudgetAlerts>> = [];
   let breakEven: Awaited<ReturnType<typeof getBreakEvenRate>> | null = null;
 
   if (orgId) {
-    const firstProperty = await prisma.property.findFirst({
-      where: { organisationId: orgId, isActive: true, deletedAt: null },
-      select: { id: true },
-    });
-
     [budgetAlerts] = await Promise.all([
       getBudgetAlerts(orgId),
     ]);
 
-    if (firstProperty) {
-      breakEven = await getBreakEvenRate(firstProperty.id, currentPeriod());
+    if (selectedPropertyId) {
+      breakEven = await getBreakEvenRate(selectedPropertyId, currentPeriod());
     }
   }
 
   // Phase 5: Profitability insights
   let topInsights: string[] = [];
-  if (orgId) {
-    const prop = await prisma.property.findFirst({
-      where: { organisationId: orgId, isActive: true, deletedAt: null },
-      select: { id: true },
-    });
-    if (prop) {
-      try {
-        const allInsights = await generateProfitabilityInsights(prop.id, currentPeriod());
-        topInsights = allInsights.slice(0, 3);
-      } catch {
-        topInsights = [];
-      }
+  if (orgId && selectedPropertyId) {
+    try {
+      const allInsights = await generateProfitabilityInsights(selectedPropertyId, currentPeriod());
+      topInsights = allInsights.slice(0, 3);
+    } catch {
+      topInsights = [];
     }
   }
 
@@ -64,28 +70,22 @@ export default async function DashboardPage() {
   let currentAvgStay = 0;
   let currentCancellationRate = 0;
 
-  if (orgId) {
-    const kpiProp = await prisma.property.findFirst({
-      where: { organisationId: orgId, isActive: true, deletedAt: null },
-      select: { id: true },
-    });
-    if (kpiProp) {
-      try {
-        const [trends, benchmarks] = await Promise.all([
-          getKPITrends(kpiProp.id, 6),
-          getPerformanceBenchmarks(kpiProp.id, currentPeriod()),
-        ]);
-        kpiTrends = trends as KPITrendRow[];
-        const currentSnap = trends[trends.length - 1];
-        if (currentSnap) {
-          currentCancellationRate = currentSnap.cancellationRate.value;
-          currentAvgStay = currentSnap.avgLengthOfStay.value;
-        }
-        const revParBenchmark = benchmarks.benchmarks.find((b) => b.kpi === "RevPAR");
-        isBestRevPAREver = revParBenchmark?.isBestEver ?? false;
-      } catch {
-        kpiTrends = [];
+  if (orgId && selectedPropertyId) {
+    try {
+      const [trends, benchmarks] = await Promise.all([
+        getKPITrends(selectedPropertyId, 6),
+        getPerformanceBenchmarks(selectedPropertyId, currentPeriod()),
+      ]);
+      kpiTrends = trends as KPITrendRow[];
+      const currentSnap = trends[trends.length - 1];
+      if (currentSnap) {
+        currentCancellationRate = currentSnap.cancellationRate.value;
+        currentAvgStay = currentSnap.avgLengthOfStay.value;
       }
+      const revParBenchmark = benchmarks.benchmarks.find((b) => b.kpi === "RevPAR");
+      isBestRevPAREver = revParBenchmark?.isBestEver ?? false;
+    } catch {
+      kpiTrends = [];
     }
   }
 
@@ -98,14 +98,9 @@ export default async function DashboardPage() {
   let unreadAlertCount = 0;
 
   if (orgId) {
-    const digestProp = await prisma.property.findFirst({
-      where: { organisationId: orgId, isActive: true, deletedAt: null },
-      select: { id: true },
-    });
-
-    if (digestProp) {
+    if (selectedPropertyId) {
       try {
-        digest = await generateDailyDigest(orgId, digestProp.id);
+        digest = await generateDailyDigest(orgId, selectedPropertyId);
       } catch {
         digest = null;
       }
@@ -127,7 +122,12 @@ export default async function DashboardPage() {
           title="Dashboard"
           description={`Overview for ${formatDate(data.period.start, "MMMM yyyy")}`}
         />
-        <AlertBell unreadCount={unreadAlertCount} />
+        <div className="flex items-center gap-3 shrink-0 ml-4">
+          <Suspense fallback={null}>
+            <PropertySwitcher properties={allProperties} currentPropertyId={selectedPropertyId} />
+          </Suspense>
+          <AlertBell unreadCount={unreadAlertCount} />
+        </div>
       </div>
 
       {/* Phase 7 — Daily Digest Preview */}

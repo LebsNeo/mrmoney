@@ -3,7 +3,9 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { EmptyState } from "@/components/EmptyState";
+import { Suspense } from "react";
 import { getBudgetVsActual } from "@/lib/budget-analysis";
 import { getBudgetAlerts } from "@/lib/actions/budget";
 import { formatCurrency, currentPeriod } from "@/lib/utils";
@@ -30,18 +32,25 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default async function BudgetPage() {
+export default async function BudgetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ propertyId?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
 
+  const params = await searchParams;
   const orgId = (session.user as any).organisationId as string;
 
-  const property = await prisma.property.findFirst({
+  const allProperties = await prisma.property.findMany({
     where: { organisationId: orgId, isActive: true, deletedAt: null },
     select: { id: true, name: true },
+    orderBy: { name: "asc" },
   });
+  const selectedPropertyId = params.propertyId ?? allProperties[0]?.id ?? "";
 
-  if (!property) {
+  if (!selectedPropertyId) {
     return (
       <div>
         <PageHeader title="Budget" description="No active property found." />
@@ -49,9 +58,10 @@ export default async function BudgetPage() {
     );
   }
 
+  const propertyName = allProperties.find((p) => p.id === selectedPropertyId)?.name ?? "";
   const period = currentPeriod();
   const [budgetItems, alerts] = await Promise.all([
-    getBudgetVsActual(property.id, period),
+    getBudgetVsActual(selectedPropertyId, period),
     getBudgetAlerts(orgId),
   ]);
 
@@ -65,7 +75,12 @@ export default async function BudgetPage() {
     <div>
       <PageHeader
         title="Budget"
-        description={`${property.name} · ${format(new Date(period + "-01"), "MMMM yyyy")}`}
+        description={`${propertyName} · ${format(new Date(period + "-01"), "MMMM yyyy")}`}
+        action={
+          <Suspense fallback={null}>
+            <PropertySwitcher properties={allProperties} currentPropertyId={selectedPropertyId} />
+          </Suspense>
+        }
       />
 
       {/* Alert Banner */}

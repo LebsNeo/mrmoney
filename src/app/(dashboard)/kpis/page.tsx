@@ -2,7 +2,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { OccupancyCalendar } from "@/components/OccupancyCalendar";
+import { Suspense } from "react";
 import { ExportButton } from "@/components/ExportButton";
 import {
   getKPITrends,
@@ -116,7 +118,15 @@ export default async function KPIsPage({
 
   return (
     <div className="space-y-8">
-      <PageHeader title="KPI Dashboard" description="Trend analysis, occupancy, leakage & benchmarks" />
+      <PageHeader
+        title="KPI Dashboard"
+        description="Trend analysis, occupancy, leakage & benchmarks"
+        action={
+          <Suspense fallback={null}>
+            <PropertySwitcher properties={properties} currentPropertyId={selectedPropertyId} />
+          </Suspense>
+        }
+      />
 
       {/* ─── Filters ─── */}
       <div className="flex flex-wrap gap-3 items-center">

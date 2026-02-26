@@ -3,7 +3,9 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
+import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { KPICard } from "@/components/KPICard";
+import { Suspense } from "react";
 import {
   getProfitabilityByRoom,
   getProfitabilityBySource,
@@ -21,19 +23,26 @@ function insightIcon(text: string): string {
   return "💡";
 }
 
-export default async function ProfitabilityPage() {
+export default async function ProfitabilityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ propertyId?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login");
 
+  const params = await searchParams;
   const orgId = (session.user as { organisationId?: string }).organisationId as string;
   const period = currentPeriod();
 
-  const property = await prisma.property.findFirst({
+  const allProperties = await prisma.property.findMany({
     where: { organisationId: orgId, isActive: true, deletedAt: null },
     select: { id: true, name: true },
+    orderBy: { name: "asc" },
   });
+  const selectedPropertyId = params.propertyId ?? allProperties[0]?.id ?? "";
 
-  if (!property) {
+  if (!selectedPropertyId) {
     return (
       <div>
         <PageHeader title="Profitability" description="No active property found." />
@@ -42,12 +51,14 @@ export default async function ProfitabilityPage() {
     );
   }
 
+  const propertyName = allProperties.find((p) => p.id === selectedPropertyId)?.name ?? "";
+
   const [rooms, sources, margin, costs, insights] = await Promise.all([
-    getProfitabilityByRoom(property.id, period),
-    getProfitabilityBySource(property.id, period),
-    getMarginPerOccupiedNight(property.id, period),
-    getCostBreakdown(property.id, period),
-    generateProfitabilityInsights(property.id, period),
+    getProfitabilityByRoom(selectedPropertyId, period),
+    getProfitabilityBySource(selectedPropertyId, period),
+    getMarginPerOccupiedNight(selectedPropertyId, period),
+    getCostBreakdown(selectedPropertyId, period),
+    generateProfitabilityInsights(selectedPropertyId, period),
   ]);
 
   const netProfit = margin.totalNetRevenue - margin.totalExpenses;
@@ -64,7 +75,12 @@ export default async function ProfitabilityPage() {
     <div>
       <PageHeader
         title="Profitability"
-        description={`${property.name} · ${period}`}
+        description={`${propertyName} · ${period}`}
+        action={
+          <Suspense fallback={null}>
+            <PropertySwitcher properties={allProperties} currentPropertyId={selectedPropertyId} />
+          </Suspense>
+        }
       />
 
       {/* ── SECTION 1: KPI Row ─────────────────────────────────── */}
