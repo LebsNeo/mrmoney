@@ -295,6 +295,92 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* Phase 6 — KPI Widgets */}
+      {kpiTrends.length > 0 && (
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* RevPAR Trend */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:col-span-2">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs text-gray-500">RevPAR Trend</p>
+                <p className="text-sm font-semibold text-white">Last 6 months</p>
+              </div>
+              <Link href="/kpis" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors shrink-0">
+                Full KPI report →
+              </Link>
+            </div>
+            <div className="flex items-end gap-2 flex-wrap">
+              {kpiTrends.map((t, i) => {
+                const isLast = i === kpiTrends.length - 1;
+                return (
+                  <div key={t.period} className="flex flex-col items-center gap-1">
+                    <span className={`text-xs font-semibold ${isLast ? "text-emerald-400" : "text-gray-400"}`}>
+                      {formatCurrency(t.RevPAR.value)}
+                    </span>
+                    <span className="text-[10px] text-gray-600">
+                      {t.period.split("-")[1]}/{t.period.split("-")[0].slice(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {isBestRevPAREver && (
+              <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                <span className="text-amber-400 text-sm">🏆</span>
+                <p className="text-xs text-amber-300 font-medium">Best RevPAR month ever!</p>
+              </div>
+            )}
+          </div>
+
+          {/* Avg Length of Stay */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Avg Length of Stay</p>
+              <p className="text-3xl font-bold text-white">
+                {currentAvgStay.toFixed(1)}
+                <span className="text-base font-normal text-gray-400 ml-1">nights</span>
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Current month average</p>
+          </div>
+
+          {/* Cancellation Rate Badge */}
+          <div className={`rounded-2xl border p-4 flex flex-col justify-between ${
+            currentCancellationRate < 0.05
+              ? "bg-emerald-500/5 border-emerald-500/20"
+              : currentCancellationRate < 0.1
+              ? "bg-amber-500/5 border-amber-500/20"
+              : "bg-red-500/5 border-red-500/20"
+          }`}>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Cancellation Rate</p>
+              <p className={`text-3xl font-bold ${
+                currentCancellationRate < 0.05
+                  ? "text-emerald-400"
+                  : currentCancellationRate < 0.1
+                  ? "text-amber-400"
+                  : "text-red-400"
+              }`}>
+                {formatPercent(currentCancellationRate)}
+              </p>
+            </div>
+            <div className={`mt-2 text-xs font-medium inline-flex items-center gap-1 ${
+              currentCancellationRate < 0.05
+                ? "text-emerald-400"
+                : currentCancellationRate < 0.1
+                ? "text-amber-400"
+                : "text-red-400"
+            }`}>
+              {currentCancellationRate < 0.05
+                ? "✓ Healthy"
+                : currentCancellationRate < 0.1
+                ? "⚠ Watch this"
+                : "✗ High — investigate"}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Phase 5 — Profitability Insights */}
       <div className="mt-8 bg-gray-900 border border-gray-800 rounded-2xl">
         <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
