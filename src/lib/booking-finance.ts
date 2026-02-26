@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { calcNights, calcVATAmount } from "@/lib/kpi";
 import { generateInvoiceNumber, toNumber } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import {
   BookingStatus,
   InvoiceStatus,
@@ -108,11 +109,11 @@ export async function onBookingConfirmed(bookingId: string): Promise<FinanceResu
       }
     });
 
-    console.log(`[BookingFinance] Invoice ${invoiceNumber} created (DRAFT) for booking ${bookingId}`);
+    logger.info("Invoice created (DRAFT)", { invoiceNumber, bookingId });
     return { success: true, message: `Invoice ${invoiceNumber} created as DRAFT` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[BookingFinance] onBookingConfirmed failed: ${msg}`);
+    logger.error("BookingFinance onBookingConfirmed failed", err);
     return { success: false, message: msg };
   }
 }
@@ -213,14 +214,14 @@ export async function onBookingCheckedOut(bookingId: string): Promise<FinanceRes
       }
     });
 
-    console.log(`[BookingFinance] Checkout transactions created for booking ${bookingId} (${nights} nights, gross: ${grossAmount})`);
+    logger.info("Checkout transactions created", { bookingId, nights, grossAmount });
     return {
       success: true,
       message: `Checked out. Income transaction created. ${otaCommission > 0 ? "OTA commission recorded." : ""}`,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[BookingFinance] onBookingCheckedOut failed: ${msg}`);
+    logger.error("BookingFinance onBookingCheckedOut failed", err);
     return { success: false, message: msg };
   }
 }
@@ -291,11 +292,11 @@ export async function onBookingCancelled(bookingId: string, reason: string): Pro
       });
     });
 
-    console.log(`[BookingFinance] Booking ${bookingId} cancelled. Reason: ${reason}`);
+    logger.info("Booking cancelled — transactions voided", { bookingId, reason });
     return { success: true, message: `Booking cancelled. All related transactions voided.` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[BookingFinance] onBookingCancelled failed: ${msg}`);
+    logger.error("BookingFinance onBookingCancelled failed", err);
     return { success: false, message: msg };
   }
 }
@@ -370,14 +371,14 @@ export async function onBookingNoShow(bookingId: string): Promise<FinanceResult>
       });
     });
 
-    console.log(`[BookingFinance] No-show logged for booking ${bookingId}. Lost revenue: ${grossAmount}`);
+    logger.info("No-show recorded — revenue voided", { bookingId, grossAmount });
     return {
       success: true,
       message: `No-show recorded. Related transactions voided. Lost revenue logged.`,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[BookingFinance] onBookingNoShow failed: ${msg}`);
+    logger.error("BookingFinance onBookingNoShow failed", err);
     return { success: false, message: msg };
   }
 }

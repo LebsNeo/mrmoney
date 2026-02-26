@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { InvoiceStatus, TransactionStatus, PaymentMethod } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────
 // MARK INVOICE PAID
@@ -73,8 +74,10 @@ export async function markInvoicePaid(
     revalidatePath(`/invoices/${id}`);
     revalidatePath("/bookings");
 
+    logger.info("Invoice marked as paid", { invoiceId: id, paymentMethod });
     return { success: true, message: "Invoice marked as paid. Receipt created." };
   } catch (err) {
+    logger.error("markInvoicePaid failed", err, { invoiceId: id });
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, message: msg };
   }

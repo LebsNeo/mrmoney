@@ -8,6 +8,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { OTAPlatform } from "@prisma/client";
+import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -422,6 +423,11 @@ export async function createOTAPayout(
       }
     });
 
+    logger.info("OTA payout imported", {
+      payoutId: payoutId!,
+      totalItems: items.length,
+      matchedItems: matches.size,
+    });
     return {
       success: true,
       payoutId: payoutId!,
@@ -430,6 +436,7 @@ export async function createOTAPayout(
       matchedItems: matches.size,
     };
   } catch (err) {
+    logger.error("OTA payout import failed", err);
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, message: msg, totalItems: items.length, matchedItems: 0 };
   }

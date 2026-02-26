@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { BookingSource, BookingStatus } from "@prisma/client";
 import { onBookingConfirmed } from "@/lib/booking-finance";
+import { logger } from "@/lib/logger";
 
 export interface BookingFilters {
   status?: BookingStatus;
@@ -162,9 +163,11 @@ export async function createBooking(input: CreateBookingInput) {
       await onBookingConfirmed(booking.id);
     }
 
+    logger.info("Booking created", { bookingId: booking.id, source, propertyId, roomId });
     revalidatePath("/bookings");
     return { success: true, bookingId: booking.id };
   } catch (err) {
+    logger.error("createBooking failed", err);
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, message: msg, bookingId: null };
   }

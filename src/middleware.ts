@@ -1,8 +1,36 @@
 import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { authRateLimit } from "@/lib/rate-limit";
 
 export default withAuth(
-  function middleware(req) {
+  function middleware(req: NextRequest) {
+    // Rate limit auth routes
+    if (req.nextUrl.pathname.startsWith("/api/auth/callback/credentials")) {
+      const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        req.headers.get("x-real-ip") ??
+        "unknown";
+
+      const result = authRateLimit(ip);
+      if (!result.success) {
+        return new NextResponse(
+          JSON.stringify({
+            success: false,
+            error: "Too many login attempts. Please wait 15 minutes and try again.",
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": String(
+                Math.ceil((result.resetAt - Date.now()) / 1000)
+              ),
+            },
+          }
+        );
+      }
+    }
+
     return NextResponse.next();
   },
   {
@@ -26,5 +54,6 @@ export const config = {
     "/forecast/:path*",
     "/budget/:path*",
     "/settings/:path*",
+    "/api/auth/callback/credentials",
   ],
 };

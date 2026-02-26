@@ -1,29 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getBudgetVsActual } from "@/lib/budget-analysis";
+import { apiSuccess, apiError, apiUnauthorized, apiServerError } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return apiUnauthorized();
+
+    const { searchParams } = new URL(request.url);
+    const propertyId = searchParams.get("propertyId");
+    const period = searchParams.get("period");
+
+    if (!propertyId) return apiError("propertyId is required");
+
+    if (!period || !/^\d{4}-\d{2}$/.test(period)) {
+      return apiError("period must be in YYYY-MM format");
+    }
+
+    const data = await getBudgetVsActual(propertyId, period);
+    return apiSuccess(data);
+  } catch (err) {
+    logger.error("Forecast budget error", err);
+    return apiServerError();
   }
-
-  const { searchParams } = new URL(request.url);
-  const propertyId = searchParams.get("propertyId");
-  const period = searchParams.get("period");
-
-  if (!propertyId) {
-    return NextResponse.json({ error: "propertyId is required" }, { status: 400 });
-  }
-
-  if (!period || !/^\d{4}-\d{2}$/.test(period)) {
-    return NextResponse.json(
-      { error: "period must be in YYYY-MM format" },
-      { status: 400 }
-    );
-  }
-
-  const data = await getBudgetVsActual(propertyId, period);
-  return NextResponse.json(data);
 }

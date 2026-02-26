@@ -7,6 +7,7 @@ import { TransactionCategory, TransactionType } from "@prisma/client";
 import { parse as parseDate, isValid } from "date-fns";
 import { autoCategoriseTransaction, Confidence } from "./auto-categorise";
 import { prisma } from "./prisma";
+import { logger } from "./logger";
 
 export interface ParsedTransaction {
   date: Date;
@@ -242,6 +243,13 @@ export async function parseBankStatementCSV(
       transactions.push(tx);
     }
   }
+
+  logger.info("Bank statement parsed", {
+    bankFormat,
+    valid: transactions.length,
+    duplicates: potentialDuplicates.length,
+    unrecognised: unrecognised.length,
+  });
 
   return { transactions, potentialDuplicates, unrecognised };
 }
