@@ -22,7 +22,9 @@ export interface PropertyDetailsInput {
   name: string;
   type: PropertyType;
   address?: string;
+  suburb?: string;
   city?: string;
+  postalCode?: string;
   country?: string;
 }
 
@@ -38,7 +40,9 @@ export async function createProperty(data: PropertyDetailsInput) {
         name: data.name.trim(),
         type: data.type,
         address: data.address?.trim() || null,
+        suburb: data.suburb?.trim() || null,
         city: data.city?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
         country: data.country?.trim() || "ZA",
       },
     });
@@ -81,7 +85,9 @@ export async function updatePropertyDetails(
         name: data.name.trim(),
         type: data.type,
         address: data.address?.trim() || null,
+        suburb: data.suburb?.trim() || null,
         city: data.city?.trim() || null,
+        postalCode: data.postalCode?.trim() || null,
         country: data.country?.trim() || "ZA",
         isActive: data.isActive ?? true,
       },

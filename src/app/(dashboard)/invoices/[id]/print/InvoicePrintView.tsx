@@ -21,7 +21,9 @@ type InvoiceForPrint = {
   property: {
     name: string;
     address: string | null;
+    suburb: string | null;
     city: string | null;
+    postalCode: string | null;
     phone: string | null;
     email: string | null;
     taxNumber: string | null;
@@ -147,7 +149,12 @@ export function InvoicePrintView({ invoice }: { invoice: InvoiceForPrint }) {
                 />
               )}
               <h2 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 700, color: "#111" }}>{p.name}</h2>
-              {p.address && <p style={{ margin: "0", fontSize: "13px", color: "#6b7280" }}>{p.address}{p.city ? `, ${p.city}` : ""}</p>}
+              {p.address && <p style={{ margin: "0", fontSize: "13px", color: "#6b7280" }}>{p.address}</p>}
+              {(p.suburb || p.city || p.postalCode) && (
+                <p style={{ margin: "0", fontSize: "13px", color: "#6b7280" }}>
+                  {[p.suburb, p.city, p.postalCode].filter(Boolean).join(", ")}
+                </p>
+              )}
               {p.phone && <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#6b7280" }}>{p.phone}</p>}
               {p.email && <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#6b7280" }}>{p.email}</p>}
               {p.website && <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#6b7280" }}>{p.website}</p>}

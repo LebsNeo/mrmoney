@@ -10,7 +10,9 @@ interface Props {
     name: string;
     type: PropertyType;
     address: string | null;
+    suburb: string | null;
     city: string | null;
+    postalCode: string | null;
     country: string;
     isActive: boolean;
   };

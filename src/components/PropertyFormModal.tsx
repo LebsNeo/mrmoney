@@ -20,7 +20,9 @@ interface PropertyFormModalProps {
     name: string;
     type: PropertyType;
     address: string | null;
+    suburb: string | null;
     city: string | null;
+    postalCode: string | null;
     country: string;
     isActive: boolean;
   };
@@ -41,7 +43,9 @@ export function PropertyFormModal({
     name: initial?.name ?? "",
     type: initial?.type ?? ("GUESTHOUSE" as PropertyType),
     address: initial?.address ?? "",
+    suburb: initial?.suburb ?? "",
     city: initial?.city ?? "",
+    postalCode: initial?.postalCode ?? "",
     country: initial?.country ?? "ZA",
     isActive: initial?.isActive ?? true,
   });
@@ -70,14 +74,18 @@ export function PropertyFormModal({
           name: form.name,
           type: form.type,
           address: form.address || undefined,
+          suburb: form.suburb || undefined,
           city: form.city || undefined,
+          postalCode: form.postalCode || undefined,
           country: form.country || "ZA",
         })
       : await updatePropertyDetails(propertyId!, {
           name: form.name,
           type: form.type,
           address: form.address || undefined,
+          suburb: form.suburb || undefined,
           city: form.city || undefined,
+          postalCode: form.postalCode || undefined,
           country: form.country || "ZA",
           isActive: form.isActive,
         });
@@ -143,19 +151,30 @@ export function PropertyFormModal({
             </select>
           </div>
 
-          {/* Address + City */}
+          {/* Address */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5 font-medium">Street Address</label>
+            <input
+              value={form.address}
+              onChange={e => set("address", e.target.value)}
+              placeholder="3 Mandulia Street"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* Suburb + City */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Street Address</label>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Suburb</label>
               <input
-                value={form.address}
-                onChange={e => set("address", e.target.value)}
-                placeholder="3 Mandulia Street"
+                value={form.suburb}
+                onChange={e => set("suburb", e.target.value)}
+                placeholder="West Acres"
                 className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5 font-medium">City / Town</label>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Town / City</label>
               <input
                 value={form.city}
                 onChange={e => set("city", e.target.value)}
@@ -165,17 +184,28 @@ export function PropertyFormModal({
             </div>
           </div>
 
-          {/* Country */}
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5 font-medium">Country Code</label>
-            <input
-              value={form.country}
-              onChange={e => set("country", e.target.value.toUpperCase())}
-              maxLength={2}
-              placeholder="ZA"
-              className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
-            />
-            <p className="text-[10px] text-gray-600 mt-1">2-letter ISO code: ZA, ZW, BW, MZ…</p>
+          {/* Postal Code + Country */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Postal Code</label>
+              <input
+                value={form.postalCode}
+                onChange={e => set("postalCode", e.target.value)}
+                placeholder="1211"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Country Code</label>
+              <input
+                value={form.country}
+                onChange={e => set("country", e.target.value.toUpperCase())}
+                maxLength={2}
+                placeholder="ZA"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+              />
+              <p className="text-[10px] text-gray-600 mt-1">ZA, ZW, BW, MZ…</p>
+            </div>
           </div>
 
           {/* Active toggle — edit mode only */}

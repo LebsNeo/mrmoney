@@ -225,7 +225,9 @@ model Property {
   name           String
   type           PropertyType @default(GUESTHOUSE)
   address        String?
+  suburb         String?
   city           String?
+  postalCode     String?
   country        String       @default("ZA")
   timezone       String       @default("Africa/Johannesburg")
   currency       String       @default("ZAR")

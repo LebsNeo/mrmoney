@@ -75,9 +75,9 @@ export default async function PropertiesPage() {
                         {property.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                    {(property.address || property.city) && (
+                    {(property.address || property.suburb || property.city || property.postalCode) && (
                       <p className="text-sm text-gray-400 mt-1">
-                        {[property.address, property.city].filter(Boolean).join(", ")}
+                        {[property.address, property.suburb, property.city, property.postalCode].filter(Boolean).join(", ")}
                       </p>
                     )}
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -109,7 +109,9 @@ export default async function PropertiesPage() {
                         name: property.name,
                         type: property.type,
                         address: property.address ?? null,
+                        suburb: property.suburb ?? null,
                         city: property.city ?? null,
+                        postalCode: property.postalCode ?? null,
                         country: property.country,
                         isActive: property.isActive,
                       }}

@@ -29,7 +29,9 @@ type InvoiceWithRelations = {
     id: string;
     name: string;
     address: string | null;
+    suburb: string | null;
     city: string | null;
+    postalCode: string | null;
     phone: string | null;
     email: string | null;
     taxNumber: string | null;
@@ -453,7 +455,12 @@ export function InvoiceDetailClient({ invoice }: { invoice: InvoiceWithRelations
             <div className="space-y-1 text-sm">
               <p className="text-white font-semibold">{invoice.property.name}</p>
               {invoice.property.address && (
-                <p className="text-gray-400 text-xs">{invoice.property.address}{invoice.property.city ? `, ${invoice.property.city}` : ""}</p>
+                <p className="text-gray-400 text-xs">{invoice.property.address}</p>
+              )}
+              {(invoice.property.suburb || invoice.property.city || invoice.property.postalCode) && (
+                <p className="text-gray-400 text-xs">
+                  {[invoice.property.suburb, invoice.property.city, invoice.property.postalCode].filter(Boolean).join(", ")}
+                </p>
               )}
               {invoice.property.phone && <p className="text-gray-400 text-xs">📞 {invoice.property.phone}</p>}
               {invoice.property.email && <p className="text-gray-400 text-xs">✉ {invoice.property.email}</p>}

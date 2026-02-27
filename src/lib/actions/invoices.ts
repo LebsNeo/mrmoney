@@ -335,7 +335,8 @@ export async function sendInvoiceEmail(id: string) {
 <body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111">
   ${property.logoUrl ? `<img src="${property.logoUrl}" alt="${property.name}" style="max-height:80px;max-width:200px;margin-bottom:16px">` : ""}
   <h2 style="margin:0 0 4px">${property.name}</h2>
-  ${property.address ? `<p style="margin:0;color:#6b7280;font-size:13px">${property.address}${property.city ? `, ${property.city}` : ""}</p>` : ""}
+  ${property.address ? `<p style="margin:0;color:#6b7280;font-size:13px">${property.address}</p>` : ""}
+  ${(property as any).suburb || property.city || (property as any).postalCode ? `<p style="margin:0;color:#6b7280;font-size:13px">${[(property as any).suburb, property.city, (property as any).postalCode].filter(Boolean).join(", ")}</p>` : ""}
   ${property.phone ? `<p style="margin:0;color:#6b7280;font-size:13px">📞 ${property.phone}</p>` : ""}
   ${property.email ? `<p style="margin:0;color:#6b7280;font-size:13px">✉ ${property.email}</p>` : ""}
   ${property.taxNumber ? `<p style="margin:0;color:#6b7280;font-size:13px">VAT/Tax No: ${property.taxNumber}</p>` : ""}
