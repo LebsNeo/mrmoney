@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { InvoiceStatus, TransactionStatus, PaymentMethod } from "@prisma/client";
+import { signInvoiceToken } from "@/lib/invoice-token";
 import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────
@@ -40,11 +41,31 @@ export async function markInvoicePaid(
     }
 
     await prisma.$transaction(async (tx) => {
-      // Create receipt
+      // Always create a fresh payment transaction so receipt has a valid transactionId
+      const paymentTx = await tx.transaction.create({
+        data: {
+          organisationId: invoice.organisationId,
+          propertyId: invoice.propertyId,
+          type: "INCOME",
+          source: "MANUAL",
+          category: "ACCOMMODATION",
+          description: `Payment received — Invoice ${invoice.invoiceNumber}`,
+          amount: invoice.totalAmount,
+          currency: "ZAR",
+          date: new Date(),
+          vatRate: invoice.taxRate,
+          vatAmount: invoice.taxAmount,
+          isVatInclusive: false,
+          status: TransactionStatus.RECONCILED,
+          reference,
+        },
+      });
+
+      // Create receipt linked to the payment transaction
       await tx.receipt.create({
         data: {
           organisationId: invoice.organisationId,
-          transactionId: invoice.transactions[0]?.id ?? invoice.id, // fallback
+          transactionId: paymentTx.id,
           invoiceId: invoice.id,
           amount: invoice.totalAmount,
           paymentMethod,
@@ -54,7 +75,7 @@ export async function markInvoicePaid(
         },
       });
 
-      // Update all related transactions to RECONCILED
+      // Reconcile any existing linked transactions
       if (invoice.transactions.length > 0) {
         await tx.transaction.updateMany({
           where: {
@@ -305,7 +326,8 @@ export async function sendInvoiceEmail(id: string) {
     const property = invoice.property;
     const fromName = property.name;
     const fromEmail = process.env.RESEND_FROM_EMAIL || "invoices@mrmoney.app";
-    const printUrl = `${process.env.NEXTAUTH_URL}/invoices/${id}/print`;
+    const token = signInvoiceToken(id);
+    const printUrl = `${process.env.NEXTAUTH_URL}/invoice-view/${token}`;
     const footer = property.invoiceFooter ||
       `Thank you for choosing ${property.name}. We look forward to welcoming you again!`;
 

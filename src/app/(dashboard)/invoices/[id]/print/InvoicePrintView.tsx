@@ -67,7 +67,7 @@ function fmt(d: Date | string) {
   return new Date(d).toLocaleDateString("en-ZA", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-export function InvoicePrintView({ invoice }: { invoice: InvoiceForPrint }) {
+export function InvoicePrintView({ invoice, isPublic = false }: { invoice: InvoiceForPrint; isPublic?: boolean }) {
   const p = invoice.property;
   const lineItems = getLineItems(invoice);
   const subtotal = n(invoice.subtotal);
@@ -107,13 +107,17 @@ export function InvoicePrintView({ invoice }: { invoice: InvoiceForPrint }) {
       {/* Toolbar (hidden on print) */}
       <div id="print-toolbar" className="no-print fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-700 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <a
-            href={`/invoices/${invoice.id}`}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            ← Back to Invoice
-          </a>
-          <span className="text-gray-700">|</span>
+          {!isPublic && (
+            <>
+              <a
+                href={`/invoices/${invoice.id}`}
+                className="text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                ← Back to Invoice
+              </a>
+              <span className="text-gray-700">|</span>
+            </>
+          )}
           <span className="text-xs text-gray-400">
             Invoice {invoice.invoiceNumber}
           </span>
