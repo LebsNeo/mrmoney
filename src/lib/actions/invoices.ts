@@ -413,7 +413,9 @@ export async function sendInvoiceEmail(id: string) {
       from: `${fromName} <${fromEmail}>`,
       to: clientEmail,
       replyTo: property.email || undefined,
-      subject: `Invoice ${invoice.invoiceNumber} from ${property.name}`,
+      subject: invoice.status === "PAID"
+        ? `Tax Receipt ${invoice.invoiceNumber} from ${property.name}`
+        : `Invoice ${invoice.invoiceNumber} from ${property.name}`,
       html,
     });
 
