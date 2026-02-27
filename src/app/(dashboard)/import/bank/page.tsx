@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { importBankTransactions } from "@/lib/actions/automation";
 import { TransactionCategory } from "@prisma/client";
 
-const BANKS = ["FNB", "NEDBANK", "ABSA", "STANDARD_BANK", "CAPITEC"] as const;
+const BANKS = ["FNB", "NEDBANK", "ABSA", "STANDARD_BANK", "CAPITEC", "QUICKBOOKS"] as const;
 
 const CATEGORIES: TransactionCategory[] = [
   "ACCOMMODATION", "FB", "LAUNDRY", "CLEANING", "MAINTENANCE",
@@ -120,7 +120,9 @@ export default function BankImportPage() {
             >
               {BANKS.map((b) => (
                 <option key={b} value={b}>
-                  {b.replace("_", " ")}
+                  {b === "QUICKBOOKS" ? "QuickBooks Export"
+                   : b === "STANDARD_BANK" ? "Standard Bank"
+                   : b.replace("_", " ")}
                 </option>
               ))}
             </select>
@@ -147,10 +149,12 @@ export default function BankImportPage() {
             {bank === "NEDBANK" && "Date (YYYY/MM/DD), Description, Debit, Credit, Balance"}
             {bank === "STANDARD_BANK" && "HIST rows: HIST, Date(YYYYMMDD), [##], Amount, Description, Reference"}
             {bank === "CAPITEC" && "Account, Date(DD/MM/YYYY), Description, Reference, Amount, Fees, Balance"}
+            {bank === "QUICKBOOKS" && "Date, Transaction type, Number, Posting, Name, Memo, Account name, Account full name, Amount"}
           </p>
           <p className="text-xs text-gray-600 mt-1">
             {bank === "STANDARD_BANK" && "Export: Internet Banking → Account → View Statements → Export CSV"}
             {bank === "CAPITEC" && "Export: Capitec Business App → Accounts → Statement → Export CSV"}
+            {bank === "QUICKBOOKS" && "Export: QB → Reports → Transaction List by Date → Export to CSV"}
           </p>
         </div>
       </div>

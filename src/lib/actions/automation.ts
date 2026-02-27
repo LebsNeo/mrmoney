@@ -58,7 +58,9 @@ export async function importBankTransactions(formData: FormData) {
 
   const resolvedPropertyId = await resolvePropertyId(orgId, propertyId ?? "default");
   const csvContent = await file.text();
-  const result = await parseBankStatementCSV(csvContent, bankFormat, resolvedPropertyId, orgId);
+  const result = bankFormat.toUpperCase() === "QUICKBOOKS"
+    ? await parseQuickBooksCSV(csvContent, resolvedPropertyId, orgId)
+    : await parseBankStatementCSV(csvContent, bankFormat, resolvedPropertyId, orgId);
 
   // Parse category overrides if provided
   let categoryOverrides: Record<number, TransactionCategory> = {};

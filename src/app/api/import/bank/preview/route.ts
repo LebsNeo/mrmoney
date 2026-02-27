@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseBankStatementCSV } from "@/lib/bank-import";
+import { parseQuickBooksCSV } from "@/lib/quickbooks-import";
 import { apiSuccess, apiError, apiUnauthorized, apiServerError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 
@@ -26,14 +27,12 @@ export async function POST(req: NextRequest) {
     if (!bankFormat || !file) return apiError("Missing required fields");
 
     const csvContent = await file.text();
-    // skipDuplicateCheck=true: no per-row DB calls — preview is instant
-    const result = await parseBankStatementCSV(
-      csvContent,
-      bankFormat,
-      firstProperty.id,
-      orgId,
-      true
-    );
+
+    // Route to the appropriate parser
+    const result = bankFormat.toUpperCase() === "QUICKBOOKS"
+      ? await parseQuickBooksCSV(csvContent, firstProperty.id, orgId, true)
+      // skipDuplicateCheck=true: no per-row DB calls — preview is instant
+      : await parseBankStatementCSV(csvContent, bankFormat, firstProperty.id, orgId, true);
 
     // Serialize dates for JSON transport
     const serialise = (tx: (typeof result.transactions)[0]) => ({
