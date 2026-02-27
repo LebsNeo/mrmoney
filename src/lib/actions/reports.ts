@@ -3,8 +3,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TransactionCategory, TransactionType } from "@prisma/client";
-import { resolveGroup, resolveLabel, COAGroup, GROUP_META } from "@/lib/coa";
+import { TransactionCategory } from "@prisma/client";
+import { CHART_OF_ACCOUNTS, PLStatement, PLSection, PLLineItem } from "@/lib/coa";
 import { logger } from "@/lib/logger";
 
 async function getOrgId() {
@@ -14,161 +14,189 @@ async function getOrgId() {
   return orgId;
 }
 
-export interface PLLineItem {
-  category: TransactionCategory;
-  label: string;
-  amount: number;       // always positive
-  txCount: number;
+// ─────────────────────────────────────────────
+// DATE RANGE HELPERS
+// ─────────────────────────────────────────────
+
+export type PeriodPreset =
+  | "this_month"
+  | "last_month"
+  | "this_quarter"
+  | "last_quarter"
+  | "this_year"
+  | "last_year"
+  | "custom";
+
+export function resolvePeriod(preset: PeriodPreset, customFrom?: string, customTo?: string) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-indexed
+
+  switch (preset) {
+    case "this_month":
+      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
+    case "last_month":
+      return { from: new Date(y, m - 1, 1), to: new Date(y, m, 0) };
+    case "this_quarter": {
+      const q = Math.floor(m / 3);
+      return { from: new Date(y, q * 3, 1), to: new Date(y, q * 3 + 3, 0) };
+    }
+    case "last_quarter": {
+      const q = Math.floor(m / 3) - 1;
+      const qy = q < 0 ? y - 1 : y;
+      const qq = ((q % 4) + 4) % 4;
+      return { from: new Date(qy, qq * 3, 1), to: new Date(qy, qq * 3 + 3, 0) };
+    }
+    case "this_year":
+      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) };
+    case "last_year":
+      return { from: new Date(y - 1, 0, 1), to: new Date(y - 1, 11, 31) };
+    case "custom":
+      return {
+        from: customFrom ? new Date(customFrom) : new Date(y, m, 1),
+        to: customTo ? new Date(customTo) : new Date(y, m + 1, 0),
+      };
+    default:
+      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
+  }
 }
 
-export interface PLGroup {
-  group: COAGroup;
-  label: string;
-  lines: PLLineItem[];
-  total: number;        // always positive
+export function formatPeriodLabel(from: Date, to: Date): string {
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+  const f = from.toLocaleDateString("en-ZA", opts);
+  const t = to.toLocaleDateString("en-ZA", opts);
+  if (from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()) {
+    return from.toLocaleDateString("en-ZA", { month: "long", year: "numeric" });
+  }
+  return `${f} – ${t}`;
 }
 
-export interface PLStatement {
-  orgId: string;
-  propertyId: string | null;
-  propertyName: string;
-  periodLabel: string;
-  dateFrom: string;
-  dateTo: string;
-  groups: PLGroup[];
-  // Computed subtotals
-  totalRevenue: number;
-  totalCOGS: number;
-  grossProfit: number;
-  grossMargin: number;       // %
-  totalOpEx: number;
-  ebitda: number;
-  ebitdaMargin: number;      // %
-  totalFinancial: number;
-  netProfit: number;
-  netMargin: number;         // %
-  // Basis
-  basis: "cash";
-  generatedAt: string;
-}
+// ─────────────────────────────────────────────
+// P&L GENERATOR
+// ─────────────────────────────────────────────
 
 export async function getPLStatement(
-  dateFrom: string,
-  dateTo: string,
-  propertyId?: string
+  preset: PeriodPreset,
+  propertyId?: string,
+  customFrom?: string,
+  customTo?: string
 ): Promise<PLStatement> {
   const orgId = await getOrgId();
+  const { from, to } = resolvePeriod(preset, customFrom, customTo);
 
-  // Resolve property
+  // Resolve property name
   const properties = await prisma.property.findMany({
-    where: { organisationId: orgId, deletedAt: null },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
+    where: { organisationId: orgId, isActive: true, deletedAt: null },
+    select: { id: true, name: true, currency: true },
   });
 
-  const selectedProp = propertyId
+  const property = propertyId
     ? properties.find((p) => p.id === propertyId)
     : null;
 
-  const propertyName = selectedProp?.name ?? "All Properties";
+  const propertyName = property?.name ?? "All Properties";
+  const currency = property?.currency ?? "ZAR";
 
-  // Fetch cleared/reconciled transactions in range
-  const txns = await prisma.transaction.findMany({
+  // Fetch all transactions in period (non-deleted, non-void)
+  const transactions = await prisma.transaction.findMany({
     where: {
       organisationId: orgId,
       ...(propertyId ? { propertyId } : {}),
-      date: {
-        gte: new Date(dateFrom),
-        lte: new Date(dateTo),
-      },
-      status: { in: ["CLEARED", "RECONCILED"] },
+      date: { gte: from, lte: to },
       deletedAt: null,
+      status: { not: "VOID" },
+      // Exclude VAT entries from the P&L (handled separately)
+      category: { notIn: ["VAT_OUTPUT", "VAT_INPUT"] },
     },
     select: {
-      category: true,
       type: true,
+      category: true,
       amount: true,
     },
   });
 
   // Aggregate by category + type
-  const aggMap = new Map<string, { category: TransactionCategory; type: TransactionType; amount: number; count: number }>();
+  const totals = new Map<string, number>();
+  for (const tx of transactions) {
+    const key = `${tx.type}::${tx.category}`;
+    totals.set(key, (totals.get(key) ?? 0) + Number(tx.amount));
+  }
 
-  for (const tx of txns) {
-    const key = `${tx.category}::${tx.type}`;
-    const existing = aggMap.get(key);
-    const amt = Number(tx.amount);
-    if (existing) {
-      existing.amount += amt;
-      existing.count++;
-    } else {
-      aggMap.set(key, { category: tx.category, type: tx.type, amount: amt, count: 1 });
+  function getAmount(category: TransactionCategory, type: "INCOME" | "EXPENSE"): number {
+    return totals.get(`${type}::${category}`) ?? 0;
+  }
+
+  // ── Build sections ──────────────────────────
+
+  function buildSection(
+    group: "REVENUE" | "COST_OF_SALES" | "OPERATING_EXPENSES" | "FINANCIAL_CHARGES",
+    type: "INCOME" | "EXPENSE"
+  ): PLSection {
+    const coaLines = CHART_OF_ACCOUNTS
+      .filter((l) => l.group === group)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // For OTHER: split by type (INCOME vs EXPENSE both map to OTHER)
+    const lines: PLLineItem[] = [];
+    for (const line of coaLines) {
+      const amount = getAmount(line.category, type);
+      if (amount > 0 || line.category !== "OTHER") {
+        // Only include zero-amount lines for non-OTHER categories
+        if (amount > 0 || line.category !== "OTHER") {
+          lines.push({ category: line.category, label: line.label, amount });
+        }
+      }
     }
+
+    // Filter out zero lines for cleanliness (keep at least 1 line per section)
+    const nonZero = lines.filter((l) => l.amount > 0);
+    const displayLines = nonZero.length > 0 ? nonZero : [];
+
+    return {
+      group,
+      title: group === "REVENUE" ? "Revenue"
+        : group === "COST_OF_SALES" ? "Cost of Sales"
+        : group === "OPERATING_EXPENSES" ? "Operating Expenses"
+        : "Financial Charges",
+      lines: displayLines,
+      total: displayLines.reduce((s, l) => s + l.amount, 0),
+    };
   }
 
-  // Build group → lines map
-  const groupMap = new Map<COAGroup, PLLineItem[]>();
-  for (const [, agg] of aggMap) {
-    const group = resolveGroup(agg.category, agg.type);
-    const label = resolveLabel(agg.category, agg.type);
-    if (!groupMap.has(group)) groupMap.set(group, []);
-    groupMap.get(group)!.push({
-      category: agg.category,
-      label,
-      amount: agg.amount,
-      txCount: agg.count,
-    });
-  }
+  const revenue           = buildSection("REVENUE", "INCOME");
+  const costOfSales       = buildSection("COST_OF_SALES", "EXPENSE");
+  const operatingExpenses = buildSection("OPERATING_EXPENSES", "EXPENSE");
+  const financialCharges  = buildSection("FINANCIAL_CHARGES", "EXPENSE");
 
-  // Build ordered groups
-  const ORDER: COAGroup[] = ["REVENUE", "COST_OF_SALES", "OPERATING_EXPENSES", "FINANCIAL_CHARGES"];
-  const groups: PLGroup[] = ORDER.map((g) => {
-    const lines = (groupMap.get(g) ?? []).sort((a, b) => b.amount - a.amount);
-    const total = lines.reduce((s, l) => s + l.amount, 0);
-    return { group: g, label: GROUP_META[g].label, lines, total };
-  });
+  // ── Key metrics ─────────────────────────────
+  const totalRevenue   = revenue.total;
+  const grossProfit    = totalRevenue - costOfSales.total;
+  const ebitda         = grossProfit - operatingExpenses.total;
+  const netProfit      = ebitda - financialCharges.total;
+  const totalExpenses  = costOfSales.total + operatingExpenses.total + financialCharges.total;
 
-  // Subtotals
-  const totalRevenue   = groups.find((g) => g.group === "REVENUE")?.total ?? 0;
-  const totalCOGS      = groups.find((g) => g.group === "COST_OF_SALES")?.total ?? 0;
-  const grossProfit    = totalRevenue - totalCOGS;
-  const grossMargin    = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-  const totalOpEx      = groups.find((g) => g.group === "OPERATING_EXPENSES")?.total ?? 0;
-  const ebitda         = grossProfit - totalOpEx;
-  const ebitdaMargin   = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
-  const totalFinancial = groups.find((g) => g.group === "FINANCIAL_CHARGES")?.total ?? 0;
-  const netProfit      = ebitda - totalFinancial;
-  const netMargin      = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const pct = (n: number) => totalRevenue > 0 ? (n / totalRevenue) * 100 : 0;
 
-  // Period label
-  const from = new Date(dateFrom);
-  const to = new Date(dateTo);
-  const periodLabel = from.toLocaleDateString("en-ZA", { month: "long", year: "numeric" }) ===
-    to.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })
-    ? from.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })
-    : `${from.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })} – ${to.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
-
-  logger.info("P&L generated", { orgId, propertyId, dateFrom, dateTo, netProfit });
+  logger.info("P&L generated", { orgId, propertyName, from, to, totalRevenue, netProfit });
 
   return {
-    orgId,
-    propertyId: propertyId ?? null,
     propertyName,
-    periodLabel,
-    dateFrom,
-    dateTo,
-    groups,
-    totalRevenue,
-    totalCOGS,
+    periodLabel: formatPeriodLabel(from, to),
+    from,
+    to,
+    generatedAt: new Date(),
+    currency,
+    revenue,
+    costOfSales,
     grossProfit,
-    grossMargin,
-    totalOpEx,
+    grossMargin: pct(grossProfit),
+    operatingExpenses,
     ebitda,
-    ebitdaMargin,
-    totalFinancial,
+    ebitdaMargin: pct(ebitda),
+    financialCharges,
     netProfit,
-    netMargin,
-    basis: "cash",
-    generatedAt: new Date().toISOString(),
+    netMargin: pct(netProfit),
+    totalRevenue,
+    totalExpenses,
   };
 }

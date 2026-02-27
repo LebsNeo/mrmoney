@@ -15,6 +15,8 @@ const CATEGORIES: { value: TransactionCategory; label: string; emoji: string }[]
   { value: "MARKETING", label: "Marketing", emoji: "📣" },
   { value: "SUPPLIES", label: "Supplies", emoji: "📦" },
   { value: "OTA_COMMISSION", label: "OTA Commission", emoji: "🌐" },
+  { value: "LOAN_INTEREST",  label: "Loan Interest",  emoji: "🏦" },
+  { value: "BANK_CHARGES",   label: "Bank Charges",   emoji: "💳" },
   { value: "OTHER", label: "Other", emoji: "📝" },
 ];
 
