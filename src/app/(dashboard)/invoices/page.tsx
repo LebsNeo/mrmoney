@@ -165,12 +165,20 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
                         <StatusBadge status={inv.effectiveStatus.toLowerCase()} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {isActionable && (
-                          <MarkInvoicePaidButton
-                            invoiceId={inv.id}
-                            invoiceNumber={inv.invoiceNumber}
-                          />
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/invoices/${inv.id}`}
+                            className="px-2.5 py-1 rounded-lg text-xs bg-gray-800 text-gray-400 hover:text-white border border-gray-700 transition-colors"
+                          >
+                            View / Edit
+                          </Link>
+                          {isActionable && (
+                            <MarkInvoicePaidButton
+                              invoiceId={inv.id}
+                              invoiceNumber={inv.invoiceNumber}
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

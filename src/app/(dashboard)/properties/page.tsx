@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { PropertyRoomsCard } from "@/components/PropertyRoomsCard";
+import { PropertyBillingForm } from "@/components/PropertyBillingForm";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function PropertiesPage() {
@@ -107,6 +108,22 @@ export default async function PropertiesPage() {
                     ...r,
                     baseRate: Number(r.baseRate),
                   }))}
+                />
+
+                {/* Invoice billing profile */}
+                <PropertyBillingForm
+                  propertyId={property.id}
+                  initial={{
+                    phone: property.phone ?? null,
+                    email: property.email ?? null,
+                    taxNumber: property.taxNumber ?? null,
+                    logoUrl: property.logoUrl ?? null,
+                    website: property.website ?? null,
+                    bankName: property.bankName ?? null,
+                    bankAccount: property.bankAccount ?? null,
+                    bankBranch: property.bankBranch ?? null,
+                    invoiceFooter: property.invoiceFooter ?? null,
+                  }}
                 />
               </div>
             );

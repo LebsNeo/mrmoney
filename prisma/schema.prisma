@@ -230,6 +230,16 @@ model Property {
   timezone       String       @default("Africa/Johannesburg")
   currency       String       @default("ZAR")
   isActive       Boolean      @default(true)
+  // Billing profile (for invoices)
+  phone          String?
+  email          String?
+  taxNumber      String?      // VAT / tax registration number
+  logoUrl        String?      // base64 data URL
+  website        String?
+  bankName       String?
+  bankAccount    String?
+  bankBranch     String?      // Branch/sort code
+  invoiceFooter  String?      // Custom thank-you / footer message
   // Audit
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -424,6 +434,13 @@ model Invoice {
   totalAmount    Decimal       @db.Decimal(19, 4)
   status         InvoiceStatus @default(DRAFT)
   notes          String?
+  // Client info (manually entered — OTAs sometimes withhold email)
+  clientName     String?
+  clientEmail    String?
+  // Line items: [{ description, qty, unitPrice, amount }]
+  lineItems      Json?
+  // Email tracking
+  sentAt         DateTime?
   // Audit
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
