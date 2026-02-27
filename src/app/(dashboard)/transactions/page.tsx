@@ -3,6 +3,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { CategorySelect } from "@/components/CategorySelect";
+import { CategoryEditor } from "@/components/CategoryEditor";
 import { EmptyState } from "@/components/EmptyState";
 import { ExportButton } from "@/components/ExportButton";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -178,9 +179,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
-                        {tx.category.replace(/_/g, " ")}
-                      </span>
+                      <CategoryEditor txId={tx.id} category={tx.category} />
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={tx.type.toLowerCase()} />

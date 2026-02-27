@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 import { TransactionType, TransactionCategory, TransactionStatus } from "@prisma/client";
 
 export interface TransactionFilters {
@@ -56,4 +57,17 @@ export async function getTransactions(filters: TransactionFilters = {}) {
     limit,
     totalPages: Math.ceil(total / limit),
   };
+}
+
+export async function updateTransactionCategory(
+  id: string,
+  category: TransactionCategory
+): Promise<void> {
+  await prisma.transaction.update({
+    where: { id },
+    data: { category },
+  });
+  revalidatePath("/transactions");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports/pl");
 }
