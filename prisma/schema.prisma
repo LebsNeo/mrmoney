@@ -391,6 +391,8 @@ model Transaction {
   vatRate        Decimal             @default(0) @db.Decimal(5, 4)
   vatAmount      Decimal             @default(0) @db.Decimal(19, 4)
   isVatInclusive Boolean             @default(false)
+  notes          String?             // Internal notes
+  receiptUrl     String?             // Vercel Blob URL of receipt/till slip image
   // Status
   status         TransactionStatus   @default(PENDING)
   // Audit

@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { AlertBell } from "@/components/AlertBell";
 import { BottomNav } from "@/components/BottomNav";
+import { QuickActionFAB } from "@/components/QuickActionFAB";
 
 const navItems = [
   {
@@ -230,6 +231,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile bottom nav */}
       <BottomNav />
+
+      {/* Quick Action FAB — always visible */}
+      <QuickActionFAB />
     </div>
   );
 }
