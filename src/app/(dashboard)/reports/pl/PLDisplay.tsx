@@ -81,7 +81,7 @@ export function PLDisplay({ pl }: { pl: PLStatement }) {
   const hasData = pl.totalRevenue > 0 || pl.totalExpenses > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="pl-print-area">
       {/* Statement card */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden" id="pl-statement">
 
@@ -207,9 +207,39 @@ export function PLDisplay({ pl }: { pl: PLStatement }) {
       {/* Print styles */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #pl-statement { display: block !important; }
-          .no-print { display: none !important; }
+          /* Hide everything, then reveal only the P&L area */
+          body * { visibility: hidden; }
+          #pl-print-area, #pl-print-area * { visibility: visible; }
+          #pl-print-area {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            padding: 24px;
+            background: white !important;
+          }
+
+          /* Force light mode for print */
+          #pl-print-area { color: #111 !important; }
+          #pl-print-area .bg-gray-900,
+          #pl-print-area .bg-gray-800\/50 { background: white !important; }
+          #pl-print-area .border-gray-800,
+          #pl-print-area .border-gray-700 { border-color: #e5e7eb !important; }
+          #pl-print-area .text-white,
+          #pl-print-area .text-gray-300,
+          #pl-print-area .text-gray-400 { color: #111 !important; }
+          #pl-print-area .text-gray-500,
+          #pl-print-area .text-gray-600 { color: #6b7280 !important; }
+          #pl-print-area .text-emerald-400 { color: #059669 !important; }
+          #pl-print-area .text-red-400 { color: #dc2626 !important; }
+          #pl-print-area .text-amber-400 { color: #d97706 !important; }
+          #pl-print-area .text-orange-400 { color: #ea580c !important; }
+          #pl-print-area .bg-emerald-500\/10 { background: #d1fae5 !important; }
+          #pl-print-area .bg-red-500\/10 { background: #fee2e2 !important; }
+
+          /* Hide the print button itself */
+          #pl-print-area button { display: none !important; }
+
+          @page { margin: 1.5cm; size: A4; }
         }
       `}</style>
     </div>
