@@ -1,5 +1,3 @@
-"use server";
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +25,7 @@ export async function getPLStatement(
   customFrom?: string,
   customTo?: string
 ): Promise<PLStatement> {
+  "use server";
   const orgId = await getOrgId();
   const { from, to } = resolvePeriod(preset, customFrom, customTo);
 
