@@ -95,18 +95,26 @@ enum TransactionSource {
 }
 
 enum TransactionCategory {
+  // Revenue
   ACCOMMODATION
   FB
   LAUNDRY
+  // Cost of Sales
   CLEANING
+  SUPPLIES
+  OTA_COMMISSION
+  // Operating Expenses
   MAINTENANCE
   UTILITIES
   SALARIES
   MARKETING
-  SUPPLIES
-  OTA_COMMISSION
+  // Financial Charges
+  LOAN_INTEREST
+  BANK_CHARGES
+  // Tax
   VAT_OUTPUT
   VAT_INPUT
+  // Catch-all
   OTHER
 }
 
