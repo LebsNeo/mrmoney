@@ -128,7 +128,20 @@ export function PropertyBillingForm({ propertyId, initial }: Props) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone" value={form.phone} onChange={v => set("phone", v)} placeholder="+27 13 123 4567" />
-            <Field label="Email" value={form.email} onChange={v => set("email", v)} placeholder="info@golfbnb.co.za" type="email" />
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">
+                Reply-To Email
+                <span className="text-gray-600 ml-1">(client replies go here)</span>
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => set("email", e.target.value)}
+                placeholder="nelsbnb@gmail.com"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <p className="text-[10px] text-gray-600 mt-1">Shown on invoice. When clients reply to the email, it lands here.</p>
+            </div>
             <Field label="Website" value={form.website} onChange={v => set("website", v)} placeholder="www.golfbnb.co.za" />
             <Field label="VAT / Tax Number" value={form.taxNumber} onChange={v => set("taxNumber", v)} placeholder="4123456789" />
           </div>
