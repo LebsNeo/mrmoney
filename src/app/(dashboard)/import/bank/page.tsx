@@ -175,36 +175,82 @@ export default function BankImportPage() {
 
       {/* Result */}
       {result && (
-        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-base text-emerald-400 font-semibold">
-                ✅ Import complete!
-              </p>
-              <p className="text-sm text-white mt-1">
-                {result.saved} transaction{result.saved !== 1 ? "s" : ""} saved successfully
-              </p>
-              {result.duplicates > 0 && (
-                <p className="text-xs text-amber-400 mt-1">⚠ {result.duplicates} potential duplicate{result.duplicates !== 1 ? "s" : ""} skipped</p>
-              )}
-              {result.unrecognised > 0 && (
-                <p className="text-xs text-gray-500 mt-1">{result.unrecognised} unrecognised row{result.unrecognised !== 1 ? "s" : ""} skipped</p>
-              )}
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl overflow-hidden mb-6">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 border-b border-emerald-500/10">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-2xl">🎉</span>
+              <p className="text-lg font-bold text-emerald-400">Upload successful — data saved!</p>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={() => { setResult(null); setFile(null); }}
-                className="px-3 py-2 rounded-xl text-sm bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
-              >
-                Import Another
-              </button>
+            <p className="text-sm text-gray-400 ml-11">
+              Your transactions are now in MrMoney and ready to work with.
+            </p>
+          </div>
+
+          {/* Stats */}
+          <div className="px-6 py-4 grid grid-cols-3 gap-3 border-b border-emerald-500/10">
+            <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-emerald-400">{result.saved}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Transactions saved</p>
+            </div>
+            <div className={`rounded-xl p-3 text-center ${result.duplicates > 0 ? "bg-amber-500/10" : "bg-gray-800/50"}`}>
+              <p className={`text-xl font-bold ${result.duplicates > 0 ? "text-amber-400" : "text-gray-600"}`}>{result.duplicates}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Duplicates skipped</p>
+            </div>
+            <div className={`rounded-xl p-3 text-center ${result.unrecognised > 0 ? "bg-gray-800" : "bg-gray-800/50"}`}>
+              <p className={`text-xl font-bold ${result.unrecognised > 0 ? "text-gray-300" : "text-gray-600"}`}>{result.unrecognised}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Rows skipped</p>
+            </div>
+          </div>
+
+          {/* What's next */}
+          <div className="px-6 py-4 border-b border-emerald-500/10">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">What to do next</p>
+            <div className="space-y-2">
               <button
                 onClick={() => router.push("/transactions")}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-left transition-colors group"
               >
-                View Transactions →
+                <span className="text-lg">🧾</span>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-emerald-400 transition-colors">Review your transactions</p>
+                  <p className="text-xs text-gray-500">Check categories and make any corrections</p>
+                </div>
+                <span className="ml-auto text-gray-600 group-hover:text-emerald-400 transition-colors">→</span>
+              </button>
+              <button
+                onClick={() => router.push("/reports/pl")}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-left transition-colors group"
+              >
+                <span className="text-lg">📊</span>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-emerald-400 transition-colors">View your Income Statement</p>
+                  <p className="text-xs text-gray-500">See revenue, expenses and net profit for any period</p>
+                </div>
+                <span className="ml-auto text-gray-600 group-hover:text-emerald-400 transition-colors">→</span>
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-left transition-colors group"
+              >
+                <span className="text-lg">🏠</span>
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-emerald-400 transition-colors">Back to Dashboard</p>
+                  <p className="text-xs text-gray-500">Your financial overview at a glance</p>
+                </div>
+                <span className="ml-auto text-gray-600 group-hover:text-emerald-400 transition-colors">→</span>
               </button>
             </div>
+          </div>
+
+          {/* Import another */}
+          <div className="px-6 py-4">
+            <button
+              onClick={() => { setResult(null); setFile(null); if (fileRef.current) fileRef.current.value = ""; }}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              ↩ Import another file
+            </button>
           </div>
         </div>
       )}
