@@ -125,29 +125,23 @@ export async function importQuickBooksTransactions(formData: FormData) {
     } catch {}
   }
 
-  const toSave = result.transactions;
-  let saved = 0;
+  const rows = result.transactions.map((tx, i) => ({
+    organisationId: orgId,
+    propertyId: resolvedPropertyId,
+    type: tx.type,
+    source: "CSV_IMPORT" as const,
+    category: categoryOverrides[i] ?? tx.category,
+    amount: tx.amount,
+    currency: "ZAR",
+    date: tx.date,
+    description: tx.description,
+    status: "CLEARED" as const,
+    vatAmount: 0,
+    vatRate: 0,
+    isVatInclusive: false,
+  }));
 
-  for (let i = 0; i < toSave.length; i++) {
-    const tx = toSave[i];
-    const category = categoryOverrides[i] ?? tx.category;
-
-    await prisma.transaction.create({
-      data: {
-        organisationId: orgId,
-        propertyId: resolvedPropertyId,
-        type: tx.type,
-        source: "CSV_IMPORT",
-        category,
-        amount: tx.amount,
-        currency: "ZAR",
-        date: tx.date,
-        description: tx.description,
-        status: "PENDING",
-      },
-    });
-    saved++;
-  }
+  const { count: saved } = await prisma.transaction.createMany({ data: rows });
 
   revalidatePath("/transactions");
   revalidatePath("/dashboard");

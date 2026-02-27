@@ -6,8 +6,10 @@ import { importQuickBooksTransactions } from "@/lib/actions/automation";
 import { TransactionCategory } from "@prisma/client";
 
 const CATEGORIES: TransactionCategory[] = [
-  "ACCOMMODATION", "FB", "LAUNDRY", "CLEANING", "MAINTENANCE",
-  "UTILITIES", "SALARIES", "MARKETING", "SUPPLIES", "OTA_COMMISSION",
+  "ACCOMMODATION", "FB", "LAUNDRY",
+  "CLEANING", "SUPPLIES", "OTA_COMMISSION",
+  "MAINTENANCE", "UTILITIES", "SALARIES", "MARKETING",
+  "LOAN_INTEREST", "BANK_CHARGES",
   "VAT_OUTPUT", "VAT_INPUT", "OTHER",
 ];
 
@@ -56,10 +58,11 @@ export default function QuickBooksImportPage() {
         throw new Error("Preview failed");
       }
 
-      const data = await resp.json();
-      setPreview(data.transactions);
-      setDuplicates(data.potentialDuplicates);
-      setUnrecognised(data.unrecognised);
+      const body = await resp.json();
+      const data = body.data ?? body; // apiSuccess wraps in { success, data }
+      setPreview(data.transactions ?? []);
+      setDuplicates(data.potentialDuplicates ?? []);
+      setUnrecognised(data.unrecognised ?? []);
     } catch {
       setError("Failed to parse CSV. Please verify the file is a QuickBooks transaction list export.");
     } finally {
