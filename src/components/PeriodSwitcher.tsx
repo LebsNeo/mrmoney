@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { PeriodPreset } from "@/lib/actions/reports";
+import { PeriodPreset } from "@/lib/reports-utils";
 import { Suspense } from "react";
 
 const PRESETS: { value: PeriodPreset; label: string }[] = [

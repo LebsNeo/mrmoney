@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
 import { PeriodSwitcher } from "@/components/PeriodSwitcher";
 import { PLDisplay } from "./PLDisplay";
-import { getPLStatement, PeriodPreset } from "@/lib/actions/reports";
+import { getPLStatement } from "@/lib/actions/reports";
+import { PeriodPreset } from "@/lib/reports-utils";
 import { PropertySwitcher } from "@/components/PropertySwitcher";
 
 interface Props {
