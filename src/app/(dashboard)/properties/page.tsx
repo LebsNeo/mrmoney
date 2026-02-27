@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { PropertyRoomsCard } from "@/components/PropertyRoomsCard";
 import { PropertyBillingForm } from "@/components/PropertyBillingForm";
+import { AddPropertyButton } from "@/components/AddPropertyButton";
+import { PropertyEditButton } from "@/components/PropertyEditButton";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function PropertiesPage() {
@@ -32,6 +34,7 @@ export default async function PropertiesPage() {
       <PageHeader
         title="Properties"
         description={`${properties.length} propert${properties.length !== 1 ? "ies" : "y"}`}
+        action={<AddPropertyButton />}
       />
 
       {properties.length === 0 ? (
@@ -39,7 +42,7 @@ export default async function PropertiesPage() {
           <EmptyState
             icon="🏠"
             title="No properties yet"
-            message="Your properties will appear here once added during setup."
+            message="Add your first property to get started."
           />
         </div>
       ) : (
@@ -82,22 +85,35 @@ export default async function PropertiesPage() {
                     </p>
                   </div>
 
-                  {/* Stats */}
-                  <div className="flex gap-4 sm:gap-6 shrink-0">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-white">{property._count.rooms}</p>
-                      <p className="text-xs text-gray-500">Rooms</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-emerald-400">{activeRooms.length}</p>
-                      <p className="text-xs text-gray-500">Active</p>
-                    </div>
-                    {avgRate > 0 && (
+                  {/* Stats + Edit button */}
+                  <div className="flex items-start gap-4 sm:gap-6 shrink-0">
+                    <div className="flex gap-4 sm:gap-6">
                       <div className="text-center">
-                        <p className="text-lg font-bold text-white">{formatCurrency(avgRate)}</p>
-                        <p className="text-xs text-gray-500">Avg rate</p>
+                        <p className="text-lg font-bold text-white">{property._count.rooms}</p>
+                        <p className="text-xs text-gray-500">Rooms</p>
                       </div>
-                    )}
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-emerald-400">{activeRooms.length}</p>
+                        <p className="text-xs text-gray-500">Active</p>
+                      </div>
+                      {avgRate > 0 && (
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-white">{formatCurrency(avgRate)}</p>
+                          <p className="text-xs text-gray-500">Avg rate</p>
+                        </div>
+                      )}
+                    </div>
+                    <PropertyEditButton
+                      property={{
+                        id: property.id,
+                        name: property.name,
+                        type: property.type,
+                        address: property.address ?? null,
+                        city: property.city ?? null,
+                        country: property.country,
+                        isActive: property.isActive,
+                      }}
+                    />
                   </div>
                 </div>
 
