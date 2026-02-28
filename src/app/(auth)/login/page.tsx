@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -113,6 +114,20 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="mt-5 space-y-3 text-center">
+            <p className="text-xs text-gray-500">
+              <Link href="/forgot-password" className="text-emerald-400 hover:text-emerald-300 font-medium">
+                Forgot your password?
+              </Link>
+            </p>
+            <p className="text-xs text-gray-500">
+              Don&apos;t have an account?{" "}
+              <Link href="/register" className="text-emerald-400 hover:text-emerald-300 font-medium">
+                Sign up free →
+              </Link>
+            </p>
+          </div>
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">
