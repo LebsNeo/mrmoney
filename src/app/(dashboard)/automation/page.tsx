@@ -76,6 +76,22 @@ export default async function AutomationPage() {
         </Link>
 
         <Link
+          href="/import/ical"
+          className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:bg-gray-800 transition-colors group flex flex-col gap-3"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-lg">
+            📅
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Channel Manager</p>
+            <p className="text-xs text-gray-500 mt-0.5">Sync bookings from Booking.com, Airbnb, Lekkerslaap</p>
+          </div>
+          <p className="text-xs text-emerald-400 group-hover:text-emerald-300 transition-colors mt-auto">
+            Manage feeds →
+          </p>
+        </Link>
+
+        <Link
           href="/import/quickbooks"
           className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:bg-gray-800 transition-colors group flex flex-col gap-3"
         >

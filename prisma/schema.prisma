@@ -265,6 +265,7 @@ model Property {
   budgetItems       BudgetItem[]
   invoices          Invoice[]
   recurringExpenses RecurringExpense[]
+  icalFeeds         ICalFeed[]
 
   @@index([organisationId])
   @@map("properties")
@@ -285,8 +286,9 @@ model Room {
   deletedAt     DateTime?
 
   // Relations
-  property Property  @relation(fields: [propertyId], references: [id])
-  bookings Booking[]
+  property   Property    @relation(fields: [propertyId], references: [id])
+  bookings   Booking[]
+  icalFeeds  ICalFeed[]
 
   @@index([propertyId])
   @@map("rooms")
@@ -628,4 +630,27 @@ model Alert {
   @@index([isRead])
   @@index([priority])
   @@map("alerts")
+}
+
+model ICalFeed {
+  id          String      @id @default(uuid())
+  propertyId  String
+  roomId      String?     // null = property-level feed (e.g. Airbnb whole property)
+  platform    OTAPlatform
+  feedName    String      // e.g. "Room 1", "Velvet Lux"
+  icalUrl     String
+  isActive    Boolean     @default(true)
+  lastSyncAt  DateTime?
+  lastError   String?
+  // Audit
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id])
+  room     Room?    @relation(fields: [roomId], references: [id])
+
+  @@index([propertyId])
+  @@index([roomId])
+  @@map("ical_feeds")
 }
