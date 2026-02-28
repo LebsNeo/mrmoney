@@ -121,6 +121,7 @@ export default async function DashboardPage({
         <PageHeader
           title="Dashboard"
           description={`Overview for ${formatDate(data.period.start, "MMMM yyyy")}`}
+          gradient
         />
         <div className="flex items-center gap-3 shrink-0 ml-4">
           <Suspense fallback={null}>
@@ -133,23 +134,23 @@ export default async function DashboardPage({
       {/* Phase 7 — Daily Digest Preview */}
       {digest && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-1">Today Check-ins</p>
-            <p className="text-xl font-bold text-emerald-400">{digest.todayCheckIns}</p>
+          <div className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:border-gray-700/80 transition-all">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-ins Today</p>
+            <p className="text-2xl font-bold gradient-text">{digest.todayCheckIns}</p>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-1">Today Check-outs</p>
-            <p className="text-xl font-bold text-blue-400">{digest.todayCheckOuts}</p>
+          <div className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:border-gray-700/80 transition-all">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-outs Today</p>
+            <p className="text-2xl font-bold gradient-text-blue">{digest.todayCheckOuts}</p>
           </div>
-          <div className={`rounded-xl border p-4 ${digest.cashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
-            <p className="text-xs text-gray-500 mb-1">Cash Position</p>
+          <div className={`rounded-xl border p-4 transition-all ${digest.cashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Cash Position</p>
             <p className={`text-base font-bold truncate ${digest.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               {formatCurrency(digest.cashPosition)}
             </p>
           </div>
-          <Link href="/digest" className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:bg-gray-800 transition-colors group">
-            <p className="text-xs text-gray-500 mb-1">Daily Digest</p>
-            <p className="text-sm font-medium text-white group-hover:text-emerald-400 transition-colors">View full digest →</p>
+          <Link href="/digest" className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:bg-gray-800/80 hover:border-emerald-500/20 transition-all group">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Daily Digest</p>
+            <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">View full digest →</p>
           </Link>
         </div>
       )}
@@ -160,6 +161,8 @@ export default async function DashboardPage({
           label="Total Revenue"
           value={formatCurrency(data.totalRevenue)}
           subValue="Net (after OTA commission)"
+          accent="emerald"
+          featured
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -171,6 +174,7 @@ export default async function DashboardPage({
           label="Occupancy Rate"
           value={formatPercent(data.occupancyRate)}
           subValue={`${data.occupiedRoomNights} of ${data.totalRooms * new Date().getDate()} available nights`}
+          accent="blue"
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
@@ -182,6 +186,7 @@ export default async function DashboardPage({
           label="ADR"
           value={formatCurrency(data.adr)}
           subValue="Average Daily Rate"
+          accent="gold"
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -193,6 +198,7 @@ export default async function DashboardPage({
           label="RevPAR"
           value={formatCurrency(data.revpar)}
           subValue="Revenue Per Available Room"
+          accent="rose"
           icon={
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />

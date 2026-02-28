@@ -153,7 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-950 flex">
+    <div className="min-h-screen bg-[#030712] flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -164,22 +164,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar — hidden on mobile, visible on md+ */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 bg-gray-900 border-r border-gray-800 hidden md:flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
+        "fixed inset-y-0 left-0 z-30 w-64 border-r border-gray-800/60 hidden md:flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
+        "bg-gray-950",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-800">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
-            <span className="text-sm font-bold text-white">M</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">MrMoney</p>
-            <p className="text-xs text-gray-500">Financial OS</p>
+        <div className="relative px-5 py-5 border-b border-gray-800/60 overflow-hidden">
+          {/* Subtle radial glow behind logo */}
+          <div className="absolute -top-4 -left-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative flex items-center gap-3">
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+              <span className="text-sm font-black text-white tracking-tight">M$</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white tracking-tight">MrMoney</p>
+              <p className="text-[10px] text-emerald-500/70 font-medium uppercase tracking-widest">Financial OS</p>
+            </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -189,13 +194,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 text-emerald-400 shadow-sm"
+                    : "text-gray-500 hover:text-gray-200 hover:bg-gray-800/60"
                 )}
               >
-                {item.icon}
+                {/* Active indicator bar */}
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-emerald-400 rounded-r-full" />
+                )}
+                <span className={cn("transition-colors", isActive ? "text-emerald-400" : "text-gray-600 group-hover:text-gray-400")}>
+                  {item.icon}
+                </span>
                 {item.label}
               </Link>
             );
@@ -203,10 +214,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Sign out */}
-        <div className="px-3 py-4 border-t border-gray-800">
+        <div className="px-3 py-4 border-t border-gray-800/60">
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:text-red-400 hover:bg-red-500/8 transition-all duration-150"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -219,7 +230,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-gray-900 border-b border-gray-800 px-4 lg:px-6 py-4 flex items-center gap-4">
+        <header className="bg-gray-950/80 backdrop-blur-sm border-b border-gray-800/60 px-4 lg:px-6 py-3.5 flex items-center gap-4 sticky top-0 z-20">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
