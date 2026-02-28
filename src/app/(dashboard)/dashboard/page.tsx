@@ -134,11 +134,11 @@ export default async function DashboardPage({
       {/* Phase 7 — Daily Digest Preview */}
       {digest && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:border-gray-700/80 transition-all">
+          <div className="glass rounded-xl p-4 hover:border-white/10 transition-all">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-ins Today</p>
             <p className="text-2xl font-bold gradient-text">{digest.todayCheckIns}</p>
           </div>
-          <div className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:border-gray-700/80 transition-all">
+          <div className="glass rounded-xl p-4 hover:border-white/10 transition-all">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-outs Today</p>
             <p className="text-2xl font-bold gradient-text-blue">{digest.todayCheckOuts}</p>
           </div>
@@ -148,7 +148,7 @@ export default async function DashboardPage({
               {formatCurrency(digest.cashPosition)}
             </p>
           </div>
-          <Link href="/digest" className="bg-gray-900/80 border border-gray-800/80 rounded-xl p-4 hover:bg-gray-800/80 hover:border-emerald-500/20 transition-all group">
+          <Link href="/digest" className="glass rounded-xl p-4 hover:border-emerald-500/20 transition-all group">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Daily Digest</p>
             <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">View full digest →</p>
           </Link>

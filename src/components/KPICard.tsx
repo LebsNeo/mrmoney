@@ -83,9 +83,9 @@ export function KPICard({ label, value, subValue, change, icon, accent = "defaul
 
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-2xl p-5 transition-all duration-200",
-      "bg-gray-900/80 border border-gray-800/80",
-      "hover:border-gray-700/80 hover:translate-y-[-1px]",
+      "relative overflow-hidden rounded-2xl p-5 transition-all duration-200 cursor-default",
+      "glass",
+      "hover:border-white/10 hover:-translate-y-0.5",
       featured && a.glow,
       className
     )}>

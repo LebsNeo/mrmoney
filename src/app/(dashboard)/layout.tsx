@@ -153,7 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#030712] flex">
+    <div className="min-h-screen flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -164,8 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar — hidden on mobile, visible on md+ */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 border-r border-gray-800/60 hidden md:flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
-        "bg-gray-950",
+        "fixed inset-y-0 left-0 z-30 w-64 hidden md:flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto glass-sidebar",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
@@ -230,7 +229,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-gray-950/80 backdrop-blur-sm border-b border-gray-800/60 px-4 lg:px-6 py-3.5 flex items-center gap-4 sticky top-0 z-20">
+        <header className="glass-topbar px-4 lg:px-6 py-3.5 flex items-center gap-4 sticky top-0 z-20">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"

@@ -28,8 +28,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <div className="aurora-bg" aria-hidden="true" />
         <ToastProvider>
-          {children}
+          <div className="relative z-10">
+            {children}
+          </div>
         </ToastProvider>
       </body>
     </html>
