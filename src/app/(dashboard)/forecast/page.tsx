@@ -77,6 +77,14 @@ export default async function ForecastPage({
   const propertyName = allProperties.find((p) => p.id === propertyId)?.name ?? "";
   const period = currentPeriod();
 
+  // Check if property has bookings (affects forecast quality)
+  const bookingCount = await prisma.booking.count({
+    where: { propertyId, deletedAt: null },
+  });
+  const roomCount = await prisma.room.count({
+    where: { propertyId, status: "ACTIVE", deletedAt: null },
+  });
+
   // Fetch all data in parallel
   const [cashFlowData, revenueMonths, budgetItems, breakEven] = await Promise.all([
     getCashFlowForecast(propertyId, 30),
@@ -137,6 +145,32 @@ export default async function ForecastPage({
           </Suspense>
         }
       />
+
+      {/* Data quality banner */}
+      {bookingCount === 0 && (
+        <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-6 flex items-start gap-3">
+          <span className="text-blue-400 text-lg shrink-0">ℹ️</span>
+          <div>
+            <p className="text-sm font-medium text-blue-400">Forecast based on transaction history</p>
+            <p className="text-xs text-blue-300/70 mt-0.5">
+              No bookings are tracked in the app yet — income and revenue projections use your real bank transaction history as a baseline.
+              Add bookings (or import from OTA) for booking-level accuracy.
+            </p>
+          </div>
+        </div>
+      )}
+      {roomCount === 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6 flex items-start gap-3">
+          <span className="text-amber-400 text-lg shrink-0">⚠️</span>
+          <div>
+            <p className="text-sm font-medium text-amber-400">No rooms configured for this property</p>
+            <p className="text-xs text-amber-300/70 mt-0.5">
+              Occupancy % and break-even ADR require rooms to be set up.{" "}
+              <a href="/properties" className="underline hover:text-amber-200">Add rooms →</a>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ─── SECTION 1: CASH FLOW ─── */}
       <section className="mb-10">

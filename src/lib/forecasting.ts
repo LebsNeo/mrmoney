@@ -111,6 +111,25 @@ async function getAvgDailyExpense(propertyId: string): Promise<number> {
   return total / 90;
 }
 
+/** Average daily income from transactions (used as fallback when no bookings exist) */
+async function getAvgDailyIncome(propertyId: string): Promise<number> {
+  const end = new Date();
+  const start = subDays(end, 90);
+
+  const result = await prisma.transaction.aggregate({
+    where: {
+      propertyId,
+      type: TransactionType.INCOME,
+      deletedAt: null,
+      date: { gte: start, lte: end },
+    },
+    _sum: { amount: true },
+  });
+
+  const total = toNumber(result._sum.amount ?? 0);
+  return total / 90;
+}
+
 /** Total rooms for a property */
 async function getTotalRooms(propertyId: string): Promise<number> {
   const count = await prisma.room.count({
@@ -182,8 +201,14 @@ export async function getCashFlowForecast(
     (a, b) => a.expectedPayoutDate.getTime() - b.expectedPayoutDate.getTime()
   );
 
-  // Average daily expense
-  const avgDailyExpense = await getAvgDailyExpense(propertyId);
+  // Average daily expense + income (income fallback when no bookings)
+  const [avgDailyExpense, avgDailyIncome] = await Promise.all([
+    getAvgDailyExpense(propertyId),
+    getAvgDailyIncome(propertyId),
+  ]);
+
+  // If no bookings are loaded, use historical transaction income as baseline
+  const hasBookingIncome = incomeByDate.size > 0;
 
   // Build day-by-day array
   const days: DailyForecast[] = [];
@@ -192,7 +217,9 @@ export async function getCashFlowForecast(
   for (let i = 0; i < daysAhead; i++) {
     const date = addDays(today, i);
     const key = format(date, "yyyy-MM-dd");
-    const expectedIncome = incomeByDate.get(key) ?? 0;
+    const bookingIncome = incomeByDate.get(key) ?? 0;
+    // Use booking income if available, otherwise distribute historical avg daily income
+    const expectedIncome = hasBookingIncome ? bookingIncome : avgDailyIncome;
     const expectedExpenses = avgDailyExpense;
     const netCashFlow = expectedIncome - expectedExpenses;
     cumulative += netCashFlow;
@@ -295,7 +322,7 @@ export async function getRevenueForecast(
         0
       );
     } else {
-      // Fall back to last 90 days avg scaled to month length
+      // Fall back to last 90 days booking avg, then income transactions avg
       const last90End = subDays(today, 1);
       const last90Start = subDays(last90End, 89);
 
@@ -315,12 +342,26 @@ export async function getRevenueForecast(
         select: { netAmount: true },
       });
 
-      const last90Revenue = last90Bookings.reduce(
-        (sum, b) => sum + toNumber(b.netAmount),
-        0
-      );
-      const dailyAvg = last90Revenue / 90;
-      projectedRevenue = dailyAvg * daysInMonthCount;
+      if (last90Bookings.length > 0) {
+        const last90Revenue = last90Bookings.reduce(
+          (sum, b) => sum + toNumber(b.netAmount),
+          0
+        );
+        projectedRevenue = (last90Revenue / 90) * daysInMonthCount;
+      } else {
+        // No bookings at all — use income transaction history as proxy
+        const txIncome = await prisma.transaction.aggregate({
+          where: {
+            propertyId,
+            type: TransactionType.INCOME,
+            deletedAt: null,
+            date: { gte: last90Start, lte: last90End },
+          },
+          _sum: { amount: true },
+        });
+        const dailyAvg = toNumber(txIncome._sum.amount ?? 0) / 90;
+        projectedRevenue = dailyAvg * daysInMonthCount;
+      }
     }
 
     const totalRoomNights = totalRooms * daysInMonthCount;
