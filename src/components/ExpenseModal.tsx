@@ -52,6 +52,7 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const manualFileRef = useRef<HTMLInputElement>(null);
   const today = new Date().toISOString().slice(0, 10);
 
   const [form, setForm] = useState({
@@ -102,12 +103,25 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
     setScanResult(null);
   }
 
+  async function uploadReceiptOnly(file: File): Promise<string | null> {
+    const uploadForm = new FormData();
+    uploadForm.append("image", file);
+    try {
+      const res = await fetch("/api/expenses/upload-receipt", { method: "POST", body: uploadForm });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.data?.url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleScan() {
     if (!imageFile) return;
     setScanning(true);
 
     try {
-      // Scan + upload in parallel
+      // Upload always; scan only if possible
       const scanForm = new FormData();
       scanForm.append("image", imageFile);
 
@@ -119,34 +133,41 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
         fetch("/api/expenses/upload-receipt", { method: "POST", body: uploadForm }),
       ]);
 
-      const scanData = await scanRes.json();
       const uploadData = uploadRes.ok ? await uploadRes.json() : null;
-
       if (uploadData?.data?.url) setReceiptUrl(uploadData.data.url);
 
-      const result: ScanResult = scanData.data ?? scanData;
-      setScanResult(result);
-
-      // Pre-fill form from AI result
-      setForm(prev => ({
-        ...prev,
-        description: result.store || prev.description,
-        amount: result.total ? String(result.total) : prev.amount,
-        category: result.category && CATEGORIES.find(c => c.value === result.category)
-          ? result.category
-          : prev.category,
-        date: result.date || prev.date,
-        vatRate: result.vatAmount && result.subtotal
-          ? String(Math.round((result.vatAmount / result.subtotal) * 100) / 100)
-          : prev.vatRate,
-        notes: result.items?.length
-          ? result.items.map(i => `${i.description}: R${i.amount.toFixed(2)}`).join(" | ")
-          : prev.notes,
-      }));
+      // If scan succeeded, use AI data; otherwise fall through to manual
+      if (scanRes.ok) {
+        const scanData = await scanRes.json();
+        const result: ScanResult = scanData.data ?? scanData;
+        if (result.total || result.store) {
+          setScanResult(result);
+          setForm(prev => ({
+            ...prev,
+            description: result.store || prev.description,
+            amount: result.total ? String(result.total) : prev.amount,
+            category: result.category && CATEGORIES.find(c => c.value === result.category)
+              ? result.category
+              : prev.category,
+            date: result.date || prev.date,
+            vatRate: result.vatAmount && result.subtotal
+              ? String(Math.round((result.vatAmount / result.subtotal) * 100) / 100)
+              : prev.vatRate,
+            notes: result.items?.length
+              ? result.items.map(i => `${i.description}: R${i.amount.toFixed(2)}`).join(" | ")
+              : prev.notes,
+          }));
+        } else {
+          showToast("Receipt uploaded — please fill in the details below", true);
+        }
+      } else {
+        // Scan unavailable — still advance to form with receipt attached
+        showToast("AI scan unavailable — receipt saved, fill details manually", false);
+      }
 
       setStep("review");
     } catch {
-      showToast("Scan failed — please fill in manually", false);
+      showToast("Upload failed — check your connection and try again", false);
     } finally {
       setScanning(false);
     }
@@ -424,6 +445,64 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
                   ))}
                 </div>
               </div>
+
+              {/* Receipt attach (manual mode) */}
+              {mode === "manual" && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5 font-medium">Attach Receipt (optional)</label>
+                  {receiptUrl ? (
+                    <div className="flex items-center gap-3 bg-gray-800 rounded-xl p-3">
+                      <span className="text-xl">📎</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white font-medium">Receipt attached</p>
+                        <p className="text-[10px] text-gray-400 truncate">{receiptUrl}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setReceiptUrl(null); setImagePreview(null); }}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >Remove</button>
+                    </div>
+                  ) : imagePreview ? (
+                    <div className="flex items-center gap-3 bg-gray-800 rounded-xl p-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imagePreview} alt="Receipt" className="w-12 h-12 object-cover rounded-lg" />
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-400">Uploading…</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => manualFileRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm bg-gray-800 border border-dashed border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors"
+                    >
+                      📷 Take photo or upload slip
+                    </button>
+                  )}
+                  <input
+                    ref={manualFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setImagePreview(URL.createObjectURL(f));
+                      setUploading(true);
+                      const url = await uploadReceiptOnly(f);
+                      setUploading(false);
+                      if (url) {
+                        setReceiptUrl(url);
+                        showToast("Receipt uploaded ✓", true);
+                      } else {
+                        setImagePreview(null);
+                        showToast("Upload failed — receipt not saved", false);
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
               {/* VAT */}
               <div className="bg-gray-800/50 rounded-xl p-3 space-y-2">
