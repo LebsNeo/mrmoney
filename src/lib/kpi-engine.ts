@@ -311,13 +311,22 @@ async function computeRawKPIs(
   const avgLengthOfStay = stayCount > 0 ? totalNightsSum / stayCount : 0;
 
   const totalExpenses = await getPeriodExpenses(propertyId, start, end);
-  const netProfit = totalRevenue - totalExpenses;
+
+  // If no bookings exist, use cleared income transactions as revenue proxy
+  // so Revenue and Net Profit show real numbers from bank data
+  let effectiveRevenue = totalRevenue;
+  if (overlapping.length === 0) {
+    const txIncome = await getPeriodIncome(propertyId, start, end);
+    if (txIncome > 0) effectiveRevenue = txIncome;
+  }
+
+  const netProfit = effectiveRevenue - totalExpenses;
 
   return {
     occupancyRate,
     ADR,
     RevPAR,
-    totalRevenue,
+    totalRevenue: effectiveRevenue,
     totalExpenses,
     netProfit,
     totalBookings,

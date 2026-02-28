@@ -94,6 +94,11 @@ export default async function KPIsPage({
     );
   }
 
+  // Check data quality
+  const bookingCount = selectedPropertyId
+    ? await prisma.booking.count({ where: { propertyId: selectedPropertyId, deletedAt: null } })
+    : 0;
+
   // Fetch all KPI data in parallel
   const [trends, occupancyCalendarData, leakage, benchmarks] = await Promise.all([
     getKPITrends(selectedPropertyId, months),
@@ -127,6 +132,20 @@ export default async function KPIsPage({
           </Suspense>
         }
       />
+
+      {/* Data quality notice */}
+      {bookingCount === 0 && (
+        <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4 flex items-start gap-3">
+          <span className="text-blue-400 text-lg shrink-0">ℹ️</span>
+          <div>
+            <p className="text-sm font-medium text-blue-400">Revenue from bank transactions</p>
+            <p className="text-xs text-blue-300/70 mt-0.5">
+              No bookings are tracked yet — Revenue and Net Profit reflect real bank income.
+              ADR, RevPAR and Occupancy % require bookings to calculate accurately.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Filters ─── */}
       <div className="flex flex-wrap gap-3 items-center">
