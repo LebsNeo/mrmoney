@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+
+export const maxDuration = 30; // Allow up to 30s for AI vision call
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiSuccess, apiError, apiUnauthorized, apiServerError } from "@/lib/api-response";
@@ -60,8 +62,8 @@ If you cannot read the image clearly, set confidence to LOW and make your best g
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
-        max_tokens: 1000,
+        model: "gpt-4o-mini",
+        max_tokens: 600,
         messages: [{
           role: "user",
           content: [
@@ -70,7 +72,7 @@ If you cannot read the image clearly, set confidence to LOW and make your best g
               type: "image_url",
               image_url: {
                 url: `data:${mimeType};base64,${base64}`,
-                detail: "high",
+                detail: "low",
               },
             },
           ],

@@ -26,3 +26,4 @@ prisma/migrations/**/migration_lock.toml
 .next
 node_modules
 *.log
+.env.local.test

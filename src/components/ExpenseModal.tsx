@@ -97,6 +97,31 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
 
   // ── Image handling ────────────────────────────────────────────────
 
+  async function compressImage(file: File, maxKB = 900): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        // Scale down if wider than 1200px
+        if (width > 1200) { height = Math.round(height * 1200 / width); width = 1200; }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            resolve(blob ? new File([blob], "receipt.jpg", { type: "image/jpeg" }) : file);
+          },
+          "image/jpeg",
+          maxKB >= 900 ? 0.82 : 0.6
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = url;
+    });
+  }
+
   async function handleImageSelect(file: File) {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
@@ -121,12 +146,15 @@ export function ExpenseModal({ onClose, defaultMode = "manual" }: Props) {
     setScanning(true);
 
     try {
+      // Compress image to stay under Vercel's 4.5MB body limit
+      const compressed = await compressImage(imageFile);
+
       // Upload always; scan only if possible
       const scanForm = new FormData();
-      scanForm.append("image", imageFile);
+      scanForm.append("image", compressed);
 
       const uploadForm = new FormData();
-      uploadForm.append("image", imageFile);
+      uploadForm.append("image", compressed);
 
       const [scanRes, uploadRes] = await Promise.all([
         fetch("/api/expenses/scan-receipt", { method: "POST", body: scanForm }),
