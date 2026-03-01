@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "@/lib/actions/bookings";
 import { BookingSource } from "@prisma/client";
@@ -11,6 +11,15 @@ interface Room {
   name: string;
   type: string;
   baseRate: { toString(): string };
+}
+
+interface AvailabilityRoom {
+  id: string;
+  name: string;
+  type: string;
+  baseRate: number;
+  available: boolean;
+  conflictBooking: { guestName: string; checkIn: string; checkOut: string } | null;
 }
 
 interface Property {
@@ -60,6 +69,10 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "EFT" | "CARD">("CASH");
   const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
 
+  // Room availability
+  const [availabilityMap, setAvailabilityMap] = useState<Map<string, AvailabilityRoom>>(new Map());
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
   // Derived rooms for selected property
   const selectedProperty = properties.find((p) => p.id === propertyId);
   const rooms = selectedProperty?.rooms ?? [];
@@ -81,6 +94,34 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       setCustomRoomRate(parseFloat(room.baseRate.toString()));
     }
   }, [roomId]);
+
+  // Fetch room availability when dates + property change
+  const fetchAvailability = useCallback(async () => {
+    if (!propertyId || !checkIn || !checkOut) {
+      setAvailabilityMap(new Map());
+      return;
+    }
+    setCheckingAvailability(true);
+    try {
+      const qs = new URLSearchParams({ propertyId, checkIn, checkOut });
+      const res = await fetch(`/api/rooms/availability?${qs}`);
+      const json = await res.json();
+      const data: AvailabilityRoom[] = json.data ?? [];
+      setAvailabilityMap(new Map(data.map(r => [r.id, r])));
+      // Auto-select first available room if current room is unavailable
+      const current = data.find(r => r.id === roomId);
+      if (current && !current.available) {
+        const first = data.find(r => r.available);
+        if (first) setRoomId(first.id);
+      }
+    } catch {
+      // silently fail — availability check is advisory
+    } finally {
+      setCheckingAvailability(false);
+    }
+  }, [propertyId, checkIn, checkOut]);
+
+  useEffect(() => { fetchAvailability(); }, [fetchAvailability]);
 
   // Derived financial values
   const roomRate = customRoomRate ?? 0;
@@ -193,18 +234,48 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
             </select>
           </div>
           <div>
-            <label className={labelClass}>Room *</label>
+            <label className={labelClass}>
+              Room *
+              {checkingAvailability && (
+                <span className="ml-2 text-[10px] text-gray-500 font-normal">Checking availability...</span>
+              )}
+            </label>
             <select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
               className={inputClass}
             >
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.type})
-                </option>
-              ))}
+              {rooms.map((r) => {
+                const avail = availabilityMap.get(r.id);
+                const isUnavailable = avail && !avail.available;
+                return (
+                  <option key={r.id} value={r.id} disabled={!!isUnavailable}>
+                    {isUnavailable
+                      ? `🚫 ${r.name} — Occupied (${avail!.conflictBooking?.guestName})`
+                      : avail
+                      ? `✓ ${r.name} (${r.type})`
+                      : `${r.name} (${r.type})`}
+                  </option>
+                );
+              })}
             </select>
+            {/* Conflict warning for selected room */}
+            {(() => {
+              const avail = availabilityMap.get(roomId);
+              if (avail && !avail.available && avail.conflictBooking) {
+                const ci = new Date(avail.conflictBooking.checkIn).toLocaleDateString("en-ZA");
+                const co = new Date(avail.conflictBooking.checkOut).toLocaleDateString("en-ZA");
+                return (
+                  <p className="text-xs text-red-400 mt-1.5">
+                    ⚠ Room occupied by <strong>{avail.conflictBooking.guestName}</strong> ({ci} → {co})
+                  </p>
+                );
+              }
+              if (avail?.available && checkIn && checkOut) {
+                return <p className="text-xs text-emerald-400 mt-1.5">✓ Available for selected dates</p>;
+              }
+              return null;
+            })()}
           </div>
         </div>
         <div>
