@@ -12,20 +12,30 @@ export async function POST(req: NextRequest) {
     const orgId = (session?.user as { organisationId?: string })?.organisationId;
     if (!orgId) return apiUnauthorized();
 
-    const firstProperty = await prisma.property.findFirst({
-      where: { organisationId: orgId, isActive: true, deletedAt: null },
-      select: { id: true },
-    });
-
-    if (!firstProperty) return apiError("No property found");
-
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const propertyIdParam = (formData.get("propertyId") as string | null) ?? "";
 
     if (!file) return apiError("Missing file");
 
+    // Use provided propertyId or fall back to first active property
+    let property: { id: string } | null = null;
+    if (propertyIdParam) {
+      property = await prisma.property.findFirst({
+        where: { id: propertyIdParam, organisationId: orgId, deletedAt: null },
+        select: { id: true },
+      });
+    }
+    if (!property) {
+      property = await prisma.property.findFirst({
+        where: { organisationId: orgId, isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+    }
+    if (!property) return apiError("No property found");
+
     const csvContent = await file.text();
-    const result = await parseQuickBooksCSV(csvContent, firstProperty.id, orgId);
+    const result = await parseQuickBooksCSV(csvContent, property.id, orgId);
 
     const serialise = (tx: (typeof result.transactions)[0]) => ({
       ...tx,

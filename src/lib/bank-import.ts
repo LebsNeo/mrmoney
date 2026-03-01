@@ -59,7 +59,11 @@ function tryParseAmount(raw: string): number | null {
 
 function safeParseDate(raw: string, fmt: string): Date | null {
   const d = parseDate(raw.trim(), fmt, new Date());
-  return isValid(d) ? d : null;
+  if (!isValid(d)) return null;
+  // Fix timezone-related off-by-one: set time to noon so UTC storage
+  // doesn't shift the date back across midnight (SA = UTC+2)
+  d.setHours(12, 0, 0, 0);
+  return d;
 }
 
 // ─────────────────────────────────────────────

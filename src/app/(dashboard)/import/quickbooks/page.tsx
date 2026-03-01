@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { importQuickBooksTransactions } from "@/lib/actions/automation";
 import { TransactionCategory } from "@prisma/client";
@@ -10,7 +10,7 @@ const CATEGORIES: TransactionCategory[] = [
   "CLEANING", "SUPPLIES", "OTA_COMMISSION",
   "MAINTENANCE", "UTILITIES", "SALARIES", "MARKETING",
   "LOAN_INTEREST", "BANK_CHARGES",
-  "VAT_OUTPUT", "VAT_INPUT", "OTHER",
+  "VAT_OUTPUT", "VAT_INPUT", "EMPLOYEE_ADVANCE", "OTHER",
 ];
 
 interface PreviewRow {
@@ -23,7 +23,14 @@ interface PreviewRow {
   isDuplicate: boolean;
 }
 
+interface Property {
+  id: string;
+  name: string;
+}
+
 export default function QuickBooksImportPage() {
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [propertyId, setPropertyId] = useState("default");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [duplicates, setDuplicates] = useState<PreviewRow[]>([]);
@@ -34,6 +41,19 @@ export default function QuickBooksImportPage() {
   const [result, setResult] = useState<{ saved: number; duplicates: number; unrecognised: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Load properties for selector
+  useEffect(() => {
+    fetch("/api/properties")
+      .then((r) => r.json())
+      .then((body) => {
+        const list: Property[] = body.data ?? body ?? [];
+        setProperties(list);
+        if (list.length > 0 && propertyId === "default") setPropertyId(list[0].id);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -48,18 +68,17 @@ export default function QuickBooksImportPage() {
     try {
       const form = new FormData();
       form.append("file", f);
+      if (propertyId && propertyId !== "default") form.append("propertyId", propertyId);
 
       const resp = await fetch("/api/import/quickbooks/preview", {
         method: "POST",
         body: form,
       });
 
-      if (!resp.ok) {
-        throw new Error("Preview failed");
-      }
+      if (!resp.ok) throw new Error("Preview failed");
 
       const body = await resp.json();
-      const data = body.data ?? body; // apiSuccess wraps in { success, data }
+      const data = body.data ?? body;
       setPreview(data.transactions ?? []);
       setDuplicates(data.potentialDuplicates ?? []);
       setUnrecognised(data.unrecognised ?? []);
@@ -78,7 +97,7 @@ export default function QuickBooksImportPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      form.append("propertyId", "default");
+      form.append("propertyId", propertyId);
       form.append("categories", JSON.stringify(categories));
 
       const res = await importQuickBooksTransactions(form);
@@ -111,20 +130,36 @@ export default function QuickBooksImportPage() {
           <li>5. Save as <strong>.csv</strong> and upload below</li>
         </ol>
         <p className="text-xs text-blue-400/60 mt-3 font-mono">
-          Expected columns: Date, Transaction Type, Num, Name, Memo/Description, Amount
+          Expected columns: Date, Transaction Type, Number, Posting, Name, Memo/Description, Account name, Account full name, Amount
         </p>
       </div>
 
-      {/* File Upload */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-        <label className="block text-xs text-gray-400 mb-1.5">QuickBooks CSV File</label>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv"
-          onChange={handleFileChange}
-          className="w-full text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-500/10 file:text-blue-400 hover:file:bg-blue-500/20 file:cursor-pointer"
-        />
+      {/* Property + File */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6 space-y-4">
+        {properties.length > 1 && (
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Property</label>
+            <select
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+              className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 w-full max-w-xs"
+            >
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">QuickBooks CSV File</label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="w-full text-sm text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-500/10 file:text-blue-400 hover:file:bg-blue-500/20 file:cursor-pointer"
+          />
+        </div>
       </div>
 
       {/* Loading */}

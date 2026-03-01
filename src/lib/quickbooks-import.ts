@@ -70,7 +70,12 @@ function safeParseDate(raw: string): Date | null {
   const fmts = ["dd/MM/yyyy", "yyyy-MM-dd", "MM/dd/yyyy"];
   for (const fmt of fmts) {
     const d = parseDate(raw.trim(), fmt, new Date());
-    if (isValid(d)) return d;
+    if (isValid(d)) {
+      // Fix timezone-related off-by-one: set time to noon so UTC storage
+      // doesn't shift the date back across midnight (SA = UTC+2)
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
   }
   return null;
 }
