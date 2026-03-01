@@ -32,6 +32,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
 
+        if (!user.emailVerified) {
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
         const passwordValid = await compare(credentials.password, user.passwordHash);
         if (!passwordValid) {
           throw new Error("Invalid credentials");

@@ -5,11 +5,16 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+type ErrorState =
+  | { kind: "generic"; message: string }
+  | { kind: "unverified"; email: string }
+  | null;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorState>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -25,13 +30,17 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password. Please try again.");
+        if (result.error === "EMAIL_NOT_VERIFIED") {
+          setError({ kind: "unverified", email });
+        } else {
+          setError({ kind: "generic", message: "Invalid email or password. Please try again." });
+        }
       } else {
         router.push("/dashboard");
         router.refresh();
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError({ kind: "generic", message: "Something went wrong. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -87,13 +96,17 @@ export default function LoginPage() {
               />
             </div>
 
-            {error && (
+            {error?.kind === "generic" && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                 <svg className="w-4 h-4 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                <p className="text-red-400 text-sm">{error}</p>
+                <p className="text-red-400 text-sm">{error.message}</p>
               </div>
+            )}
+
+            {error?.kind === "unverified" && (
+              <UnverifiedBanner email={error.email} />
             )}
 
             <button
@@ -134,6 +147,51 @@ export default function LoginPage() {
           © {new Date().getFullYear()} MrMoney. All rights reserved.
         </p>
       </div>
+    </div>
+  );
+}
+
+function UnverifiedBanner({ email }: { email: string }) {
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleResend() {
+    setLoading(true);
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setSent(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="text-amber-400 text-lg shrink-0">✉</span>
+        <div>
+          <p className="text-sm font-semibold text-amber-300">Email not verified</p>
+          <p className="text-xs text-amber-400/80 mt-0.5 leading-relaxed">
+            Check your inbox for the verification link we sent to{" "}
+            <span className="font-medium text-amber-300">{email}</span>.
+          </p>
+        </div>
+      </div>
+      {sent ? (
+        <p className="text-xs text-emerald-400 pl-7">✓ New verification email sent — check your inbox.</p>
+      ) : (
+        <button
+          onClick={handleResend}
+          disabled={loading}
+          className="ml-7 text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Sending…" : "Resend verification email"}
+        </button>
+      )}
     </div>
   );
 }
