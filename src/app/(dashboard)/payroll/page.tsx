@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPayrollRuns, getEmployees } from "@/lib/actions/payroll";
+import { getEmployeeAdvances } from "@/lib/actions/advances";
 import { PayrollClient } from "./PayrollClient";
 
 export default async function PayrollPage() {
@@ -16,10 +17,11 @@ export default async function PayrollPage() {
       })
     : [];
 
-  const [runs, employees] = await Promise.all([
+  const [runs, employees, advances] = await Promise.all([
     getPayrollRuns(),
     getEmployees(),
+    getEmployeeAdvances(),
   ]);
 
-  return <PayrollClient runs={runs} employees={employees} properties={properties} />;
+  return <PayrollClient runs={runs as any} employees={employees as any} advances={advances as any} properties={properties} />;
 }

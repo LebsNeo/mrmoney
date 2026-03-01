@@ -213,12 +213,33 @@ export async function createPayrollRun(data: {
       };
     }
 
-    // Build entries with auto-calculated UIF
+    // Load pending advances for these employees (suggested deductions)
+    const pendingAdvances = await prisma.employeeAdvance.findMany({
+      where: { organisationId: orgId, status: "ACTIVE", employeeId: { in: employees.map((e) => e.id) } },
+    });
+
+    // Build entries with auto-calculated UIF + advance deduction suggestions
     const entries = employees.map((emp) => {
       const gross = Number(emp.grossSalary);
+      // Find pending advance/loan for this employee
+      const advance = pendingAdvances.find((a) => a.employeeId === emp.id);
+      let suggestedDeduction = 0;
+      if (advance) {
+        suggestedDeduction = advance.monthlyInstalment
+          ? Math.min(Number(advance.monthlyInstalment), Number(advance.remainingBalance))
+          : Number(advance.remainingBalance); // full deduction for one-time advance
+        suggestedDeduction = parseFloat(suggestedDeduction.toFixed(2));
+      }
       const uif = calcUIF(gross);
-      const net = calcNet(gross, 0, 0, 0, uif, 0);
-      return { employeeId: emp.id, grossPay: gross, overtime: 0, bonus: 0, otherAdditions: 0, paye: 0, uifEmployee: uif, uifEmployer: uif, otherDeductions: 0, netPay: net };
+      const net = calcNet(gross, 0, 0, 0, uif, suggestedDeduction);
+      return {
+        employeeId: emp.id,
+        grossPay: gross, overtime: 0, bonus: 0, otherAdditions: 0,
+        paye: 0, uifEmployee: uif, uifEmployer: uif,
+        otherDeductions: suggestedDeduction,  // pre-filled but editable
+        netPay: net,
+        notes: advance ? `Advance deduction (${advance.type === "LOAN" ? "loan instalment" : "salary advance"}) — remaining: R${Number(advance.remainingBalance).toFixed(2)}` : null,
+      };
     });
 
     const totalGross = parseFloat(entries.reduce((s, e) => s + e.grossPay, 0).toFixed(2));
@@ -323,15 +344,26 @@ export async function markPayrollPaid(id: string, propertyId: string): Promise<A
 
     const run = await prisma.payrollRun.findFirst({
       where: { id, organisationId: orgId, status: "APPROVED" },
-      include: { entries: { include: { employee: { select: { name: true } } } } },
+      include: {
+        entries: {
+          include: { employee: { select: { name: true } } },
+        },
+      },
     });
     if (!run) return { ok: false, error: "Run not found or not yet approved." };
 
     const monthName = new Date(run.periodYear, run.periodMonth - 1).toLocaleString("en-ZA", { month: "long" });
 
+    // Find active advances for employees in this run — to settle after payment
+    const employeeIds = run.entries.map((e) => e.employeeId);
+    const activeAdvances = await prisma.employeeAdvance.findMany({
+      where: { organisationId: orgId, status: "ACTIVE", employeeId: { in: employeeIds } },
+    });
+
     await prisma.$transaction(async (tx) => {
       await tx.payrollRun.update({ where: { id }, data: { status: "PAID", paidAt: new Date() } });
 
+      // Post net salary expense (already net of advance deductions)
       await tx.transaction.create({
         data: {
           organisationId: orgId,
@@ -361,6 +393,31 @@ export async function markPayrollPaid(id: string, propertyId: string): Promise<A
             date: new Date(),
             reference: `UIF-${run.periodYear}-${String(run.periodMonth).padStart(2, "0")}`,
           },
+        });
+      }
+
+      // Settle advance repayments for each entry that had deductions
+      for (const entry of run.entries) {
+        if (Number(entry.otherDeductions) <= 0) continue;
+        const advance = activeAdvances.find((a) => a.employeeId === entry.employeeId);
+        if (!advance) continue;
+
+        const repaymentAmount = Math.min(Number(entry.otherDeductions), Number(advance.remainingBalance));
+        if (repaymentAmount <= 0) continue;
+
+        await tx.advanceRepayment.create({
+          data: {
+            advanceId: advance.id,
+            payrollRunId: id,
+            payrollEntryId: entry.id,
+            amount: repaymentAmount,
+          },
+        });
+
+        const newBalance = parseFloat(Math.max(0, Number(advance.remainingBalance) - repaymentAmount).toFixed(2));
+        await tx.employeeAdvance.update({
+          where: { id: advance.id },
+          data: { remainingBalance: newBalance, status: newBalance === 0 ? "SETTLED" : "ACTIVE", updatedAt: new Date() },
         });
       }
     });

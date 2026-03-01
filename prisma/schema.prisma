@@ -114,6 +114,8 @@ enum TransactionCategory {
   // Tax
   VAT_OUTPUT
   VAT_INPUT
+  // Payroll
+  EMPLOYEE_ADVANCE
   // Catch-all
   OTHER
 }
@@ -200,8 +202,9 @@ model Organisation {
   receipts     Receipt[]
   otaPayouts   OTAPayout[]
   alerts       Alert[]
-  employees    Employee[]
-  payrollRuns  PayrollRun[]
+  employees        Employee[]
+  payrollRuns      PayrollRun[]
+  employeeAdvances EmployeeAdvance[]
 
   @@index([slug])
   @@map("organisations")
@@ -270,6 +273,7 @@ model Property {
   icalFeeds         ICalFeed[]
   employees         Employee[]
   payrollRuns       PayrollRun[]
+  employeeAdvances  EmployeeAdvance[]
 
   @@index([organisationId])
   @@map("properties")
@@ -707,9 +711,10 @@ model Employee {
   deletedAt      DateTime?
 
   // Relations
-  organisation   Organisation   @relation(fields: [organisationId], references: [id])
-  property       Property?      @relation(fields: [propertyId], references: [id])
-  payrollEntries PayrollEntry[]
+  organisation     Organisation      @relation(fields: [organisationId], references: [id])
+  property         Property?         @relation(fields: [propertyId], references: [id])
+  payrollEntries   PayrollEntry[]
+  advances         EmployeeAdvance[]
 
   @@index([organisationId])
   @@index([propertyId])
@@ -736,9 +741,10 @@ model PayrollRun {
   updatedAt      DateTime        @updatedAt
 
   // Relations
-  organisation   Organisation    @relation(fields: [organisationId], references: [id])
-  property       Property?       @relation(fields: [propertyId], references: [id])
+  organisation   Organisation       @relation(fields: [organisationId], references: [id])
+  property       Property?          @relation(fields: [propertyId], references: [id])
   entries        PayrollEntry[]
+  repayments     AdvanceRepayment[]
 
   @@unique([organisationId, propertyId, periodMonth, periodYear])
   @@index([organisationId])
@@ -764,11 +770,73 @@ model PayrollEntry {
   updatedAt        DateTime   @updatedAt
 
   // Relations
-  payrollRun       PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  employee         Employee   @relation(fields: [employeeId], references: [id])
+  payrollRun       PayrollRun         @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee         Employee           @relation(fields: [employeeId], references: [id])
+  advanceRepayments AdvanceRepayment[]
 
   @@unique([payrollRunId, employeeId])
   @@index([payrollRunId])
   @@index([employeeId])
   @@map("payroll_entries")
+}
+
+// ─────────────────────────────────────────────
+// EMPLOYEE ADVANCES & LOANS
+// ─────────────────────────────────────────────
+
+enum AdvanceType {
+  ADVANCE  // one-time, deducted next payroll
+  LOAN     // repaid in monthly instalments
+}
+
+enum AdvanceStatus {
+  ACTIVE
+  SETTLED
+}
+
+model EmployeeAdvance {
+  id                 String        @id @default(uuid())
+  organisationId     String
+  employeeId         String
+  propertyId         String?
+  type               AdvanceType   @default(ADVANCE)
+  amount             Decimal       @db.Decimal(19, 4)   // original amount
+  monthlyInstalment  Decimal?      @db.Decimal(19, 4)   // null = full deduction next payroll
+  remainingBalance   Decimal       @db.Decimal(19, 4)
+  status             AdvanceStatus @default(ACTIVE)
+  givenDate          DateTime      @db.Date
+  notes              String?
+  transactionId      String?       // the immediate cash outflow tx
+  // Audit
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  organisation       Organisation      @relation(fields: [organisationId], references: [id])
+  employee           Employee          @relation(fields: [employeeId], references: [id])
+  property           Property?         @relation(fields: [propertyId], references: [id])
+  repayments         AdvanceRepayment[]
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("employee_advances")
+}
+
+model AdvanceRepayment {
+  id             String          @id @default(uuid())
+  advanceId      String
+  payrollRunId   String
+  payrollEntryId String
+  amount         Decimal         @db.Decimal(19, 4)
+  createdAt      DateTime        @default(now())
+
+  // Relations
+  advance        EmployeeAdvance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+  payrollRun     PayrollRun      @relation(fields: [payrollRunId], references: [id])
+  payrollEntry   PayrollEntry    @relation(fields: [payrollEntryId], references: [id])
+
+  @@index([advanceId])
+  @@index([payrollRunId])
+  @@map("advance_repayments")
 }
