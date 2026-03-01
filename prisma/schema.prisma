@@ -225,7 +225,7 @@ model User {
   passwordHash   String
   role           UserRole  @default(OWNER)
   isActive       Boolean   @default(true)
-  emailVerified  Boolean   @default(false)
+  emailVerified  Boolean   @default(false) @map("email_verified")
   lastLoginAt    DateTime?
   // Audit
   createdAt      DateTime  @default(now())
@@ -893,20 +893,20 @@ enum WhatsAppConvState {
 }
 
 model WhatsAppConversation {
-  id           String               @id @default(uuid())
-  organisationId String
-  propertyId   String?
-  phone        String               // Guest's WhatsApp number (E.164)
-  guestName    String?
-  state        WhatsAppConvState    @default(COLLECTING)
-  extracted    Json?                // { checkIn, checkOut, guests, roomPref, notes }
-  bookingId    String?
-  lastMessageAt DateTime            @default(now())
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id             String            @id @default(uuid())
+  organisationId String            @map("organisation_id")
+  propertyId     String?           @map("property_id")
+  phone          String
+  guestName      String?           @map("guest_name")
+  state          WhatsAppConvState @default(COLLECTING)
+  extracted      Json?
+  bookingId      String?           @map("booking_id")
+  lastMessageAt  DateTime          @default(now()) @map("last_message_at")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
-  organisation Organisation         @relation(fields: [organisationId], references: [id])
-  booking      Booking?             @relation(fields: [bookingId], references: [id])
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  booking      Booking?     @relation(fields: [bookingId], references: [id])
 
   @@index([organisationId])
   @@index([phone])

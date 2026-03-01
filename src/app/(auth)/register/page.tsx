@@ -30,7 +30,17 @@ function RegisterInner() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error ?? "Registration failed. Please try again.");
+        const msg = data.error ?? "Registration failed. Please try again.";
+        // Friendly messages for common errors
+        if (msg.toLowerCase().includes("already exists")) {
+          setError("An account with this email already exists. Try signing in instead.");
+        } else if (msg.toLowerCase().includes("password")) {
+          setError("Password must be at least 8 characters.");
+        } else if (msg.toLowerCase().includes("email")) {
+          setError("Please enter a valid email address.");
+        } else {
+          setError(msg);
+        }
         return;
       }
       router.push(`/register?verify=1&email=${encodeURIComponent(form.email)}`);

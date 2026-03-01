@@ -32,15 +32,21 @@ export default function LoginPage() {
       if (result?.error) {
         if (result.error === "EMAIL_NOT_VERIFIED") {
           setError({ kind: "unverified", email });
-        } else {
+        } else if (result.error === "CredentialsSignin") {
           setError({ kind: "generic", message: "Invalid email or password. Please try again." });
+        } else if (result.error?.toLowerCase().includes("network") || result.error?.toLowerCase().includes("fetch")) {
+          setError({ kind: "generic", message: "Network error. Please check your connection and try again." });
+        } else {
+          setError({ kind: "generic", message: "Something went wrong. Please try again or contact support." });
         }
-      } else {
+      } else if (result?.ok) {
         router.push("/dashboard");
         router.refresh();
+      } else {
+        setError({ kind: "generic", message: "Login failed. Please try again." });
       }
     } catch {
-      setError({ kind: "generic", message: "Something went wrong. Please try again." });
+      setError({ kind: "generic", message: "Network error. Please check your connection." });
     } finally {
       setLoading(false);
     }
