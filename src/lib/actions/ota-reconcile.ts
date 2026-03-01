@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseBookingComCSV, BookingComPayout } from "@/lib/ota-parsers/bookingcom";
 import { parseLekkerslaapCSV, LekkerslaapPayout } from "@/lib/ota-parsers/lekkerslaap";
+import { parseAirbnbCSV, AirbnbPayout } from "@/lib/ota-parsers/airbnb";
 
 type SessionUser = { organisationId?: string };
 
@@ -168,6 +169,41 @@ export async function previewOTAReconciliation(formData: FormData) {
           alreadyReconciled: !!existingPayout,
         });
       }
+    } else if (platform === "AIRBNB") {
+      const parsed = parseAirbnbCSV(csvContent);
+
+      for (const payout of parsed.payouts) {
+        const match = findBankMatchAirbnb(payout, bankTxns);
+        const descriptor = `AIRBNB-${payout.confirmationCode}`;
+
+        const existingPayout = await prisma.oTAPayout.findFirst({
+          where: {
+            organisationId: orgId,
+            propertyId,
+            platform: "AIRBNB",
+            notes: { contains: payout.confirmationCode },
+          },
+          select: { id: true },
+        });
+
+        items.push({
+          descriptor,
+          payoutAmount: payout.netAmount,
+          payoutDate: payout.payoutDate.toISOString(),
+          reservationCount: 1,
+          grossTotal: payout.grossEarnings,
+          commissionTotal: payout.serviceFee,
+          platform: "AIRBNB",
+          bankTransactionId: match?.id ?? null,
+          bankAmount: match ? parseFloat(String(match.amount)) : null,
+          bankDate: match?.date.toISOString() ?? null,
+          bankDescription: match?.description ?? null,
+          matchConfidence: match ? "HIGH" : "NONE",
+          matchMethod: match ? "Amount + Date + AIRBNB keyword" : "No match",
+          alreadyReconciled: !!existingPayout,
+        });
+      }
+
     } else {
       return { ok: false, error: `Platform ${platform} not yet supported` };
     }
@@ -323,6 +359,58 @@ export async function confirmOTAReconciliation(formData: FormData) {
 
         saved++;
       }
+
+    } else if (platform === "AIRBNB") {
+      const parsed = parseAirbnbCSV(csvContent);
+
+      for (const payout of parsed.payouts) {
+        const descriptor = `AIRBNB-${payout.confirmationCode}`;
+        if (!selectedDescriptors.includes(descriptor)) continue;
+
+        const bankTxnId = matchMap[descriptor];
+
+        await prisma.$transaction(async (tx) => {
+          const otaPayout = await tx.oTAPayout.create({
+            data: {
+              organisationId: orgId,
+              propertyId,
+              platform: "AIRBNB",
+              periodStart: payout.checkIn,
+              periodEnd: payout.checkOut,
+              payoutDate: payout.payoutDate,
+              grossAmount: payout.grossEarnings,
+              totalCommission: payout.serviceFee,
+              netAmount: payout.netAmount,
+              status: "RECONCILED",
+              importFilename: file.name,
+              notes: payout.confirmationCode,
+            },
+          });
+
+          await tx.oTAPayoutItem.create({
+            data: {
+              payoutId: otaPayout.id,
+              externalBookingRef: payout.confirmationCode,
+              guestName: payout.guestName,
+              checkIn: payout.checkIn,
+              checkOut: payout.checkOut,
+              grossAmount: payout.grossEarnings,
+              commission: payout.serviceFee,
+              netAmount: payout.netAmount,
+              isMatched: true,
+            },
+          });
+
+          if (bankTxnId) {
+            await tx.transaction.update({
+              where: { id: bankTxnId },
+              data: { status: "RECONCILED" },
+            });
+          }
+        });
+
+        saved++;
+      }
     }
 
     return { ok: true, data: { saved } };
@@ -351,6 +439,26 @@ function findBankMatchBookingCom(
   return bankTxns.find(t =>
     t.description.toUpperCase().includes(descriptor)
   ) ?? null;
+}
+
+function findBankMatchAirbnb(
+  payout: AirbnbPayout,
+  bankTxns: BankTxn[]
+): BankTxn | null {
+  const targetAmt = payout.netAmount;
+  const targetDate = payout.payoutDate;
+  const windowMs = 3 * 86400000; // ±3 days
+
+  return bankTxns.find(t => {
+    const amt = parseFloat(String(t.amount));
+    const dateDiff = Math.abs(t.date.getTime() - targetDate.getTime());
+    const amtMatch = Math.abs(amt - targetAmt) < 0.10;
+    const dateMatch = dateDiff <= windowMs;
+    const keyword = t.description.toUpperCase().includes("AIRBNB") ||
+                    t.description.toUpperCase().includes("NDS*AIR") ||
+                    t.description.toUpperCase().includes("AIR BNB");
+    return amtMatch && dateMatch && keyword;
+  }) ?? null;
 }
 
 function findBankMatchLekkerslaap(

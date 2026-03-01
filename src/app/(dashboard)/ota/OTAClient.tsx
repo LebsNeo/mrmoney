@@ -333,7 +333,7 @@ export function OTAClient({ properties, configs: initialConfigs }: {
                   >
                     <option value="BOOKING_COM">Booking.com</option>
                     <option value="LEKKERSLAAP">Lekkerslaap</option>
-                    <option value="AIRBNB">Airbnb (coming soon)</option>
+                    <option value="AIRBNB">Airbnb</option>
                   </select>
                 </div>
                 <div>
