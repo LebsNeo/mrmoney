@@ -47,20 +47,19 @@ export function PayrollRunClient({ run }: { run: Run }) {
   function saveEdit(entryId: string) {
     setError(null);
     startTransition(async () => {
-      try {
-        await updatePayrollEntry(entryId, editVals);
-        // Optimistic: recalc locally
-        setEntries((prev) => prev.map((e) => {
-          if (e.id !== entryId) return e;
-          const gross = Number(e.grossPay);
-          const totalGross = gross + editVals.overtime + editVals.bonus + editVals.otherAdditions;
-          const uif = Math.min(totalGross, 17712) * 0.01;
-          const net = totalGross - uif - editVals.otherDeductions;
-          return { ...e, overtime: editVals.overtime, bonus: editVals.bonus, otherAdditions: editVals.otherAdditions,
-            otherDeductions: editVals.otherDeductions, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: editVals.notes };
-        }));
-        setEditingId(null);
-      } catch (e: any) { setError(e.message); }
+      const result = await updatePayrollEntry(entryId, editVals);
+      if (!result.ok) { setError(result.error); return; }
+      // Optimistic: recalc locally
+      setEntries((prev) => prev.map((e) => {
+        if (e.id !== entryId) return e;
+        const gross = Number(e.grossPay);
+        const totalGross = gross + editVals.overtime + editVals.bonus + editVals.otherAdditions;
+        const uif = parseFloat((Math.min(totalGross, 17712) * 0.01).toFixed(2));
+        const net = parseFloat((totalGross - uif - editVals.otherDeductions).toFixed(2));
+        return { ...e, overtime: editVals.overtime, bonus: editVals.bonus, otherAdditions: editVals.otherAdditions,
+          otherDeductions: editVals.otherDeductions, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: editVals.notes };
+      }));
+      setEditingId(null);
     });
   }
 

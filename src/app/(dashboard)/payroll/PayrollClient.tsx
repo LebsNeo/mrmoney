@@ -60,44 +60,44 @@ export function PayrollClient({
   function handleCreateRun() {
     setError(null);
     startTransition(async () => {
-      try {
-        await createPayrollRun({ periodMonth: runMonth, periodYear: runYear, propertyId: runPropertyId || undefined });
-        setShowNewRun(false);
-      } catch (e: any) {
-        setError(e.message);
-      }
+      const result = await createPayrollRun({ periodMonth: runMonth, periodYear: runYear, propertyId: runPropertyId || undefined });
+      if (!result.ok) { setError(result.error); return; }
+      setShowNewRun(false);
     });
   }
 
   function handleCreateEmployee() {
     setError(null);
-    if (!empForm.name || !empForm.grossSalary || !empForm.startDate) {
-      setError("Name, salary and start date are required");
-      return;
-    }
+    if (!empForm.name.trim()) { setError("Employee name is required"); return; }
+    if (!empForm.grossSalary || parseFloat(empForm.grossSalary) <= 0) { setError("Please enter a valid gross salary"); return; }
+    if (!empForm.startDate) { setError("Start date is required"); return; }
     startTransition(async () => {
-      try {
-        await createEmployee({
-          ...empForm,
-          grossSalary: parseFloat(empForm.grossSalary),
-          propertyId: empForm.propertyId || undefined,
-        });
-        setShowNewEmployee(false);
-        setEmpForm({ name: "", jobTitle: "", employmentType: "FULL_TIME", grossSalary: "", startDate: "", propertyId: properties[0]?.id ?? "", phone: "", email: "", bankName: "", bankAccount: "", bankBranch: "", idNumber: "" });
-      } catch (e: any) {
-        setError(e.message);
-      }
+      const result = await createEmployee({
+        ...empForm,
+        grossSalary: parseFloat(empForm.grossSalary),
+        propertyId: empForm.propertyId || undefined,
+      });
+      if (!result.ok) { setError(result.error); return; }
+      setShowNewEmployee(false);
+      setEmpForm({ name: "", jobTitle: "", employmentType: "FULL_TIME", grossSalary: "", startDate: "", propertyId: properties[0]?.id ?? "", phone: "", email: "", bankName: "", bankAccount: "", bankBranch: "", idNumber: "" });
     });
   }
 
   function handleApprove(id: string) {
-    startTransition(async () => { await approvePayrollRun(id); });
+    setError(null);
+    startTransition(async () => {
+      const result = await approvePayrollRun(id);
+      if (!result.ok) setError(result.error);
+    });
   }
 
   function handlePaid(id: string) {
-    if (!runPropertyId && !properties[0]?.id) { setError("Select a property first"); return; }
+    setError(null);
+    const propId = runPropertyId || properties[0]?.id;
+    if (!propId) { setError("Please select a property before marking as paid"); return; }
     startTransition(async () => {
-      await markPayrollPaid(id, runPropertyId || properties[0]?.id);
+      const result = await markPayrollPaid(id, propId);
+      if (!result.ok) setError(result.error);
     });
   }
 
@@ -117,9 +117,17 @@ export function PayrollClient({
             </button>
           )}
           {tab === "runs" && (
-            <button onClick={() => setShowNewRun(true)}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors">
-              + New Payroll Run
+            <button
+              onClick={() => employees.length === 0 ? setTab("employees") : setShowNewRun(true)}
+              className={cn(
+                "px-4 py-2 rounded-xl text-sm font-semibold transition-colors",
+                employees.length === 0
+                  ? "bg-gray-700 text-gray-400 cursor-default"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-white"
+              )}
+              title={employees.length === 0 ? "Add employees first" : undefined}
+            >
+              {employees.length === 0 ? "Add Employees First →" : "+ New Payroll Run"}
             </button>
           )}
         </div>
@@ -146,8 +154,24 @@ export function PayrollClient({
           {runs.length === 0 ? (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
               <div className="text-4xl mb-3">💸</div>
-              <p className="text-gray-400">No payroll runs yet.</p>
-              <p className="text-gray-600 text-sm mt-1">Click "New Payroll Run" to process your first payroll.</p>
+              <p className="text-white font-semibold mb-1">No payroll runs yet</p>
+              {employees.length === 0 ? (
+                <>
+                  <p className="text-gray-400 text-sm">You need to add your employees before running payroll.</p>
+                  <button onClick={() => setTab("employees")}
+                    className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors">
+                    → Add Employees First
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-400 text-sm">{employees.length} employee{employees.length !== 1 ? "s" : ""} ready. Create your first payroll run.</p>
+                  <button onClick={() => setShowNewRun(true)}
+                    className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors">
+                    + New Payroll Run
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             runs.map((run) => (
