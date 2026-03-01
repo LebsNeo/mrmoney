@@ -145,3 +145,145 @@ export async function getPLStatement(
     totalExpenses,
   };
 }
+
+// ─────────────────────────────────────────────
+// CASH FLOW STATEMENT
+// ─────────────────────────────────────────────
+
+export interface CashFlowStatement {
+  periodLabel: string
+  propertyName: string
+  currency: string
+
+  operating: {
+    inflows: { label: string; amount: number }[]
+    outflows: { label: string; amount: number }[]
+    netOperating: number
+  }
+
+  // Opening / closing cash (from bank transactions)
+  openingCash: number
+  closingCash: number
+  netMovement: number
+}
+
+export async function getCashFlowStatement(
+  preset: PeriodPreset,
+  propertyId?: string,
+  customFrom?: string,
+  customTo?: string
+): Promise<CashFlowStatement> {
+  "use server";
+  const orgId = await getOrgId();
+  const { from, to } = resolvePeriod(preset, customFrom, customTo);
+
+  const properties = await prisma.property.findMany({
+    where: { organisationId: orgId, isActive: true, deletedAt: null },
+    select: { id: true, name: true, currency: true },
+  });
+  const property = propertyId ? properties.find(p => p.id === propertyId) : null;
+  const propertyName = property?.name ?? "All Properties";
+  const currency = property?.currency ?? "ZAR";
+
+  // All cleared/reconciled transactions in the period
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      organisationId: orgId,
+      ...(propertyId ? { propertyId } : {}),
+      date: { gte: from, lte: to },
+      deletedAt: null,
+      status: { in: ["CLEARED", "RECONCILED"] },
+    },
+    select: { type: true, category: true, amount: true, date: true },
+  });
+
+  // Opening cash: all cleared transactions BEFORE period
+  const beforeTxns = await prisma.transaction.aggregate({
+    where: {
+      organisationId: orgId,
+      ...(propertyId ? { propertyId } : {}),
+      date: { lt: from },
+      deletedAt: null,
+      status: { in: ["CLEARED", "RECONCILED"] },
+    },
+    _sum: { amount: true },
+    // We need to aggregate income - expense separately
+  });
+
+  const beforeIncome = await prisma.transaction.aggregate({
+    where: { organisationId: orgId, ...(propertyId ? { propertyId } : {}), date: { lt: from }, deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] }, type: "INCOME" },
+    _sum: { amount: true },
+  });
+  const beforeExpense = await prisma.transaction.aggregate({
+    where: { organisationId: orgId, ...(propertyId ? { propertyId } : {}), date: { lt: from }, deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] }, type: "EXPENSE" },
+    _sum: { amount: true },
+  });
+
+  const openingCash = Number(beforeIncome._sum.amount ?? 0) - Number(beforeExpense._sum.amount ?? 0);
+
+  // Group inflows by category label
+  const INFLOW_LABELS: Partial<Record<string, string>> = {
+    ACCOMMODATION: "Accommodation Revenue",
+    OTHER_INCOME: "Other Income",
+    OTA_PAYOUT: "OTA Payouts Received",
+    DEPOSIT: "Security Deposits",
+    REFUND: "Refunds Received",
+  };
+  const OUTFLOW_LABELS: Partial<Record<string, string>> = {
+    STAFF_WAGES: "Staff Wages",
+    UIF_EMPLOYER: "UIF (Employer)",
+    RENT: "Rent",
+    UTILITIES: "Utilities",
+    REPAIRS_MAINTENANCE: "Repairs & Maintenance",
+    CLEANING: "Cleaning",
+    SUPPLIES: "Guest Supplies",
+    LINEN: "Linen & Laundry",
+    INSURANCE: "Insurance",
+    MARKETING: "Marketing & Advertising",
+    BANK_CHARGES: "Bank Charges",
+    ACCOUNTING: "Accounting & Admin",
+    EMPLOYEE_ADVANCE: "Staff Advances",
+    FOOD_BEVERAGE: "Food & Beverage",
+    TRANSPORT: "Transport",
+    EQUIPMENT: "Equipment",
+    DEPRECIATION: "Depreciation",
+    TAX: "Tax Payments",
+    OTHER: "Other Expenses",
+  };
+
+  const inflowMap = new Map<string, number>();
+  const outflowMap = new Map<string, number>();
+
+  for (const tx of transactions) {
+    const amt = Number(tx.amount);
+    if (tx.type === "INCOME") {
+      const label = INFLOW_LABELS[tx.category] ?? tx.category.replace(/_/g, " ");
+      inflowMap.set(label, (inflowMap.get(label) ?? 0) + amt);
+    } else {
+      const label = OUTFLOW_LABELS[tx.category] ?? tx.category.replace(/_/g, " ");
+      outflowMap.set(label, (outflowMap.get(label) ?? 0) + amt);
+    }
+  }
+
+  const inflows = Array.from(inflowMap.entries())
+    .map(([label, amount]) => ({ label, amount }))
+    .sort((a, b) => b.amount - a.amount);
+  const outflows = Array.from(outflowMap.entries())
+    .map(([label, amount]) => ({ label, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const totalInflows = inflows.reduce((s, i) => s + i.amount, 0);
+  const totalOutflows = outflows.reduce((s, o) => s + o.amount, 0);
+  const netOperating = totalInflows - totalOutflows;
+  const closingCash = openingCash + netOperating;
+
+  return {
+    periodLabel: formatPeriodLabel(from, to),
+    propertyName,
+    currency,
+    operating: { inflows, outflows, netOperating },
+    openingCash,
+    closingCash,
+    netMovement: netOperating,
+  };
+}

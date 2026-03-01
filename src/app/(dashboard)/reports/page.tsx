@@ -22,9 +22,9 @@ const REPORTS = [
     href: "/reports/cash-flow",
     icon: "💧",
     title: "Cash Flow Statement",
-    description: "Operating, investing and financing cash flows for any period.",
-    badge: "Coming Soon",
-    badgeColor: "bg-gray-700 text-gray-400 border-gray-600",
+    description: "Operating cash inflows and outflows for any period. Opening and closing cash position.",
+    badge: "Ready",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   },
   {
     href: "/reports/funding-pack",
