@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 interface Conversation {
@@ -73,7 +73,70 @@ const PROVIDERS = [
 export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props) {
   const [copied, setCopied] = useState(false);
   const [activeProvider, setActiveProvider] = useState("meta");
-  const [tab, setTab] = useState<"setup" | "conversations">("setup");
+  const [tab, setTab] = useState<"setup" | "digest" | "conversations">("setup");
+
+  // Digest settings
+  const [digestPhone, setDigestPhone] = useState("");
+  const [digestEnabled, setDigestEnabled] = useState(false);
+  const [digestTime, setDigestTime] = useState("07:00");
+  const [digestSaving, setDigestSaving] = useState(false);
+  const [digestSaved, setDigestSaved] = useState(false);
+  const [digestError, setDigestError] = useState("");
+  const [digestSending, setDigestSending] = useState(false);
+  const [digestSendResult, setDigestSendResult] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings/digest")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data) {
+          setDigestPhone(d.data.ownerWhatsApp ?? "");
+          setDigestEnabled(d.data.digestEnabled ?? false);
+          setDigestTime(d.data.digestTime ?? "07:00");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function saveDigest() {
+    setDigestSaving(true);
+    setDigestError("");
+    setDigestSaved(false);
+    try {
+      const res = await fetch("/api/settings/digest", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerWhatsApp: digestPhone, digestEnabled, digestTime }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setDigestError(data.error ?? "Failed to save"); return; }
+      setDigestSaved(true);
+      setTimeout(() => setDigestSaved(false), 3000);
+    } catch {
+      setDigestError("Network error");
+    } finally {
+      setDigestSaving(false);
+    }
+  }
+
+  async function sendTestDigest() {
+    setDigestSending(true);
+    setDigestSendResult("");
+    try {
+      const res = await fetch("/api/cron/daily-digest");
+      const data = await res.json();
+      if (data.ok) {
+        setDigestSendResult(data.sent > 0 ? "✓ Digest sent! Check your WhatsApp." : "Digest not sent — make sure phone is saved and WhatsApp provider is configured.");
+      } else {
+        setDigestSendResult("Error: " + (data.error ?? "Unknown"));
+      }
+    } catch {
+      setDigestSendResult("Network error");
+    } finally {
+      setDigestSending(false);
+      setTimeout(() => setDigestSendResult(""), 6000);
+    }
+  }
 
   function copyWebhook() {
     navigator.clipboard.writeText(webhookUrl);
@@ -102,7 +165,7 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 mb-6 w-fit">
-        {(["setup", "conversations"] as const).map((t) => (
+        {(["setup", "digest", "conversations"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -110,7 +173,7 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
               tab === t ? "bg-blue-500 text-white" : "text-gray-400 hover:text-white"
             }`}
           >
-            {t === "setup" ? "Setup Guide" : `Conversations ${stats.total > 0 ? `(${stats.total})` : ""}`}
+            {t === "setup" ? "Setup Guide" : t === "digest" ? "☀️ Daily Digest" : `Conversations ${stats.total > 0 ? `(${stats.total})` : ""}`}
           </button>
         ))}
       </div>
@@ -255,6 +318,140 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DIGEST TAB ────────────────────────────────────────────────────── */}
+      {tab === "digest" && (
+        <div className="space-y-6">
+          {/* What is this */}
+          <div className="bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-2xl p-6">
+            <div className="flex items-start gap-4">
+              <span className="text-4xl">☀️</span>
+              <div>
+                <h2 className="text-base font-bold text-white mb-1">Daily Morning Digest</h2>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Every morning at your chosen time, MrMoney sends you a WhatsApp summary of the day — occupancy, check-ins, revenue MTD, cash position, and any pending bookings. One message. Total picture.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h2 className="text-sm font-semibold text-white mb-4">What you'll receive</h2>
+            <div className="flex justify-start">
+              <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3 max-w-xs text-xs text-gray-200 leading-relaxed whitespace-pre-wrap font-mono">
+{`☀️ Good morning! Here's your day
+Monday, 2 March 2026
+
+🏠 GolfBnB
+🟩🟩🟩🟩⬜ 6/8 rooms (75%)
+📥 Check-ins today: 2
+📤 Check-outs today: 1
+💳 Revenue today: R2,200
+
+📊 Revenue MTD: R84,320
+💵 Cash position: R12,450
+📈 Top channel: Airbnb (42%)
+
+⚡ 1 WhatsApp booking awaiting confirmation
+
+— MrMoney 💚`}
+              </div>
+            </div>
+          </div>
+
+          {/* Settings form */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
+            <h2 className="text-sm font-semibold text-white">Configure</h2>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white">Enable daily digest</p>
+                <p className="text-xs text-gray-500 mt-0.5">Sends every morning at your chosen time</p>
+              </div>
+              <button
+                onClick={() => setDigestEnabled(!digestEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  digestEnabled ? "bg-emerald-500" : "bg-gray-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    digestEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                Your WhatsApp number (E.164 format)
+              </label>
+              <input
+                type="tel"
+                value={digestPhone}
+                onChange={(e) => setDigestPhone(e.target.value)}
+                placeholder="+27821234567"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+              <p className="text-xs text-gray-600 mt-1">Include country code. SA numbers: +27 followed by 9 digits</p>
+            </div>
+
+            {/* Time */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                Delivery time (Africa/Johannesburg)
+              </label>
+              <select
+                value={digestTime}
+                onChange={(e) => setDigestTime(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              >
+                {["05:00", "06:00", "06:30", "07:00", "07:30", "08:00", "09:00"].map((t) => (
+                  <option key={t} value={t}>{t} SAST</option>
+                ))}
+              </select>
+            </div>
+
+            {digestError && (
+              <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                {digestError}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={saveDigest}
+                disabled={digestSaving}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {digestSaving ? "Saving..." : digestSaved ? "✓ Saved!" : "Save settings"}
+              </button>
+              <button
+                onClick={sendTestDigest}
+                disabled={digestSending || !digestPhone}
+                className="px-4 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {digestSending ? "Sending..." : "Send test"}
+              </button>
+            </div>
+
+            {digestSendResult && (
+              <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                {digestSendResult}
+              </p>
+            )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              <strong className="text-gray-400">Note:</strong> The digest uses your WhatsApp provider (Meta or Twilio). Make sure your provider is configured first on the Setup Guide tab. The cron runs every day at 5:00 AM UTC (7:00 AM SAST).
+            </p>
           </div>
         </div>
       )}
