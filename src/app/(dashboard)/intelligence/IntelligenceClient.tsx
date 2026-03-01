@@ -13,6 +13,7 @@ const SOURCE_LABELS: Record<string, string> = {
   AIRBNB: "Airbnb",
   LEKKERSLAAP: "Lekkerslaap",
   EXPEDIA: "Expedia",
+  WHATSAPP: "WhatsApp",
   OTHER: "Other",
 };
 
@@ -23,6 +24,7 @@ const SOURCE_COLORS: Record<string, string> = {
   AIRBNB: "bg-rose-500",
   LEKKERSLAAP: "bg-amber-500",
   EXPEDIA: "bg-violet-500",
+  WHATSAPP: "bg-green-500",
   OTHER: "bg-gray-500",
 };
 
@@ -33,6 +35,7 @@ const SOURCE_BADGE: Record<string, string> = {
   AIRBNB: "bg-rose-500/10 text-rose-400 border-rose-500/20",
   LEKKERSLAAP: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   EXPEDIA: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  WHATSAPP: "bg-green-500/10 text-green-400 border-green-500/20",
   OTHER: "bg-gray-700/50 text-gray-400 border-gray-600",
 };
 

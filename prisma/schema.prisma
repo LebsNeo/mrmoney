@@ -70,6 +70,7 @@ enum BookingSource {
   EXPEDIA
   LEKKERSLAAP
   WALKIN
+  WHATSAPP
   OTHER
 }
 
@@ -201,11 +202,12 @@ model Organisation {
   invoices     Invoice[]
   receipts     Receipt[]
   otaPayouts        OTAPayout[]
-  otaChannelConfigs OTAChannelConfig[]
-  alerts            Alert[]
-  employees         Employee[]
-  payrollRuns       PayrollRun[]
-  employeeAdvances  EmployeeAdvance[]
+  otaChannelConfigs     OTAChannelConfig[]
+  alerts                Alert[]
+  employees             Employee[]
+  payrollRuns           PayrollRun[]
+  employeeAdvances      EmployeeAdvance[]
+  whatsappConversations WhatsAppConversation[]
 
   @@index([slug])
   @@map("organisations")
@@ -378,9 +380,10 @@ model Booking {
   // Relations
   property      Property       @relation(fields: [propertyId], references: [id])
   room          Room           @relation(fields: [roomId], references: [id])
-  transactions  Transaction[]
-  invoices      Invoice[]
-  otaPayoutItems OTAPayoutItem[]
+  transactions           Transaction[]
+  invoices               Invoice[]
+  otaPayoutItems         OTAPayoutItem[]
+  whatsappConversations  WhatsAppConversation[]
 
   @@index([propertyId])
   @@index([roomId])
@@ -874,4 +877,34 @@ model AdvanceRepayment {
   @@index([advanceId])
   @@index([payrollRunId])
   @@map("advance_repayments")
+}
+
+// ─── WhatsApp Booking Intake ──────────────────────────────────────────────────
+
+enum WhatsAppConvState {
+  COLLECTING   // Gathering booking details
+  CONFIRMING   // Sent summary, waiting for YES/NO
+  CONFIRMED    // Booking created and confirmed
+  CANCELLED    // Guest cancelled or timed out
+}
+
+model WhatsAppConversation {
+  id           String               @id @default(uuid())
+  organisationId String
+  propertyId   String?
+  phone        String               // Guest's WhatsApp number (E.164)
+  guestName    String?
+  state        WhatsAppConvState    @default(COLLECTING)
+  extracted    Json?                // { checkIn, checkOut, guests, roomPref, notes }
+  bookingId    String?
+  lastMessageAt DateTime            @default(now())
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  organisation Organisation         @relation(fields: [organisationId], references: [id])
+  booking      Booking?             @relation(fields: [bookingId], references: [id])
+
+  @@index([organisationId])
+  @@index([phone])
+  @@map("whatsapp_conversations")
 }
