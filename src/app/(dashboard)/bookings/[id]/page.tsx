@@ -159,7 +159,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 Transactions ({transactions.length})
               </h2>
               <div className="space-y-2">
-                {transactions.map((tx) => (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {transactions.map((tx: any) => (
                   <div
                     key={tx.id}
                     className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0"

@@ -24,7 +24,7 @@ interface NewBookingFormProps {
 }
 
 const OTA_COMMISSION: Record<string, number> = {
-  AIRBNB: 0.03,
+  AIRBNB: 0.0345,
   BOOKING_COM: 0.15,
   EXPEDIA: 0.15,
   LEKKERSLAAP: 0.10,
@@ -54,6 +54,11 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const [isVatInclusive, setIsVatInclusive] = useState(false);
   const [vatEnabled, setVatEnabled] = useState(false);
   const [customRoomRate, setCustomRoomRate] = useState<number | null>(null);
+
+  // Payment at booking creation
+  const [collectPayment, setCollectPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "EFT" | "CARD">("CASH");
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
 
   // Derived rooms for selected property
   const selectedProperty = properties.find((p) => p.id === propertyId);
@@ -133,6 +138,9 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         grossAmount,
         isVatInclusive,
         vatRate,
+        collectPayment,
+        paymentMethod: paymentMethod as "CASH" | "EFT" | "CARD",
+        paymentAmount: paymentAmount ?? undefined,
       });
 
       if (!result.success) {
@@ -374,6 +382,71 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
           </div>
         </div>
       )}
+
+      {/* Collect Payment Now */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Collect Payment Now
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">Walk-in cash · EFT on arrival · Card</p>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={collectPayment}
+              onChange={(e) => {
+                setCollectPayment(e.target.checked);
+                if (e.target.checked && netAmount > 0) setPaymentAmount(netAmount);
+              }}
+              className="w-4 h-4 rounded accent-emerald-500"
+            />
+            <span className="text-sm text-gray-300">Payment received</span>
+          </label>
+        </div>
+
+        {collectPayment && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Payment Method</label>
+              <div className="flex gap-2">
+                {(["CASH", "EFT", "CARD"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaymentMethod(m)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                      paymentMethod === m
+                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                        : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    {m === "CASH" ? "💵 Cash" : m === "EFT" ? "🏦 EFT" : "💳 Card"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Amount Received (ZAR)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={paymentAmount ?? ""}
+                onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                placeholder={`e.g. ${fmt(netAmount)}`}
+                className={inputClass}
+              />
+              {paymentAmount !== null && paymentAmount < netAmount && (
+                <p className="text-xs text-amber-400 mt-1">
+                  ⚠ Partial payment — balance R {fmt(netAmount - paymentAmount)} outstanding
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Submit */}
       <div className="flex justify-end gap-3">
