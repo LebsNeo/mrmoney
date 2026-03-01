@@ -26,11 +26,21 @@ async function getOrgId(): Promise<string> {
   return orgId;
 }
 
+// ─── Serialization helper — converts Decimal + Date to plain JS ──────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serialize<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj, (_key, val) => {
+    if (val !== null && typeof val === "object" && typeof val.toFixed === "function") return Number(val);
+    if (val instanceof Date) return val.toISOString();
+    return val;
+  }));
+}
+
 // ─── EMPLOYEES ────────────────────────────────────────────────────────────
 
 export async function getEmployees(propertyId?: string) {
   const orgId = await getOrgId();
-  return prisma.employee.findMany({
+  const rows = await prisma.employee.findMany({
     where: {
       organisationId: orgId,
       isActive: true,
@@ -40,6 +50,7 @@ export async function getEmployees(propertyId?: string) {
     include: { property: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
+  return serialize(rows);
 }
 
 export async function createEmployee(data: {
@@ -122,7 +133,7 @@ export async function deleteEmployee(id: string) {
 
 export async function getPayrollRuns() {
   const orgId = await getOrgId();
-  return prisma.payrollRun.findMany({
+  const rows = await prisma.payrollRun.findMany({
     where: { organisationId: orgId },
     include: {
       entries: { include: { employee: { select: { name: true, employmentType: true } } } },
@@ -130,11 +141,12 @@ export async function getPayrollRuns() {
     },
     orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
   });
+  return serialize(rows);
 }
 
 export async function getPayrollRun(id: string) {
   const orgId = await getOrgId();
-  return prisma.payrollRun.findFirst({
+  const row = await prisma.payrollRun.findFirst({
     where: { id, organisationId: orgId },
     include: {
       entries: {
@@ -148,6 +160,7 @@ export async function getPayrollRun(id: string) {
       property: { select: { name: true } },
     },
   });
+  return row ? serialize(row) : null;
 }
 
 export async function createPayrollRun(data: {
@@ -224,7 +237,7 @@ export async function createPayrollRun(data: {
   });
 
   revalidatePath("/payroll");
-  return run;
+  return serialize(run);
 }
 
 export async function updatePayrollEntry(entryId: string, data: {
