@@ -190,9 +190,9 @@ model Organisation {
   vatNumber      String?
   defaultVatRate Decimal  @default(0.15) @db.Decimal(5, 4)
   // Owner digest
-  ownerWhatsApp  String?  // E.164 phone for daily digest, e.g. +27821234567
-  digestEnabled  Boolean  @default(false)
-  digestTime     String   @default("07:00") // HH:MM in Africa/Johannesburg
+  ownerWhatsApp  String?  @map("owner_whatsapp")
+  digestEnabled  Boolean  @default(false) @map("digest_enabled")
+  digestTime     String   @default("07:00") @map("digest_time")
   // Audit
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
