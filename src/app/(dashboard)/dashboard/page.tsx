@@ -22,13 +22,12 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ propertyId?: string }>;
 }) {
-  const data = await getDashboardKPIs();
-  const params = await searchParams;
-
+  // Get session first — everything must be scoped to this org
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
+  const params = await searchParams;
 
-  // Fetch all properties for the switcher + determine selected property
+  // Fetch org's properties for the switcher + determine selected property
   const allProperties = orgId
     ? await prisma.property.findMany({
         where: { organisationId: orgId, isActive: true, deletedAt: null },
@@ -37,6 +36,9 @@ export default async function DashboardPage({
       })
     : [];
   const selectedPropertyId = params.propertyId ?? allProperties[0]?.id ?? "";
+
+  // Now fetch KPIs — properly scoped to this org + selected property
+  const data = await getDashboardKPIs(selectedPropertyId || undefined);
 
   // Phase 4: budget alerts + break-even
   let budgetAlerts: Awaited<ReturnType<typeof getBudgetAlerts>> = [];

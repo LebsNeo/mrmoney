@@ -11,24 +11,41 @@ import { toNumber } from "@/lib/utils";
 import { startOfMonth, endOfMonth, addDays } from "date-fns";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { logger } from "@/lib/logger";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function getDashboardKPIs(propertyId?: string) {
+  // ─── Always scope to the current user's org ──────────────────────────────
+  const session = await getServerSession(authOptions);
+  const organisationId = (session?.user as { organisationId?: string })?.organisationId;
+
+  if (!organisationId) {
+    // Unauthenticated — return empty state
+    return emptyKPIs();
+  }
+
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
   const nextWeek = addDays(now, 7);
 
-  const propertyFilter = propertyId ? { propertyId } : {};
+  // Filter properties to this org only
   const propertyWhere = {
     deletedAt: null as null,
     isActive: true,
+    organisationId,
     ...(propertyId ? { id: propertyId } : {}),
   };
+
+  // For bookings/transactions: filter via property relation to ensure org isolation
+  const propertyFilter = propertyId
+    ? { propertyId }
+    : { property: { organisationId } };
 
   // ─── Batch all independent queries in parallel ───────────────────────────
   const [properties, monthBookings, recentTransactions, upcomingBookings, cashAgg] =
     await Promise.all([
-      // 1. Properties + rooms for total room count
+      // 1. Properties + rooms for total room count (org-scoped)
       prisma.property.findMany({
         where: propertyWhere,
         select: {
@@ -40,7 +57,7 @@ export async function getDashboardKPIs(propertyId?: string) {
         },
       }),
 
-      // 2. Current month bookings (confirmed, checked_in, checked_out)
+      // 2. Current month bookings (org-scoped)
       prisma.booking.findMany({
         where: {
           deletedAt: null,
@@ -60,7 +77,7 @@ export async function getDashboardKPIs(propertyId?: string) {
         },
       }),
 
-      // 3. Recent transactions (last 10)
+      // 3. Recent transactions — last 10 (org-scoped)
       prisma.transaction.findMany({
         where: { deletedAt: null, ...propertyFilter },
         include: { property: { select: { name: true } } },
@@ -68,7 +85,7 @@ export async function getDashboardKPIs(propertyId?: string) {
         take: 10,
       }),
 
-      // 4. Upcoming bookings (next 7 days)
+      // 4. Upcoming bookings — next 7 days (org-scoped)
       prisma.booking.findMany({
         where: {
           deletedAt: null,
@@ -84,7 +101,7 @@ export async function getDashboardKPIs(propertyId?: string) {
         take: 10,
       }),
 
-      // 5. Cash position: cleared income vs expenses (all time)
+      // 5. Cash position: cleared income vs expenses (org-scoped)
       prisma.transaction.groupBy({
         by: ["type"],
         where: {
@@ -124,6 +141,7 @@ export async function getDashboardKPIs(propertyId?: string) {
     toNumber(incomeTotal ?? 0) - toNumber(expenseTotal ?? 0);
 
   logger.debug("Dashboard KPIs computed", {
+    organisationId,
     propertyId,
     totalRooms,
     totalRevenue,
@@ -144,6 +162,25 @@ export async function getDashboardKPIs(propertyId?: string) {
     period: {
       start: monthStart,
       end: monthEnd,
+    },
+  };
+}
+
+function emptyKPIs() {
+  const now = new Date();
+  return {
+    totalRevenue: 0,
+    occupancyRate: 0,
+    adr: 0,
+    revpar: 0,
+    occupiedRoomNights: 0,
+    totalRooms: 0,
+    recentTransactions: [] as never[],
+    upcomingBookings: [] as never[],
+    cashPosition: 0,
+    period: {
+      start: startOfMonth(now),
+      end: endOfMonth(now),
     },
   };
 }
