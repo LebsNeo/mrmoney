@@ -84,7 +84,7 @@ export function OTAClient({ properties, configs: initialConfigs }: {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [previewing, setPreviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [reconcileResult, setReconcileResult] = useState<{ saved: number } | null>(null);
+  const [reconcileResult, setReconcileResult] = useState<{ saved: number; bookingsCreated: number } | null>(null);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
 
   // ── Channel Config handlers ────────────────────────────────────────────────
@@ -209,7 +209,7 @@ export function OTAClient({ properties, configs: initialConfigs }: {
     const res = await confirmOTAReconciliation(fd);
     setConfirming(false);
     if (res.ok && res.data) {
-      setReconcileResult(res.data as { saved: number });
+      setReconcileResult(res.data as { saved: number; bookingsCreated: number });
       setPreview(null);
     } else {
       setReconcileError((res as { ok: false; error: string }).error ?? "Confirm failed");
@@ -306,8 +306,18 @@ export function OTAClient({ properties, configs: initialConfigs }: {
             <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 mb-6">
               <p className="text-sm text-emerald-400 font-semibold">
                 ✓ {reconcileResult.saved} payout{reconcileResult.saved !== 1 ? "s" : ""} reconciled
+                {reconcileResult.bookingsCreated > 0 && (
+                  <span className="ml-2 text-blue-400">· {reconcileResult.bookingsCreated} booking{reconcileResult.bookingsCreated !== 1 ? "s" : ""} created</span>
+                )}
               </p>
-              <button onClick={() => setReconcileResult(null)} className="text-xs text-gray-500 mt-1 underline">Reconcile another</button>
+              {reconcileResult.bookingsCreated > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Bookings auto-assigned to available rooms —{" "}
+                  <a href="/bookings" className="text-blue-400 underline">review in Bookings</a>{" "}
+                  to update room assignments if needed.
+                </p>
+              )}
+              <button onClick={() => setReconcileResult(null)} className="text-xs text-gray-500 mt-2 underline">Reconcile another</button>
             </div>
           )}
 

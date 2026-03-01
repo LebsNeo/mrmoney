@@ -215,7 +215,7 @@ export async function previewOTAReconciliation(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIRM: Write OTAPayout records + mark bank transactions RECONCILED
+// CONFIRM: Write OTAPayout + auto-create Bookings + mark bank txns RECONCILED
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function confirmOTAReconciliation(formData: FormData) {
@@ -224,19 +224,117 @@ export async function confirmOTAReconciliation(formData: FormData) {
     const platform = (formData.get("platform") as string ?? "").toUpperCase();
     const propertyId = formData.get("propertyId") as string;
     const file = formData.get("file") as File;
-    const selectedJson = formData.get("selected") as string; // JSON array of descriptors to confirm
+    const selectedJson = formData.get("selected") as string;
 
     if (!file || !platform || !propertyId || !selectedJson) {
       return { ok: false, error: "Missing required fields" };
     }
 
     const selectedDescriptors: string[] = JSON.parse(selectedJson);
-    const matchMapJson = formData.get("matchMap") as string; // { descriptor: bankTxnId }
-    const matchMap: Record<string, string> = JSON.parse(matchMapJson ?? "{}");
+    const matchMap: Record<string, string> = JSON.parse(
+      (formData.get("matchMap") as string) ?? "{}"
+    );
+
+    // Pre-load all rooms for this property (we'll pick one per booking)
+    const propertyRooms = await prisma.room.findMany({
+      where: { propertyId, deletedAt: null },
+      select: { id: true, name: true, baseRate: true },
+      orderBy: { name: "asc" },
+    });
+
+    if (propertyRooms.length === 0) {
+      return { ok: false, error: "No rooms found for this property. Add rooms before reconciling." };
+    }
 
     const csvContent = await file.text();
-    let saved = 0;
+    let payoutsSaved = 0;
+    let bookingsCreated = 0;
 
+    // ── Helper: find first room with no overlapping booking for given dates ──
+    async function pickRoom(checkIn: Date, checkOut: Date): Promise<string> {
+      for (const room of propertyRooms) {
+        const conflict = await prisma.booking.findFirst({
+          where: {
+            roomId: room.id,
+            deletedAt: null,
+            status: { notIn: ["CANCELLED", "NO_SHOW"] },
+            checkIn: { lt: checkOut },
+            checkOut: { gt: checkIn },
+          },
+          select: { id: true },
+        });
+        if (!conflict) return room.id;
+      }
+      // All rooms occupied — fall back to first room (user can edit)
+      return propertyRooms[0].id;
+    }
+
+    // ── Helper: create a Booking record from OTA data ────────────────────────
+    async function createOTABooking(
+      tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+      opts: {
+        roomId: string;
+        source: "BOOKING_COM" | "AIRBNB" | "LEKKERSLAAP";
+        guestName: string;
+        checkIn: Date;
+        checkOut: Date;
+        grossAmount: number;
+        commission: number;
+        netAmount: number;
+        externalRef: string;
+        notes?: string;
+      }
+    ) {
+      const nights = Math.max(
+        1,
+        Math.round((opts.checkOut.getTime() - opts.checkIn.getTime()) / 86400000)
+      );
+      const roomRate = nights > 0 ? opts.grossAmount / nights : opts.grossAmount;
+      const commissionPct = opts.grossAmount > 0 ? opts.commission / opts.grossAmount : 0;
+
+      const booking = await tx.booking.create({
+        data: {
+          propertyId,
+          roomId: opts.roomId,
+          source: opts.source,
+          guestName: opts.guestName,
+          checkIn: opts.checkIn,
+          checkOut: opts.checkOut,
+          roomRate,
+          grossAmount: opts.grossAmount,
+          otaCommission: opts.commission,
+          netAmount: opts.netAmount,
+          vatRate: 0,
+          vatAmount: 0,
+          isVatInclusive: false,
+          status: "CHECKED_OUT",  // Already completed stays
+          externalRef: opts.externalRef,
+          notes: opts.notes
+            ? opts.notes
+            : `Auto-created from ${opts.source} import. Commission: ${(commissionPct * 100).toFixed(2)}%. Review room assignment.`,
+        },
+      });
+
+      // Create income Transaction linked to booking
+      await tx.transaction.create({
+        data: {
+          organisationId: orgId,
+          propertyId,
+          bookingId: booking.id,
+          type: "INCOME",
+          source: "OTA_IMPORT",
+          category: "ACCOMMODATION",
+          date: opts.checkOut,
+          amount: opts.netAmount,
+          description: `${opts.source.replace(/_/g, " ")} — ${opts.guestName} (${nights}n)`,
+          status: "RECONCILED",
+        },
+      });
+
+      return booking;
+    }
+
+    // ── BOOKING.COM ──────────────────────────────────────────────────────────
     if (platform === "BOOKING_COM") {
       const parsed = parseBookingComCSV(csvContent);
 
@@ -246,11 +344,17 @@ export async function confirmOTAReconciliation(formData: FormData) {
         const bankTxnId = matchMap[payout.statementDescriptor];
         const grossTotal = payout.reservations.reduce((s, r) => s + r.grossAmount, 0);
         const commTotal = payout.reservations.reduce(
-          (s, r) => s + Math.abs(r.commission) + Math.abs(r.serviceFee) + Math.abs(r.vat), 0
+          (s, r) => s + Math.abs(r.commission) + Math.abs(r.serviceFee) + Math.abs(r.vat),
+          0
         );
 
+        // Pick rooms before transaction (async not allowed inside Prisma tx)
+        const roomIds: string[] = [];
+        for (const res of payout.reservations) {
+          roomIds.push(await pickRoom(res.checkIn, res.checkOut));
+        }
+
         await prisma.$transaction(async (tx) => {
-          // Create OTAPayout record
           const otaPayout = await tx.oTAPayout.create({
             data: {
               organisationId: orgId,
@@ -271,24 +375,39 @@ export async function confirmOTAReconciliation(formData: FormData) {
             },
           });
 
-          // Create OTAPayoutItems for each reservation
-          for (const res of payout.reservations) {
+          for (let i = 0; i < payout.reservations.length; i++) {
+            const res = payout.reservations[i];
+            const commission = Math.abs(res.commission) + Math.abs(res.serviceFee) + Math.abs(res.vat);
+
+            const booking = await createOTABooking(tx, {
+              roomId: roomIds[i],
+              source: "BOOKING_COM",
+              guestName: `Booking.com #${res.referenceNumber}`,
+              checkIn: res.checkIn,
+              checkOut: res.checkOut,
+              grossAmount: res.grossAmount,
+              commission,
+              netAmount: res.transactionAmount,
+              externalRef: res.referenceNumber,
+            });
+            bookingsCreated++;
+
             await tx.oTAPayoutItem.create({
               data: {
                 payoutId: otaPayout.id,
+                bookingId: booking.id,
                 externalBookingRef: res.referenceNumber,
                 guestName: `Booking.com #${res.referenceNumber}`,
                 checkIn: res.checkIn,
                 checkOut: res.checkOut,
                 grossAmount: res.grossAmount,
-                commission: Math.abs(res.commission) + Math.abs(res.serviceFee) + Math.abs(res.vat),
+                commission,
                 netAmount: res.transactionAmount,
                 isMatched: true,
               },
             });
           }
 
-          // Mark bank transaction as RECONCILED
           if (bankTxnId) {
             await tx.transaction.update({
               where: { id: bankTxnId },
@@ -297,9 +416,10 @@ export async function confirmOTAReconciliation(formData: FormData) {
           }
         });
 
-        saved++;
+        payoutsSaved++;
       }
 
+    // ── LEKKERSLAAP ──────────────────────────────────────────────────────────
     } else if (platform === "LEKKERSLAAP") {
       const parsed = parseLekkerslaapCSV(csvContent);
 
@@ -310,8 +430,16 @@ export async function confirmOTAReconciliation(formData: FormData) {
         const bankTxnId = matchMap[descriptor];
         const grossTotal = payout.bookings.reduce((s, b) => s + b.guestPayment, 0);
         const commTotal = payout.bookings.reduce(
-          (s, b) => s + Math.abs(b.commission) + Math.abs(b.paymentHandlingFee), 0
+          (s, b) => s + Math.abs(b.commission) + Math.abs(b.paymentHandlingFee),
+          0
         );
+
+        const roomIds: string[] = [];
+        for (const b of payout.bookings) {
+          // Lekkerslaap date is check-in; assume 1-night default if no checkout
+          const checkOut = new Date(b.date.getTime() + 86400000);
+          roomIds.push(await pickRoom(b.date, checkOut));
+        }
 
         await prisma.$transaction(async (tx) => {
           const otaPayout = await tx.oTAPayout.create({
@@ -333,17 +461,36 @@ export async function confirmOTAReconciliation(formData: FormData) {
             },
           });
 
-          for (const booking of payout.bookings) {
+          for (let i = 0; i < payout.bookings.length; i++) {
+            const b = payout.bookings[i];
+            const checkOut = new Date(b.date.getTime() + 86400000);
+            const commission = Math.abs(b.commission) + Math.abs(b.paymentHandlingFee);
+
+            const booking = await createOTABooking(tx, {
+              roomId: roomIds[i],
+              source: "LEKKERSLAAP",
+              guestName: `Lekkerslaap ${b.bookingRef}`,
+              checkIn: b.date,
+              checkOut,
+              grossAmount: b.guestPayment,
+              commission,
+              netAmount: b.netAmount,
+              externalRef: b.bookingRef,
+              notes: `Auto-created from Lekkerslaap import. Check-out date estimated — update if stays >1 night.`,
+            });
+            bookingsCreated++;
+
             await tx.oTAPayoutItem.create({
               data: {
                 payoutId: otaPayout.id,
-                externalBookingRef: booking.bookingRef,
-                guestName: `Lekkerslaap ${booking.bookingRef}`,
-                checkIn: booking.date,
-                checkOut: booking.date,
-                grossAmount: booking.guestPayment,
-                commission: Math.abs(booking.commission) + Math.abs(booking.paymentHandlingFee),
-                netAmount: booking.netAmount,
+                bookingId: booking.id,
+                externalBookingRef: b.bookingRef,
+                guestName: `Lekkerslaap ${b.bookingRef}`,
+                checkIn: b.date,
+                checkOut,
+                grossAmount: b.guestPayment,
+                commission,
+                netAmount: b.netAmount,
                 isMatched: true,
               },
             });
@@ -357,9 +504,10 @@ export async function confirmOTAReconciliation(formData: FormData) {
           }
         });
 
-        saved++;
+        payoutsSaved++;
       }
 
+    // ── AIRBNB ────────────────────────────────────────────────────────────────
     } else if (platform === "AIRBNB") {
       const parsed = parseAirbnbCSV(csvContent);
 
@@ -368,6 +516,7 @@ export async function confirmOTAReconciliation(formData: FormData) {
         if (!selectedDescriptors.includes(descriptor)) continue;
 
         const bankTxnId = matchMap[descriptor];
+        const roomId = await pickRoom(payout.checkIn, payout.checkOut);
 
         await prisma.$transaction(async (tx) => {
           const otaPayout = await tx.oTAPayout.create({
@@ -387,9 +536,23 @@ export async function confirmOTAReconciliation(formData: FormData) {
             },
           });
 
+          const booking = await createOTABooking(tx, {
+            roomId,
+            source: "AIRBNB",
+            guestName: payout.guestName,
+            checkIn: payout.checkIn,
+            checkOut: payout.checkOut,
+            grossAmount: payout.grossEarnings,
+            commission: payout.serviceFee,
+            netAmount: payout.netAmount,
+            externalRef: payout.confirmationCode,
+          });
+          bookingsCreated++;
+
           await tx.oTAPayoutItem.create({
             data: {
               payoutId: otaPayout.id,
+              bookingId: booking.id,
               externalBookingRef: payout.confirmationCode,
               guestName: payout.guestName,
               checkIn: payout.checkIn,
@@ -409,11 +572,11 @@ export async function confirmOTAReconciliation(formData: FormData) {
           }
         });
 
-        saved++;
+        payoutsSaved++;
       }
     }
 
-    return { ok: true, data: { saved } };
+    return { ok: true, data: { saved: payoutsSaved, bookingsCreated } };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
