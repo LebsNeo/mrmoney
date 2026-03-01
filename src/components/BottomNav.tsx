@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const primaryNav = [
   {
     href: "/dashboard",
     label: "Home",
@@ -41,50 +42,126 @@ const navItems = [
       </svg>
     ),
   },
-  {
-    href: "/automation",
-    label: "More",
-    icon: (active: boolean) => (
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-      </svg>
-    ),
-  },
+];
+
+const moreNav = [
+  { href: "/bookings", label: "Bookings", emoji: "📅" },
+  { href: "/invoices", label: "Invoices", emoji: "🧾" },
+  { href: "/ota-payouts", label: "OTA Payouts", emoji: "💸" },
+  { href: "/forecast", label: "Forecast", emoji: "📈" },
+  { href: "/budget", label: "Budget", emoji: "💰" },
+  { href: "/profitability", label: "Profitability", emoji: "📊" },
+  { href: "/properties", label: "Properties", emoji: "🏨" },
+  { href: "/automation", label: "Automation", emoji: "✨" },
+  { href: "/digest", label: "Daily Digest", emoji: "📰" },
+  { href: "/reports", label: "Reports", emoji: "📋" },
+  { href: "/settings", label: "Settings", emoji: "⚙️" },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const isMoreActive = moreNav.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href)
+  );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden glass-topbar safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-0 flex-1 transition-all duration-150",
-                isActive ? "text-emerald-400" : "text-gray-600 hover:text-gray-400"
-              )}
-            >
-              <span className={cn(
-                "p-1 rounded-lg transition-all duration-150",
-                isActive && "bg-emerald-500/10"
-              )}>
-                {item.icon(isActive)}
-              </span>
-              <span className={cn(
-                "text-[10px] font-semibold leading-none",
-                isActive ? "text-emerald-400" : "text-gray-600"
-              )}>{item.label}</span>
-            </Link>
-          );
-        })}
+    <>
+      {/* More drawer backdrop */}
+      {moreOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMoreOpen(false)}
+        />
+      )}
+
+      {/* More drawer */}
+      <div className={cn(
+        "fixed bottom-16 left-0 right-0 z-50 md:hidden transition-all duration-300 ease-out",
+        moreOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 pointer-events-none"
+      )}>
+        <div className="mx-3 mb-2 rounded-2xl overflow-hidden glass-topbar border border-gray-700/50 shadow-2xl">
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">More Pages</p>
+            <div className="grid grid-cols-3 gap-2 pb-3">
+              {moreNav.map((item) => {
+                const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl transition-all duration-150 text-center",
+                      isActive
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200"
+                    )}
+                  >
+                    <span className="text-xl leading-none">{item.emoji}</span>
+                    <span className="text-[10px] font-semibold leading-tight">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
-    </nav>
+
+      {/* Bottom nav bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden glass-topbar safe-area-bottom">
+        <div className="flex items-center justify-around h-16 px-2">
+          {primaryNav.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-0 flex-1 transition-all duration-150",
+                  isActive ? "text-emerald-400" : "text-gray-600 hover:text-gray-400"
+                )}
+              >
+                <span className={cn(
+                  "p-1 rounded-lg transition-all duration-150",
+                  isActive && "bg-emerald-500/10"
+                )}>
+                  {item.icon(isActive)}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-semibold leading-none",
+                  isActive ? "text-emerald-400" : "text-gray-600"
+                )}>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* More button */}
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-0 flex-1 transition-all duration-150",
+              (moreOpen || isMoreActive) ? "text-emerald-400" : "text-gray-600 hover:text-gray-400"
+            )}
+          >
+            <span className={cn(
+              "p-1 rounded-lg transition-all duration-150",
+              (moreOpen || isMoreActive) && "bg-emerald-500/10"
+            )}>
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </span>
+            <span className={cn(
+              "text-[10px] font-semibold leading-none",
+              (moreOpen || isMoreActive) ? "text-emerald-400" : "text-gray-600"
+            )}>More</span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

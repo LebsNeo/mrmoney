@@ -159,7 +159,7 @@ function StepProperty({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-700">VAT Registered?</p>
-              <p className="text-xs text-slate-400">Required if your annual turnover exceeds R1M</p>
+              <p className="text-xs text-slate-400">Required if your annual turnover exceeds R2.3M (2025 threshold)</p>
             </div>
             <button
               type="button"
@@ -251,14 +251,25 @@ function StepRooms({ rooms, setRooms, onNext }: StepRoomsProps) {
       {/* Room count */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-4">
         <label className="text-sm font-medium text-slate-700 flex-1">How many rooms do you have?</label>
-        <input
-          type="number"
-          min={1}
-          max={50}
-          value={count}
-          onChange={(e) => handleCountChange(parseInt(e.target.value, 10) || 1)}
-          className="w-20 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-teal-700/30 focus:border-teal-700"
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleCountChange(count - 1)}
+            disabled={count <= 1}
+            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:border-teal-700 hover:text-teal-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-lg font-medium"
+          >
+            −
+          </button>
+          <span className="w-10 text-center text-sm font-semibold text-slate-900">{count}</span>
+          <button
+            type="button"
+            onClick={() => handleCountChange(count + 1)}
+            disabled={count >= 50}
+            className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:border-teal-700 hover:text-teal-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-lg font-medium"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {/* Room cards */}

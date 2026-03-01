@@ -162,10 +162,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar — hidden on mobile, visible on md+ */}
+      {/* Sidebar — hidden on mobile unless open, visible on md+ */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 hidden md:flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto glass-sidebar",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-30 w-64 flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto glass-sidebar",
+        sidebarOpen ? "flex translate-x-0" : "-translate-x-full md:flex md:translate-x-0"
       )}>
         {/* Logo */}
         <div className="relative px-5 py-5 border-b border-gray-800/60 overflow-hidden">
