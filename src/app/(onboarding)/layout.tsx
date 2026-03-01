@@ -5,7 +5,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       <header className="w-full bg-white/80 backdrop-blur-sm border-b border-slate-200/70 px-6 py-4 flex items-center justify-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center shadow-sm shadow-teal-700/20">
-            <span className="text-sm font-black text-white tracking-tight">M$</span>
+            <span className="text-xs font-black text-white tracking-tight">Mr$</span>
           </div>
           <div>
             <span className="text-base font-bold text-slate-900 leading-none block">MrMoney</span>

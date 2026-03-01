@@ -173,7 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="absolute -top-4 -left-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="relative flex items-center gap-3">
             <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-              <span className="text-sm font-black text-white tracking-tight">M$</span>
+              <span className="text-sm font-black text-white tracking-tight">Mr$</span>
             </div>
             <div>
               <p className="text-sm font-bold text-white tracking-tight">MrMoney</p>

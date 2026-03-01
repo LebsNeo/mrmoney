@@ -54,20 +54,61 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
 
 // ─── Step 1: Welcome ──────────────────────────
 
+const stats = [
+  { value: "R0", label: "hidden losses found", icon: "🔍" },
+  { value: "5 min", label: "to full setup", icon: "⚡" },
+  { value: "100%", label: "built for SA hospitality", icon: "🇿🇦" },
+];
+
 function StepWelcome({ onNext }: { onNext: () => void }) {
   return (
-    <div className="text-center space-y-6 max-w-md">
-      <div className="text-6xl mb-2">👋</div>
-      <h1 className="text-3xl font-bold text-slate-900">Welcome to MrMoney</h1>
-      <p className="text-slate-500 text-lg leading-relaxed">
-        Let&apos;s set up your property in 4 quick steps. It takes less than 5 minutes.
+    <div className="w-full max-w-md flex flex-col items-center">
+      {/* Hero card */}
+      <div className="relative w-full rounded-3xl overflow-hidden mb-6 shadow-2xl shadow-teal-900/20">
+        {/* Dark gradient bg */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900" />
+        {/* Decorative circles */}
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-teal-500/10 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl" />
+
+        <div className="relative px-7 pt-8 pb-7 text-center">
+          {/* Logo mark */}
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-teal-500/30 mb-5">
+            <span className="text-xl font-black text-white tracking-tight">Mr$</span>
+          </div>
+
+          <h1 className="text-3xl font-extrabold text-white mb-3 leading-tight">
+            Your property&apos;s<br />
+            <span className="text-emerald-400">financial co-pilot</span>
+          </h1>
+          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+            Stop guessing. Start knowing. MrMoney connects your bookings, OTA payouts, and expenses into one clear picture — automatically.
+          </p>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {stats.map((s) => (
+              <div key={s.label} className="bg-white/5 rounded-2xl px-2 py-3 border border-white/10">
+                <div className="text-lg mb-1">{s.icon}</div>
+                <div className="text-base font-bold text-white">{s.value}</div>
+                <div className="text-[10px] text-slate-400 leading-tight mt-0.5">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={onNext}
+            className="w-full py-4 rounded-2xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white transition-all shadow-lg shadow-emerald-500/25 active:scale-[0.98]"
+          >
+            Get started — 4 quick steps →
+          </button>
+        </div>
+      </div>
+
+      {/* Trust line */}
+      <p className="text-xs text-slate-400 text-center">
+        Built for SA guesthouses, lodges &amp; boutique hotels · Free to start
       </p>
-      <button
-        onClick={onNext}
-        className="w-full sm:w-auto px-10 py-4 rounded-2xl text-base font-semibold bg-teal-700 hover:bg-teal-800 text-white transition-colors shadow-lg shadow-teal-700/20"
-      >
-        Let&apos;s Start →
-      </button>
     </div>
   );
 }
