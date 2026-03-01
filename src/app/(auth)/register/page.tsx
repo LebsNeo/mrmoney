@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const justRegistered = searchParams.get("verify") === "1";
+  const registeredEmail = searchParams.get("email") ?? "";
   const [form, setForm] = useState({ name: "", email: "", password: "", organisationName: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,25 +35,57 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto sign-in after registration
-      const result = await signIn("credentials", {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Account created but sign-in failed. Please log in.");
-        router.push("/login");
-      } else {
-        router.push("/setup");
-        router.refresh();
-      }
+      // Redirect to "check your email" state
+      router.push(`/register?verify=1&email=${encodeURIComponent(form.email)}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  // ── "Check your email" screen shown after successful registration ──────────
+  if (justRegistered) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <span className="text-3xl font-bold text-white">Mr<span className="text-emerald-400">Money</span></span>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-blue-500" />
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6 text-3xl">
+                ✉️
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Check your inbox</h1>
+              <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                We've sent a verification email to{" "}
+                <span className="text-white font-medium">{registeredEmail}</span>.
+                <br />Click the link in the email to activate your account.
+              </p>
+              <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 mb-6 text-left space-y-2">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">What to do next</p>
+                {[
+                  "Check your inbox (and spam / junk folder)",
+                  "Click the \"Verify Email Address\" button",
+                  "You'll be redirected to sign in",
+                ].map((step, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                    <p className="text-sm text-gray-300">{step}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-600">
+                Didn't receive it?{" "}
+                <ResendLink email={registeredEmail} />
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -144,5 +178,36 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ResendLink({ email }: { email: string }) {
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleResend() {
+    setLoading(true);
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setSent(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (sent) return <span className="text-emerald-400">Email resent ✓</span>;
+
+  return (
+    <button
+      onClick={handleResend}
+      disabled={loading}
+      className="text-emerald-400 hover:text-emerald-300 underline disabled:opacity-50"
+    >
+      {loading ? "Sending…" : "Resend verification email"}
+    </button>
   );
 }

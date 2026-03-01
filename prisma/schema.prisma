@@ -219,6 +219,7 @@ model User {
   passwordHash   String
   role           UserRole  @default(OWNER)
   isActive       Boolean   @default(true)
+  emailVerified  Boolean   @default(false)
   lastLoginAt    DateTime?
   // Audit
   createdAt      DateTime  @default(now())
