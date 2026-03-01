@@ -200,6 +200,8 @@ model Organisation {
   receipts     Receipt[]
   otaPayouts   OTAPayout[]
   alerts       Alert[]
+  employees    Employee[]
+  payrollRuns  PayrollRun[]
 
   @@index([slug])
   @@map("organisations")
@@ -266,6 +268,8 @@ model Property {
   invoices          Invoice[]
   recurringExpenses RecurringExpense[]
   icalFeeds         ICalFeed[]
+  employees         Employee[]
+  payrollRuns       PayrollRun[]
 
   @@index([organisationId])
   @@map("properties")
@@ -653,4 +657,118 @@ model ICalFeed {
   @@index([propertyId])
   @@index([roomId])
   @@map("ical_feeds")
+}
+
+// ─────────────────────────────────────────────
+// PAYROLL
+// ─────────────────────────────────────────────
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+enum PayFrequency {
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+}
+
+model Employee {
+  id             String         @id @default(uuid())
+  organisationId String
+  propertyId     String?
+  name           String
+  idNumber       String?
+  taxNumber      String?
+  email          String?
+  phone          String?
+  employmentType EmploymentType @default(FULL_TIME)
+  jobTitle       String?
+  grossSalary    Decimal        @db.Decimal(19, 4)   // Monthly base
+  payFrequency   PayFrequency   @default(MONTHLY)
+  bankName       String?
+  bankAccount    String?
+  bankBranch     String?
+  startDate      DateTime       @db.Date
+  endDate        DateTime?      @db.Date
+  isActive       Boolean        @default(true)
+  notes          String?
+  // Audit
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  organisation   Organisation   @relation(fields: [organisationId], references: [id])
+  property       Property?      @relation(fields: [propertyId], references: [id])
+  payrollEntries PayrollEntry[]
+
+  @@index([organisationId])
+  @@index([propertyId])
+  @@map("employees")
+}
+
+model PayrollRun {
+  id             String          @id @default(uuid())
+  organisationId String
+  propertyId     String?
+  periodMonth    Int             // 1-12
+  periodYear     Int
+  status         PayrollRunStatus @default(DRAFT)
+  totalGross     Decimal         @default(0) @db.Decimal(19, 4)
+  totalUifEmployee Decimal       @default(0) @db.Decimal(19, 4)
+  totalUifEmployer Decimal       @default(0) @db.Decimal(19, 4)
+  totalPaye      Decimal         @default(0) @db.Decimal(19, 4)
+  totalNet       Decimal         @default(0) @db.Decimal(19, 4)
+  totalEmployerCost Decimal      @default(0) @db.Decimal(19, 4)
+  paidAt         DateTime?
+  notes          String?
+  // Audit
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  organisation   Organisation    @relation(fields: [organisationId], references: [id])
+  property       Property?       @relation(fields: [propertyId], references: [id])
+  entries        PayrollEntry[]
+
+  @@unique([organisationId, propertyId, periodMonth, periodYear])
+  @@index([organisationId])
+  @@map("payroll_runs")
+}
+
+model PayrollEntry {
+  id               String     @id @default(uuid())
+  payrollRunId     String
+  employeeId       String
+  grossPay         Decimal    @db.Decimal(19, 4)
+  overtime         Decimal    @default(0) @db.Decimal(19, 4)
+  bonus            Decimal    @default(0) @db.Decimal(19, 4)
+  otherAdditions   Decimal    @default(0) @db.Decimal(19, 4)
+  paye             Decimal    @default(0) @db.Decimal(19, 4)  // R0 for v1
+  uifEmployee      Decimal    @default(0) @db.Decimal(19, 4)  // 1% gross
+  uifEmployer      Decimal    @default(0) @db.Decimal(19, 4)  // 1% gross
+  otherDeductions  Decimal    @default(0) @db.Decimal(19, 4)
+  netPay           Decimal    @db.Decimal(19, 4)
+  notes            String?
+  // Audit
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Relations
+  payrollRun       PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee         Employee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+  @@map("payroll_entries")
 }
