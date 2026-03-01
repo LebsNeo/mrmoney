@@ -200,11 +200,12 @@ model Organisation {
   transactions Transaction[]
   invoices     Invoice[]
   receipts     Receipt[]
-  otaPayouts   OTAPayout[]
-  alerts       Alert[]
-  employees        Employee[]
-  payrollRuns      PayrollRun[]
-  employeeAdvances EmployeeAdvance[]
+  otaPayouts        OTAPayout[]
+  otaChannelConfigs OTAChannelConfig[]
+  alerts            Alert[]
+  employees         Employee[]
+  payrollRuns       PayrollRun[]
+  employeeAdvances  EmployeeAdvance[]
 
   @@index([slug])
   @@map("organisations")
@@ -267,6 +268,7 @@ model Property {
   bookings          Booking[]
   transactions      Transaction[]
   otaPayouts        OTAPayout[]
+  otaChannelConfigs OTAChannelConfig[]
   budgetItems       BudgetItem[]
   invoices          Invoice[]
   recurringExpenses RecurringExpense[]
@@ -509,6 +511,38 @@ model Receipt {
   @@index([transactionId])
   @@index([invoiceId])
   @@map("receipts")
+}
+
+enum OTAPayoutModel {
+  PER_BOOKING   // Model A: one deposit per booking (Airbnb standard)
+  BATCHED       // Model B: lump sum covering multiple bookings (Booking.com, Lekkerslaap)
+  DIRECT_PAY    // Model C: guest pays property directly, OTA invoices commission separately
+}
+
+model OTAChannelConfig {
+  id                   String          @id @default(uuid())
+  organisationId       String
+  propertyId           String
+  platform             OTAPlatform
+  payoutModel          OTAPayoutModel  @default(BATCHED)
+  commissionRate       Decimal         @db.Decimal(5, 4)   // e.g. 0.1500 = 15%
+  serviceFeeRate       Decimal         @default(0) @db.Decimal(5, 4) // e.g. 0.0210
+  payoutDelayDays      Int             @default(7)
+  bankDescriptionHint  String?         // e.g. "BOOKING.COM BV", "LEKKESLAAP"
+  isActive             Boolean         @default(true)
+  // Audit
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+
+  // Relations
+  organisation         Organisation    @relation(fields: [organisationId], references: [id])
+  property             Property        @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, platform])
+  @@index([organisationId])
+  @@index([propertyId])
+  @@map("ota_channel_configs")
 }
 
 model OTAPayout {
