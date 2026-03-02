@@ -60,14 +60,23 @@ export const TwilioProvider: WhatsAppProvider = {
     const token = process.env.TWILIO_AUTH_TOKEN;
     if (!token) return true;
     const sig = headers["x-twilio-signature"] ?? "";
-    if (!sig) return true; // no signature header = local dev / testing
-    // Twilio signature: HMAC-SHA1 of full URL + sorted POST params concatenated
-    const webhookUrl = url ?? `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/whatsapp/webhook`;
+    if (!sig) return true; // no signature = local dev / testing
+    // Try verifying against both the passed URL and the canonical app URL
+    // Vercel may rewrite req.url internally; Twilio signs the public-facing URL
+    const urlsToTry = [
+      url,
+      `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/whatsapp/webhook`,
+      `https://mrmoney.vercel.app/api/whatsapp/webhook`,
+    ].filter(Boolean) as string[];
+
     const params = Object.fromEntries(new URLSearchParams(body));
-    const sortedParams = Object.keys(params)
-      .sort()
-      .reduce((s, k) => s + k + params[k], webhookUrl);
-    const expected = createHmac("sha1", token).update(sortedParams).digest("base64");
-    return sig === expected;
+    for (const webhookUrl of urlsToTry) {
+      const sortedParams = Object.keys(params)
+        .sort()
+        .reduce((s, k) => s + k + params[k], webhookUrl);
+      const expected = createHmac("sha1", token).update(sortedParams).digest("base64");
+      if (sig === expected) return true;
+    }
+    return false;
   },
 };
