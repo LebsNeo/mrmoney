@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.isActive) {
-          throw new Error("Invalid credentials");
+          throw new Error("ACCOUNT_NOT_FOUND");
         }
 
         if (!user.emailVerified) {
@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
 
         const passwordValid = await compare(credentials.password, user.passwordHash);
         if (!passwordValid) {
-          throw new Error("Invalid credentials");
+          throw new Error("WRONG_PASSWORD");
         }
 
         // Update last login

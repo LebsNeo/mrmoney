@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     logger.error("Bank import preview error", err);
-    return apiServerError();
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return apiError(`Failed to parse CSV: ${msg}`, 422);
   }
 }

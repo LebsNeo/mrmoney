@@ -62,16 +62,17 @@ export default function BankImportPage() {
         body: form,
       });
 
+      const data = await resp.json();
+
       if (!resp.ok) {
-        throw new Error("Preview failed");
+        throw new Error(data?.error ?? "Failed to parse CSV. Please check the file format and bank selection.");
       }
 
-      const data = await resp.json();
       setPreview(data.transactions);
       setDuplicates(data.potentialDuplicates);
       setUnrecognised(data.unrecognised);
-    } catch {
-      setError("Failed to parse CSV. Please check the file format and bank selection.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to parse CSV. Please check the file format and bank selection.");
     } finally {
       setLoading(false);
     }

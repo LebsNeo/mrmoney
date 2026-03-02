@@ -32,8 +32,10 @@ export default function LoginPage() {
       if (result?.error) {
         if (result.error === "EMAIL_NOT_VERIFIED") {
           setError({ kind: "unverified", email });
-        } else if (result.error === "CredentialsSignin") {
-          setError({ kind: "generic", message: "Invalid email or password. Please try again." });
+        } else if (result.error === "CredentialsSignin" || result.error === "WRONG_PASSWORD") {
+          setError({ kind: "generic", message: "Incorrect password. Please try again." });
+        } else if (result.error === "ACCOUNT_NOT_FOUND") {
+          setError({ kind: "generic", message: "No account found with that email address." });
         } else if (result.error?.toLowerCase().includes("network") || result.error?.toLowerCase().includes("fetch")) {
           setError({ kind: "generic", message: "Network error. Please check your connection and try again." });
         } else {
