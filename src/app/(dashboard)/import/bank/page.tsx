@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { importBankTransactions } from "@/lib/actions/automation";
@@ -24,9 +24,16 @@ interface PreviewRow {
   isDuplicate: boolean;
 }
 
+interface Property {
+  id: string;
+  name: string;
+}
+
 export default function BankImportPage() {
   const router = useRouter();
   const [bank, setBank] = useState<string>("CAPITEC");
+  const [propertyId, setPropertyId] = useState<string>("");
+  const [properties, setProperties] = useState<Property[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [duplicates, setDuplicates] = useState<PreviewRow[]>([]);
@@ -37,6 +44,18 @@ export default function BankImportPage() {
   const [result, setResult] = useState<{ saved: number; duplicates: number; unrecognised: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/properties")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data?.length) {
+          setProperties(d.data);
+          setPropertyId(d.data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -55,7 +74,7 @@ export default function BankImportPage() {
       const form = new FormData();
       form.append("bankFormat", bank);
       form.append("file", f);
-      form.append("propertyId", "preview"); // Signal preview mode
+      form.append("propertyId", propertyId || "default");
 
       const resp = await fetch("/api/import/bank/preview", {
         method: "POST",
@@ -87,7 +106,7 @@ export default function BankImportPage() {
       const form = new FormData();
       form.append("bankFormat", bank);
       form.append("file", file);
-      form.append("propertyId", "default"); // Will be resolved server-side from session
+      form.append("propertyId", propertyId || "default");
       form.append("categories", JSON.stringify(categories));
 
       const res = await importBankTransactions(form);
@@ -111,7 +130,7 @@ export default function BankImportPage() {
 
       {/* Bank selector + file upload */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Bank</label>
             <select
@@ -125,6 +144,20 @@ export default function BankImportPage() {
                    : b === "STANDARD_BANK" ? "Standard Bank"
                    : b.replace("_", " ")}
                 </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Property</label>
+            <select
+              value={propertyId}
+              onChange={(e) => { setPropertyId(e.target.value); setPreview(null); setFile(null); }}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              {properties.length === 0 && <option value="">Loading...</option>}
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>
@@ -340,8 +373,9 @@ export default function BankImportPage() {
       )}
 
       {preview && preview.length === 0 && !loading && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
-          <p className="text-gray-500 text-sm">No new transactions found in this file (all may be duplicates).</p>
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-8 text-center">
+          <p className="text-amber-400 text-sm font-medium mb-1">⚠ No new transactions found</p>
+          <p className="text-gray-500 text-sm">All transactions in this file have already been imported. Try a different date range or property.</p>
         </div>
       )}
     </div>
