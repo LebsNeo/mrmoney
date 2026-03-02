@@ -279,7 +279,8 @@ export async function sendEmail(opts: {
     return { ok: false, error: "Email service not configured" };
   }
 
-  const from = process.env.RESEND_FROM_EMAIL ?? "MrCA <noreply@mrmoney.app>";
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@mrca.co.za";
+  const from = fromEmail.includes("<") ? fromEmail : `MrCA <${fromEmail}>`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -298,8 +299,8 @@ export async function sendEmail(opts: {
 
   if (!res.ok) {
     const body = await res.text();
-    console.error("Resend error:", body);
-    return { ok: false, error: "Failed to send email" };
+    console.error("Resend error:", res.status, body, "from:", from, "to:", opts.to);
+    return { ok: false, error: `Resend error ${res.status}: ${body}` };
   }
 
   return { ok: true };
