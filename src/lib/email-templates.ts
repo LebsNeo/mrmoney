@@ -279,7 +279,9 @@ export async function sendEmail(opts: {
     return { ok: false, error: "Email service not configured" };
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@mrca.co.za";
+  // Use env var, but always fall back to mrca.co.za (never smartgowns)
+  const rawFrom = process.env.RESEND_FROM_EMAIL ?? "";
+  const fromEmail = rawFrom && rawFrom.includes("mrca.co.za") ? rawFrom : "noreply@mrca.co.za";
   const from = fromEmail.includes("<") ? fromEmail : `MrCA <${fromEmail}>`;
 
   const res = await fetch("https://api.resend.com/emails", {
