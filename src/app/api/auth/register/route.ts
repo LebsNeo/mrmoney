@@ -33,8 +33,21 @@ export async function POST(req: NextRequest) {
       return apiError("Invalid email address");
     }
 
-    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (existing) return apiError("An account with this email already exists");
+    const existing = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: { organisation: true },
+    });
+    if (existing) {
+      // Allow re-registration if account is unverified — wipe and start fresh
+      if (!existing.emailVerified) {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.delete({ where: { id: existing.id } });
+          await tx.organisation.delete({ where: { id: existing.organisationId } });
+        });
+      } else {
+        return apiError("An account with this email already exists");
+      }
+    }
 
     const passwordHash = await hash(password, 12);
     const slug = await uniqueSlug(organisationName);
