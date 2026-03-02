@@ -57,7 +57,7 @@ export default function BankImportPage() {
       .catch(() => {});
   }, []);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     setFile(f);
@@ -65,15 +65,18 @@ export default function BankImportPage() {
     setResult(null);
     setError(null);
     setCategories({});
+  }
+
+  async function handlePreview() {
+    if (!file) return;
     setLoading(true);
+    setError(null);
+    setPreview(null);
 
     try {
-      const text = await f.text();
-
-      // Call parse preview API
       const form = new FormData();
       form.append("bankFormat", bank);
-      form.append("file", f);
+      form.append("file", file);
       form.append("propertyId", propertyId || "default");
 
       const resp = await fetch("/api/import/bank/preview", {
@@ -87,9 +90,9 @@ export default function BankImportPage() {
         throw new Error(data?.error ?? "Failed to parse CSV. Please check the file format and bank selection.");
       }
 
-      setPreview(data.transactions);
-      setDuplicates(data.potentialDuplicates);
-      setUnrecognised(data.unrecognised);
+      setPreview(data.data.transactions);
+      setDuplicates(data.data.potentialDuplicates);
+      setUnrecognised(data.data.unrecognised);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to parse CSV. Please check the file format and bank selection.");
     } finally {
@@ -173,6 +176,18 @@ export default function BankImportPage() {
             />
           </div>
         </div>
+
+        {file && !preview && !loading && (
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-xs text-gray-400">📄 {file.name}</span>
+            <button
+              onClick={handlePreview}
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors"
+            >
+              Preview Transactions →
+            </button>
+          </div>
+        )}
 
         {/* Format hints */}
         <div className="bg-gray-800/50 rounded-xl p-3">
