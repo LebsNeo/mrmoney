@@ -1,5 +1,5 @@
 /**
- * MrMoney — Phase 5: Profitability Intelligence Engine
+ * MrCA — Phase 5: Profitability Intelligence Engine
  *
  * All monetary values in ZAR (or property currency).
  * Period format: "YYYY-MM"

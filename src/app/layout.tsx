@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MrMoney — Hospitality Financial OS",
+  title: "MrCA — Hospitality Financial OS",
   description: "Track revenue, bookings, and KPIs for your property",
 };
 

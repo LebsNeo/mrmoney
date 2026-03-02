@@ -1,5 +1,5 @@
 /**
- * MrMoney — Auto-Categorisation Engine
+ * MrCA — Auto-Categorisation Engine
  * Rule-based keyword matching for transactions
  */
 

@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500 mb-4">
             <span className="text-2xl font-bold text-white">M</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">MrMoney</h1>
+          <h1 className="text-2xl font-bold text-white">MrCA</h1>
           <p className="text-gray-400 text-sm mt-1">Hospitality Financial OS</p>
         </div>
 
@@ -150,7 +150,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">
-          © {new Date().getFullYear()} MrMoney. All rights reserved.
+          © {new Date().getFullYear()} MrCA. All rights reserved.
         </p>
       </div>
     </div>

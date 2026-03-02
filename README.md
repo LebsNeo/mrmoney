@@ -1,6 +1,6 @@
-# MrMoney — Hospitality Financial Operating System
+# MrCA — Hospitality Financial Operating System
 
-MrMoney is a production-ready financial operating system built for South African hospitality operators. It replaces spreadsheets and fragmented tools with a single platform covering bookings, invoicing, bank reconciliation, OTA payout matching, VAT tracking, revenue forecasting, and real-time KPI dashboards — all designed for guest houses, lodges, and boutique hotels managing one or multiple properties.
+MrCA is a production-ready financial operating system built for South African hospitality operators. It replaces spreadsheets and fragmented tools with a single platform covering bookings, invoicing, bank reconciliation, OTA payout matching, VAT tracking, revenue forecasting, and real-time KPI dashboards — all designed for guest houses, lodges, and boutique hotels managing one or multiple properties.
 
 ---
 
@@ -80,7 +80,7 @@ Open [http://localhost:3000](http://localhost:3000) and log in.
 | Field | Value |
 |-------|-------|
 | Email | `lebs@sunsethospitality.co.za` |
-| Password | `MrMoney2025!` |
+| Password | `MrCA2025!` |
 
 The seed creates a demo organisation (**Sunset Hospitality Group**) with two properties, multiple rooms, sample bookings, transactions, invoices, and OTA payouts.
 

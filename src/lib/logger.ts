@@ -1,5 +1,5 @@
 /**
- * MrMoney — Structured Logger
+ * MrCA — Structured Logger
  * Phase 9: JSON-structured logs for production observability.
  */
 

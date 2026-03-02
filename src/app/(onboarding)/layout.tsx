@@ -8,7 +8,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
             <span className="text-xs font-black text-white tracking-tight">Mr$</span>
           </div>
           <div>
-            <span className="text-base font-bold text-slate-900 leading-none block">MrMoney</span>
+            <span className="text-base font-bold text-slate-900 leading-none block">MrCA</span>
             <span className="text-[10px] text-teal-600/70 font-medium uppercase tracking-widest leading-none">Financial OS</span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 /**
- * MrMoney — Premium Email Templates
+ * MrCA — Premium Email Templates
  * Dark-themed, brand-consistent HTML emails via Resend.
  */
 
@@ -16,7 +16,7 @@ export function verifyEmailTemplate(opts: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verify your MrMoney account</title>
+  <title>Verify your MrCA account</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 
@@ -56,7 +56,7 @@ export function verifyEmailTemplate(opts: {
                 Verify your email address
               </h1>
               <p style="margin:0;font-size:15px;color:#6b7280;line-height:1.5;">
-                Hi ${firstName}, welcome to MrMoney. One last step before you start.
+                Hi ${firstName}, welcome to MrCA. One last step before you start.
               </p>
             </td>
           </tr>
@@ -72,7 +72,7 @@ export function verifyEmailTemplate(opts: {
           <tr>
             <td style="padding:32px 48px;">
               <p style="margin:0 0 24px;font-size:15px;color:#9ca3af;line-height:1.7;">
-                You're almost in. Click the button below to verify your email address and activate your MrMoney account.
+                You're almost in. Click the button below to verify your email address and activate your MrCA account.
               </p>
 
               <!-- CTA Button -->
@@ -93,7 +93,7 @@ export function verifyEmailTemplate(opts: {
                 <tr>
                   <td style="padding:20px 24px;">
                     <p style="margin:0 0 14px;font-size:12px;font-weight:600;color:#10b981;letter-spacing:1.5px;text-transform:uppercase;">
-                      What you get with MrMoney
+                      What you get with MrCA
                     </p>
                     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                       ${[
@@ -136,10 +136,10 @@ export function verifyEmailTemplate(opts: {
             <td style="padding:28px 48px 36px;text-align:center;">
               <p style="margin:0 0 6px;font-size:12px;color:#4b5563;line-height:1.6;">
                 This link expires in <strong style="color:#6b7280;">${expiryHours} hours</strong>.
-                If you didn't create a MrMoney account, you can safely ignore this email.
+                If you didn't create a MrCA account, you can safely ignore this email.
               </p>
               <p style="margin:16px 0 0;font-size:11px;color:#374151;">
-                © ${new Date().getFullYear()} MrMoney · Hospitality Financial OS
+                © ${new Date().getFullYear()} MrCA · Hospitality Financial OS
               </p>
             </td>
           </tr>
@@ -155,23 +155,23 @@ export function verifyEmailTemplate(opts: {
 </html>`;
 
   const text = `
-MrMoney — Verify your email address
+MrCA — Verify your email address
 
 Hi ${firstName},
 
-Welcome to MrMoney. Please verify your email address to activate your account.
+Welcome to MrCA. Please verify your email address to activate your account.
 
 Verify here: ${verifyUrl}
 
 This link expires in ${expiryHours} hours.
 
-If you didn't create a MrMoney account, ignore this email.
+If you didn't create a MrCA account, ignore this email.
 
-— The MrMoney Team
+— The MrCA Team
 `.trim();
 
   return {
-    subject: "Verify your MrMoney account",
+    subject: "Verify your MrCA account",
     html,
     text,
   };
@@ -190,7 +190,7 @@ export function welcomeEmailTemplate(opts: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to MrMoney</title>
+  <title>Welcome to MrCA</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0a0a0a;min-height:100vh;">
@@ -225,7 +225,7 @@ export function welcomeEmailTemplate(opts: {
           <tr>
             <td style="padding:32px 48px;">
               <p style="margin:0 0 24px;font-size:15px;color:#9ca3af;line-height:1.7;">
-                Start by setting up your property, adding your rooms, and importing your first bank statement. MrMoney will take care of the rest.
+                Start by setting up your property, adding your rooms, and importing your first bank statement. MrCA will take care of the rest.
               </p>
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
@@ -245,7 +245,7 @@ export function welcomeEmailTemplate(opts: {
           <tr>
             <td style="padding:24px 48px 36px;text-align:center;">
               <p style="margin:0;font-size:11px;color:#374151;">
-                © ${new Date().getFullYear()} MrMoney · Hospitality Financial OS
+                © ${new Date().getFullYear()} MrCA · Hospitality Financial OS
               </p>
             </td>
           </tr>
@@ -258,9 +258,9 @@ export function welcomeEmailTemplate(opts: {
 </html>`;
 
   return {
-    subject: `Welcome to MrMoney, ${firstName}! 🎉`,
+    subject: `Welcome to MrCA, ${firstName}! 🎉`,
     html,
-    text: `Welcome to MrMoney, ${firstName}!\n\nYour account is verified. Go to your dashboard: ${dashboardUrl}`,
+    text: `Welcome to MrCA, ${firstName}!\n\nYour account is verified. Go to your dashboard: ${dashboardUrl}`,
   };
 }
 
@@ -279,7 +279,7 @@ export async function sendEmail(opts: {
     return { ok: false, error: "Email service not configured" };
   }
 
-  const from = process.env.RESEND_FROM_EMAIL ?? "MrMoney <noreply@mrmoney.app>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "MrCA <noreply@mrmoney.app>";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

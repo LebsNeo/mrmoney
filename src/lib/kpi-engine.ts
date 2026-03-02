@@ -1,5 +1,5 @@
 /**
- * MrMoney — KPI Engine
+ * MrCA — KPI Engine
  * Phase 6: RevPAR trends, ADR tracking, occupancy patterns, period-over-period
  */
 

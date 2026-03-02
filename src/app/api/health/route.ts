@@ -1,5 +1,5 @@
 /**
- * MrMoney — Health Check Endpoint
+ * MrCA — Health Check Endpoint
  * Phase 9: GET /api/health
  * Used by Vercel and monitoring tools to verify deployment health.
  */

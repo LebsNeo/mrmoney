@@ -188,9 +188,9 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               {[
                 { icon: "💬", step: "Guest messages", body: "Guest sends a WhatsApp message to your business number with their dates" },
-                { icon: "🤖", step: "AI extracts", body: "MrMoney reads the message and extracts check-in, check-out, and guests" },
+                { icon: "🤖", step: "AI extracts", body: "MrCA reads the message and extracts check-in, check-out, and guests" },
                 { icon: "📋", step: "Sends summary", body: "Replies with a booking summary and asks the guest to reply YES to confirm" },
-                { icon: "✅", step: "Booking created", body: "Guest replies YES → booking is created in MrMoney automatically" },
+                { icon: "✅", step: "Booking created", body: "Guest replies YES → booking is created in MrCA automatically" },
               ].map((s) => (
                 <div key={s.step} className="text-center">
                   <div className="text-3xl mb-3">{s.icon}</div>
@@ -278,13 +278,13 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
                     { key: "WHATSAPP_PHONE_ID", desc: "Phone Number ID from Meta dashboard" },
                     { key: "WHATSAPP_VERIFY_TOKEN", desc: "Any random string you choose" },
                     { key: "WHATSAPP_APP_SECRET", desc: "App secret from Meta app settings" },
-                    { key: "WHATSAPP_ORG_ID", desc: "Your MrMoney organisation ID" },
+                    { key: "WHATSAPP_ORG_ID", desc: "Your MrCA organisation ID" },
                   ]
                 : [
                     { key: "TWILIO_ACCOUNT_SID", desc: "From Twilio console" },
                     { key: "TWILIO_AUTH_TOKEN", desc: "From Twilio console" },
                     { key: "TWILIO_WHATSAPP_FROM", desc: 'e.g. whatsapp:+14155238886' },
-                    { key: "WHATSAPP_ORG_ID", desc: "Your MrMoney organisation ID" },
+                    { key: "WHATSAPP_ORG_ID", desc: "Your MrCA organisation ID" },
                   ]
               ).map((env) => (
                 <div key={env.key} className="flex items-start gap-3 bg-gray-800/50 rounded-xl px-4 py-3">
@@ -332,7 +332,7 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
               <div>
                 <h2 className="text-base font-bold text-white mb-1">Daily Morning Digest</h2>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  Every morning at your chosen time, MrMoney sends you a WhatsApp summary of the day — occupancy, check-ins, revenue MTD, cash position, and any pending bookings. One message. Total picture.
+                  Every morning at your chosen time, MrCA sends you a WhatsApp summary of the day — occupancy, check-ins, revenue MTD, cash position, and any pending bookings. One message. Total picture.
                 </p>
               </div>
             </div>
@@ -358,7 +358,7 @@ Monday, 2 March 2026
 
 ⚡ 1 WhatsApp booking awaiting confirmation
 
-— MrMoney 💚`}
+— MrCA 💚`}
               </div>
             </div>
           </div>

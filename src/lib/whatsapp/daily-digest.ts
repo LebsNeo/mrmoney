@@ -1,5 +1,5 @@
 /**
- * MrMoney — Owner Daily WhatsApp Digest
+ * MrCA — Owner Daily WhatsApp Digest
  * Sent every morning with occupancy, arrivals, revenue, cash position
  */
 
@@ -230,7 +230,7 @@ export function formatDigestMessage(data: DigestData): string {
     msg += `\n⚡ ${data.pendingWhatsApp} WhatsApp booking${data.pendingWhatsApp > 1 ? "s" : ""} awaiting confirmation\n`;
   }
 
-  msg += `\n— MrMoney 💚`;
+  msg += `\n— MrCA 💚`;
   return msg;
 }
 

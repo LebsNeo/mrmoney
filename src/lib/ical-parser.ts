@@ -1,5 +1,5 @@
 /**
- * MrMoney — iCal Parser
+ * MrCA — iCal Parser
  * Parses VCALENDAR/VEVENT feeds from Booking.com, Airbnb, and Lekkerslaap.
  * Returns structured booking events ready for DB insert.
  */

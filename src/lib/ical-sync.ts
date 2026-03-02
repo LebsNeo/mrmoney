@@ -1,5 +1,5 @@
 /**
- * MrMoney — iCal Sync Engine
+ * MrCA — iCal Sync Engine
  * Fetches iCal feeds, parses bookings, upserts into DB (dedup by externalRef/UID).
  */
 
@@ -46,7 +46,7 @@ export async function syncICalFeed(feedId: string): Promise<SyncResult> {
 
   try {
     const res = await fetch(feed.icalUrl, {
-      headers: { "User-Agent": "MrMoney/1.0 iCal Sync" },
+      headers: { "User-Agent": "MrCA/1.0 iCal Sync" },
       signal: AbortSignal.timeout(15000),
     });
 

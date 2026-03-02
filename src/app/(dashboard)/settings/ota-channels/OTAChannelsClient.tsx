@@ -182,7 +182,7 @@ export function OTAChannelsClient({ configs: initial, properties }: Props) {
         <div>
           <p className="text-sm font-medium text-blue-300 mb-1">Why configure this?</p>
           <p className="text-xs text-gray-400 leading-relaxed">
-            These settings tell MrMoney how each OTA pays you — commission rate, payout batching model, and the bank description keyword used to match payouts to your bank transactions during reconciliation.
+            These settings tell MrCA how each OTA pays you — commission rate, payout batching model, and the bank description keyword used to match payouts to your bank transactions during reconciliation.
           </p>
         </div>
       </div>

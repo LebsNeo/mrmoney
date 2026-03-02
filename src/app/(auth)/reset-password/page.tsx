@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Mr<span className="text-emerald-400">Money</span></h1>
+          <h1 className="text-3xl font-bold text-white">Mr<span className="text-emerald-400">CA</span></h1>
           <p className="text-gray-400 text-sm mt-2">Hospitality Financial OS</p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">

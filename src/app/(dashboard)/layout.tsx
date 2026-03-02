@@ -221,7 +221,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-sm font-black text-white tracking-tight">Mr$</span>
             </div>
             <div>
-              <p className="text-sm font-bold text-white tracking-tight">MrMoney</p>
+              <p className="text-sm font-bold text-white tracking-tight">MrCA</p>
               <p className="text-[10px] text-emerald-500/70 font-medium uppercase tracking-widest">Financial OS</p>
             </div>
           </div>

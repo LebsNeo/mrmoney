@@ -1,5 +1,5 @@
 /**
- * MrMoney — Recurring Expense Detection
+ * MrCA — Recurring Expense Detection
  * Detects, stores, and tracks recurring expenses
  */
 

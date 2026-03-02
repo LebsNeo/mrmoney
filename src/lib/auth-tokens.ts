@@ -1,5 +1,5 @@
 /**
- * MrMoney — Stateless auth tokens (password reset, email verify)
+ * MrCA — Stateless auth tokens (password reset, email verify)
  * Uses HMAC-SHA256 with NEXTAUTH_SECRET — no DB changes needed.
  */
 

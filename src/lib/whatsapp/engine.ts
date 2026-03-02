@@ -1,5 +1,5 @@
 /**
- * MrMoney WhatsApp Booking Engine
+ * MrCA WhatsApp Booking Engine
  * Conversation state machine: COLLECTING → CONFIRMING → CONFIRMED / CANCELLED
  */
 

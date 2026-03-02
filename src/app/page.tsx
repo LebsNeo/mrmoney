@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "MrMoney — Know Your Numbers Before Your First Coffee",
+  title: "MrCA — Know Your Numbers Before Your First Coffee",
   description:
     "The financial operating system built for South African guesthouses, lodges and boutique hotels. Real-time KPIs, OTA reconciliation, WhatsApp bookings — all in one place.",
 };
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const VALUE_PROPS = [
   {
     headline: "Know your numbers\nbefore your first coffee",
-    body: "Every morning at 7am, MrMoney sends you a WhatsApp with last night's occupancy, today's check-ins, revenue MTD, and cash position. Your entire business in one message.",
+    body: "Every morning at 7am, MrCA sends you a WhatsApp with last night's occupancy, today's check-ins, revenue MTD, and cash position. Your entire business in one message.",
     stat: "30 seconds",
     statLabel: "Daily check-in time",
     emoji: "☀️",
@@ -20,14 +20,14 @@ const VALUE_PROPS = [
   },
   {
     headline: "OTA reconciliation\nin under a minute",
-    body: "Upload your Booking.com, Airbnb, or Lekkerslaap statement. MrMoney matches every payout to every bank transaction automatically. What used to take 2 hours now takes 30 seconds.",
+    body: "Upload your Booking.com, Airbnb, or Lekkerslaap statement. MrCA matches every payout to every bank transaction automatically. What used to take 2 hours now takes 30 seconds.",
     stat: "3 OTAs",
     statLabel: "Reconciled automatically",
     emoji: "🔄",
     accent: "#3b82f6",
   },
   {
-    headline: "Guests book on WhatsApp.\nBookings appear in MrMoney.",
+    headline: "Guests book on WhatsApp.\nBookings appear in MrCA.",
     body: "A guest messages your WhatsApp number. Our AI reads the dates, checks availability, sends a summary, and creates the booking the moment they reply YES. Zero manual entry.",
     stat: "0 clicks",
     statLabel: "To capture a WhatsApp booking",
@@ -36,7 +36,7 @@ const VALUE_PROPS = [
   },
   {
     headline: "Built for SA.\nNot adapted for SA.",
-    body: "Lekkerslaap, Capitec, Standard Bank, UIF, VAT, SARS — all built in from day one. Not bolted on after the fact. MrMoney is the only hospitality finance platform that actually understands the South African market.",
+    body: "Lekkerslaap, Capitec, Standard Bank, UIF, VAT, SARS — all built in from day one. Not bolted on after the fact. MrCA is the only hospitality finance platform that actually understands the South African market.",
     stat: "100%",
     statLabel: "SA-compliant",
     emoji: "🇿🇦",
@@ -122,7 +122,7 @@ function NavBar() {
             M
           </div>
           <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>
-            Mr<span style={{ color: "#10b981" }}>Money</span>
+            Mr<span style={{ color: "#10b981" }}>CA</span>
           </span>
         </div>
 
@@ -373,7 +373,7 @@ function WhatsAppMockup() {
           M
         </div>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: 0 }}>MrMoney</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: 0 }}>MrCA</p>
           <p style={{ fontSize: 10, color: "#b2dfdb", margin: 0 }}>online</p>
         </div>
       </div>
@@ -503,7 +503,7 @@ export default function LandingPage() {
               margin: "0 auto 48px",
             }}
           >
-            MrMoney is the financial operating system that South African
+            MrCA is the financial operating system that South African
             guesthouse owners have been waiting for. Real-time numbers.
             Zero spreadsheets. Built for the way you actually work.
           </p>
@@ -610,7 +610,7 @@ export default function LandingPage() {
                 marginBottom: 12,
               }}
             >
-              Why MrMoney
+              Why MrCA
             </p>
             <h2
               style={{
@@ -1047,7 +1047,7 @@ export default function LandingPage() {
           }}
         >
           <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>
-            Mr<span style={{ color: "#10b981" }}>Money</span>
+            Mr<span style={{ color: "#10b981" }}>CA</span>
             <span style={{ fontSize: 12, color: "#1f2937", fontWeight: 400, marginLeft: 8 }}>
               · Hospitality Financial OS
             </span>
@@ -1055,7 +1055,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
             <Link href="/login" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Sign in</Link>
             <Link href="/register" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Register</Link>
-            <span style={{ fontSize: 12, color: "#111827" }}>© {new Date().getFullYear()} MrMoney</span>
+            <span style={{ fontSize: 12, color: "#111827" }}>© {new Date().getFullYear()} MrCA</span>
           </div>
         </div>
       </footer>
@@ -1087,7 +1087,7 @@ function DigestPreview() {
       <div style={{ background: "#075e54", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#25d366", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", fontSize: 14 }}>M</div>
         <div>
-          <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", margin: 0 }}>MrMoney</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", margin: 0 }}>MrCA</p>
           <p style={{ fontSize: 9, color: "#b2dfdb", margin: 0 }}>07:00 · daily</p>
         </div>
       </div>
@@ -1105,7 +1105,7 @@ Sunday, 1 March 2026
 💵 Cash position: R12,450
 📈 Top channel: Airbnb (42%)
 
-— MrMoney 💚`}
+— MrCA 💚`}
         </div>
       </div>
     </div>

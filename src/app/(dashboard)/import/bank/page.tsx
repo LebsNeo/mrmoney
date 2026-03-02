@@ -183,7 +183,7 @@ export default function BankImportPage() {
               <p className="text-lg font-bold text-emerald-400">Upload successful — data saved!</p>
             </div>
             <p className="text-sm text-gray-400 ml-11">
-              Your transactions are now in MrMoney and ready to work with.
+              Your transactions are now in MrCA and ready to work with.
             </p>
           </div>
 

@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
           to: user.email,
-          subject: "Reset your MrMoney password",
+          subject: "Reset your MrCA password",
           html: `
             <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;">
-              <h2 style="color:#10b981;margin-bottom:8px;">MrMoney</h2>
+              <h2 style="color:#10b981;margin-bottom:8px;">MrCA</h2>
               <p>Hi ${user.name},</p>
               <p>We received a request to reset your password. Click the button below — this link expires in <strong>1 hour</strong>.</p>
               <div style="text-align:center;margin:32px 0;">

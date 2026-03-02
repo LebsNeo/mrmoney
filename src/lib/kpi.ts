@@ -1,5 +1,5 @@
 /**
- * MrMoney — KPI Calculation Engine
+ * MrCA — KPI Calculation Engine
  * Phase 1: Core Hospitality KPIs
  *
  * All amounts in Decimal-safe numbers (pass as strings or numbers, returns number).

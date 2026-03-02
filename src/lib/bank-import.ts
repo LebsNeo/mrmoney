@@ -1,5 +1,5 @@
 /**
- * MrMoney — SA Bank Statement CSV Import
+ * MrCA — SA Bank Statement CSV Import
  * Parsers for FNB, NEDBANK, ABSA, STANDARD_BANK, CAPITEC
  */
 

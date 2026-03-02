@@ -1,5 +1,5 @@
 /**
- * MrMoney — Standardised API Response Helpers
+ * MrCA — Standardised API Response Helpers
  * Phase 9: Consistent JSON response format for all /api/* routes.
  */
 import { NextResponse } from "next/server";

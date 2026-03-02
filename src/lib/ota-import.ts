@@ -1,5 +1,5 @@
 /**
- * MrMoney — OTA Import Engine (v2)
+ * MrCA — OTA Import Engine (v2)
  * Parsers built from real payout file analysis:
  *   - Lekkerslaap: CSV with booking-level line items
  *   - Booking.com: CSV with payout batches + reservation rows

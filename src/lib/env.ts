@@ -1,5 +1,5 @@
 /**
- * MrMoney — Environment Validation
+ * MrCA — Environment Validation
  * Phase 9: All required env vars validated at startup via zod.
  */
 import { z } from "zod";

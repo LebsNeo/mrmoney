@@ -1,5 +1,5 @@
 /**
- * MrMoney — Booking Finance Engine
+ * MrCA — Booking Finance Engine
  * Phase 3: Booking ↔ Finance Integration
  *
  * All functions use prisma.$transaction for atomicity.

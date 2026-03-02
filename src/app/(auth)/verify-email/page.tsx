@@ -67,7 +67,7 @@ function VerifyEmailInner() {
         <div className="text-center mb-8">
           <Link href="/">
             <span className="text-3xl font-bold text-white">
-              Mr<span className="text-emerald-400">Money</span>
+              Mr<span className="text-emerald-400">CA</span>
             </span>
           </Link>
           <p className="text-gray-500 text-sm mt-1">Hospitality Financial OS</p>
@@ -103,7 +103,7 @@ function VerifyEmailInner() {
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-2">Email verified!</h1>
                 <p className="text-gray-400 text-sm mb-6">
-                  Your MrMoney account is now active. You'll receive a welcome email shortly.
+                  Your MrCA account is now active. You'll receive a welcome email shortly.
                 </p>
                 <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-4 py-3 mb-6">
                   <p className="text-xs text-emerald-400">

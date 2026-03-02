@@ -1,5 +1,5 @@
 /**
- * MrMoney — Seasonal Analysis
+ * MrCA — Seasonal Analysis
  * Phase 4: Historical pattern analysis for revenue and occupancy
  */
 

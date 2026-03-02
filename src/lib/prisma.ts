@@ -1,5 +1,5 @@
 /**
- * MrMoney — Prisma Singleton with Connection Resilience
+ * MrCA — Prisma Singleton with Connection Resilience
  * Phase 9: Retry logic, graceful shutdown, structured logging.
  */
 import { PrismaPg } from "@prisma/adapter-pg";

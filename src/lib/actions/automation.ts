@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * MrMoney — Automation Server Actions
+ * MrCA — Automation Server Actions
  * Bank import, QB import, recurring expenses, alerts, digest
  */
 

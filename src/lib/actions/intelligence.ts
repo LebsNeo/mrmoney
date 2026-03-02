@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * MrMoney Intelligence Layer — Step 3
+ * MrCA Intelligence Layer — Step 3
  *
  * Computes booking-driven analytics:
  *   - Channel mix (revenue + bookings by source)

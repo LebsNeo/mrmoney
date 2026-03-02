@@ -52,7 +52,7 @@ export default async function WhatsAppSettingsPage() {
     <div>
       <PageHeader
         title="WhatsApp Booking Intake"
-        description="Guests message your WhatsApp number — MrMoney auto-creates bookings"
+        description="Guests message your WhatsApp number — MrCA auto-creates bookings"
       />
       <WhatsAppSetupClient
         webhookUrl={webhookUrl}

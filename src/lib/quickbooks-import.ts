@@ -1,5 +1,5 @@
 /**
- * MrMoney — QuickBooks CSV Import
+ * MrCA — QuickBooks CSV Import
  *
  * Handles QB "Transaction List by Date" export format:
  *   Row 0-2: metadata headers  (skipped — we find the real header row)
@@ -15,7 +15,7 @@
  *   4 = Name          (vendor / payee)
  *   5 = Memo/Desc
  *   6 = Account name  (bank account)
- *   7 = Account full name  (QB category — used for MrMoney category mapping)
+ *   7 = Account full name  (QB category — used for MrCA category mapping)
  *   8 = Amount        (signed: positive = income, negative = expense)
  */
 

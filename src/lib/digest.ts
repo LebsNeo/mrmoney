@@ -1,5 +1,5 @@
 /**
- * MrMoney — Daily Digest
+ * MrCA — Daily Digest
  * Returns a snapshot of yesterday's performance and today's schedule
  */
 

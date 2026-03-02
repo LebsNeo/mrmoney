@@ -1,5 +1,5 @@
 /**
- * MrMoney — WhatsApp Booking Intake
+ * MrCA — WhatsApp Booking Intake
  * Provider-agnostic types
  */
 

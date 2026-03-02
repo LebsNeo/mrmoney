@@ -1,5 +1,5 @@
 /**
- * MrMoney — In-Memory Rate Limiter
+ * MrCA — In-Memory Rate Limiter
  * Phase 9: Simple sliding window rate limiter — no Redis needed.
  *
  * Note: State is per-process. In a multi-instance deployment (Vercel serverless),

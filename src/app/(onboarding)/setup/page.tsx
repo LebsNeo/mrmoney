@@ -82,7 +82,7 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
             <span className="text-emerald-400">financial co-pilot</span>
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
-            Stop guessing. Start knowing. MrMoney connects your bookings, OTA payouts, and expenses into one clear picture — automatically.
+            Stop guessing. Start knowing. MrCA connects your bookings, OTA payouts, and expenses into one clear picture — automatically.
           </p>
 
           {/* Stats row */}

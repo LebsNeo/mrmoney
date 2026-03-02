@@ -1,5 +1,5 @@
 /**
- * MrMoney — Alerts Engine
+ * MrCA — Alerts Engine
  * Generates HIGH / MEDIUM / INFO alerts for an organisation
  */
 
