@@ -33,8 +33,9 @@ export async function POST(req: NextRequest) {
 
     const provider = getProvider();
 
-    // Verify signature
-    if (!provider.verifySignature(rawBody, headers)) {
+    // Verify signature — pass full request URL so Twilio HMAC matches exactly
+    const requestUrl = req.url;
+    if (!provider.verifySignature(rawBody, headers, requestUrl)) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 

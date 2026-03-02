@@ -82,7 +82,7 @@ export const MetaProvider: WhatsAppProvider = {
     }
   },
 
-  verifySignature(body: string, headers: Record<string, string>): boolean {
+  verifySignature(body: string, headers: Record<string, string>, _url?: string): boolean {
     const secret = process.env.WHATSAPP_APP_SECRET;
     if (!secret) return true; // Skip in dev
     const sig = headers["x-hub-signature-256"] ?? "";

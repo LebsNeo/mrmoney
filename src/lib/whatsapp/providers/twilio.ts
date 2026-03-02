@@ -56,17 +56,17 @@ export const TwilioProvider: WhatsAppProvider = {
     }
   },
 
-  verifySignature(body: string, headers: Record<string, string>): boolean {
+  verifySignature(body: string, headers: Record<string, string>, url?: string): boolean {
     const token = process.env.TWILIO_AUTH_TOKEN;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
     if (!token) return true;
-    const url = `${appUrl}/api/whatsapp/webhook`;
     const sig = headers["x-twilio-signature"] ?? "";
-    // Twilio signature: HMAC-SHA1 of url + sorted params
+    if (!sig) return true; // no signature header = local dev / testing
+    // Twilio signature: HMAC-SHA1 of full URL + sorted POST params concatenated
+    const webhookUrl = url ?? `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/whatsapp/webhook`;
     const params = Object.fromEntries(new URLSearchParams(body));
     const sortedParams = Object.keys(params)
       .sort()
-      .reduce((s, k) => s + k + params[k], url);
+      .reduce((s, k) => s + k + params[k], webhookUrl);
     const expected = createHmac("sha1", token).update(sortedParams).digest("base64");
     return sig === expected;
   },

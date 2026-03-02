@@ -22,7 +22,7 @@ export interface WhatsAppProvider {
   /** Send a text message */
   send(msg: OutgoingMessage): Promise<void>
   /** Verify webhook signature (return true if valid) */
-  verifySignature(body: string, headers: Record<string, string>): boolean
+  verifySignature(body: string, headers: Record<string, string>, url?: string): boolean
 }
 
 /** Extracted booking intent from AI */
