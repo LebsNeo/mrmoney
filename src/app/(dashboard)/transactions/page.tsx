@@ -1,11 +1,11 @@
-import { getTransactions } from "@/lib/actions/transactions";
-import { StatusBadge } from "@/components/StatusBadge";
+import { getTransactions, getTransactionSummary } from "@/lib/actions/transactions";
 import { PageHeader } from "@/components/PageHeader";
 import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { CategorySelect } from "@/components/CategorySelect";
-import { CategoryEditor } from "@/components/CategoryEditor";
 import { EmptyState } from "@/components/EmptyState";
 import { ExportButton } from "@/components/ExportButton";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { TransactionsTable } from "@/components/TransactionsTable";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { TransactionType, TransactionCategory } from "@prisma/client";
@@ -19,6 +19,8 @@ interface PageProps {
     propertyId?: string;
     type?: string;
     category?: string;
+    dateFrom?: string;
+    dateTo?: string;
     page?: string;
   }>;
 }
@@ -28,11 +30,12 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const page = parseInt(params.page ?? "1", 10);
   const type = params.type as TransactionType | undefined;
   const category = params.category as TransactionCategory | undefined;
+  const dateFrom = params.dateFrom;
+  const dateTo = params.dateTo;
 
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
 
-  // Load properties for the switcher
   const allProperties = orgId
     ? await prisma.property.findMany({
         where: { organisationId: orgId, isActive: true, deletedAt: null },
@@ -41,20 +44,29 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       })
     : [];
 
-  const { transactions, total, totalPages } = await getTransactions({
+  const filters = {
     type,
     category,
+    dateFrom,
+    dateTo,
     page,
     limit: 20,
     organisationId: orgId,
-    // Only filter by property if explicitly selected
     propertyId: params.propertyId,
-  });
+  };
+
+  const [{ transactions, total, totalPages }, summary] = await Promise.all([
+    getTransactions(filters),
+    getTransactionSummary(filters),
+  ]);
 
   function buildQuery(overrides: Record<string, string | undefined>) {
     const q = new URLSearchParams();
     if (type) q.set("type", type);
     if (category) q.set("category", category);
+    if (dateFrom) q.set("dateFrom", dateFrom);
+    if (dateTo) q.set("dateTo", dateTo);
+    if (params.propertyId) q.set("propertyId", params.propertyId);
     q.set("page", String(page));
     for (const [k, v] of Object.entries(overrides)) {
       if (v === undefined) q.delete(k);
@@ -65,7 +77,6 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
   const categoryOptions = Object.values(TransactionCategory);
 
-  // CSV data
   const csvData = transactions.map((tx) => ({
     date: formatDate(tx.date),
     description: tx.description,
@@ -76,6 +87,10 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
     vatAmount: parseFloat(tx.vatAmount.toString()),
     status: tx.status,
   }));
+
+  const incomeBar = summary.totalIncome + summary.totalExpenses > 0
+    ? Math.round((summary.totalIncome / (summary.totalIncome + summary.totalExpenses)) * 100)
+    : 50;
 
   return (
     <div>
@@ -92,34 +107,59 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         }
       />
 
+      {/* Summary bar */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Income</p>
+          <p className="text-xl font-bold text-emerald-400">{formatCurrency(summary.totalIncome)}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{summary.incomeCount} transactions</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Total Expenses</p>
+          <p className="text-xl font-bold text-red-400">{formatCurrency(summary.totalExpenses)}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{summary.expenseCount} transactions</p>
+        </div>
+        <div className={`bg-gray-900 border rounded-2xl p-4 ${summary.net >= 0 ? "border-emerald-500/20" : "border-red-500/20"}`}>
+          <p className="text-xs text-gray-500 mb-1">Net</p>
+          <p className={`text-xl font-bold ${summary.net >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {summary.net >= 0 ? "+" : ""}{formatCurrency(summary.net)}
+          </p>
+          <p className="text-xs text-gray-600 mt-0.5">{summary.net >= 0 ? "surplus" : "deficit"}</p>
+        </div>
+      </div>
+
+      {/* Income vs expense ratio bar */}
+      {(summary.totalIncome > 0 || summary.totalExpenses > 0) && (
+        <div className="mb-6">
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Income {incomeBar}%</span>
+            <span>Expenses {100 - incomeBar}%</span>
+          </div>
+          <div className="h-2 bg-red-500/30 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all"
+              style={{ width: `${incomeBar}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         {/* Type filter */}
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-400 font-medium">Type:</label>
           <div className="flex gap-1">
-            <Link
-              href={`/transactions${buildQuery({ type: undefined, page: "1" })}`}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                !type ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
+            <Link href={`/transactions${buildQuery({ type: undefined, page: "1" })}`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${!type ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
               All
             </Link>
-            <Link
-              href={`/transactions${buildQuery({ type: "INCOME", page: "1" })}`}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                type === "INCOME" ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
+            <Link href={`/transactions${buildQuery({ type: "INCOME", page: "1" })}`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${type === "INCOME" ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
               Income
             </Link>
-            <Link
-              href={`/transactions${buildQuery({ type: "EXPENSE", page: "1" })}`}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                type === "EXPENSE" ? "bg-red-500/20 text-red-400" : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
+            <Link href={`/transactions${buildQuery({ type: "EXPENSE", page: "1" })}`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${type === "EXPENSE" ? "bg-red-500/20 text-red-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
               Expense
             </Link>
           </div>
@@ -128,13 +168,13 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         {/* Category filter */}
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-400 font-medium">Category:</label>
-          <CategorySelect
-            options={categoryOptions}
-            current={category}
-            basePath="/transactions"
-            currentType={type}
-          />
+          <CategorySelect options={categoryOptions} current={category} basePath="/transactions" currentType={type} />
         </div>
+
+        {/* Date range filter */}
+        <Suspense fallback={null}>
+          <DateRangeFilter dateFrom={dateFrom} dateTo={dateTo} />
+        </Suspense>
       </div>
 
       {/* Empty state */}
@@ -142,8 +182,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl">
           <EmptyState
             icon="💳"
-            title="No transactions yet"
-            message="Import your bank statement or add one manually."
+            title="No transactions found"
+            message={dateFrom || dateTo ? "No transactions in this date range. Try adjusting the filter." : "Import your bank statement or add one manually."}
             actionLabel="Import Bank Statement"
             actionHref="/import/bank"
           />
@@ -152,82 +192,32 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* Table */}
       {transactions.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Category</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">VAT</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-gray-800/50 transition-colors">
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{formatDate(tx.date)}</td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="text-white">{tx.description}</p>
-                        {tx.vendor && (
-                          <p className="text-xs text-gray-500">{tx.vendor.name}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <CategoryEditor txId={tx.id} category={tx.category} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={tx.type.toLowerCase()} />
-                    </td>
-                    <td className={`px-4 py-3 text-right font-semibold ${
-                      tx.type === "INCOME" ? "text-emerald-400" : "text-red-400"
-                    }`}>
-                      {tx.type === "INCOME" ? "+" : "-"}{formatCurrency(tx.amount)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-400 text-xs">
-                      {formatCurrency(tx.vatAmount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={tx.status.toLowerCase()} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <>
+          <TransactionsTable transactions={transactions} />
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="border-t border-gray-800 px-4 py-3 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <p className="text-xs text-gray-500">
                 Page {page} of {totalPages} · {total} results
               </p>
               <div className="flex gap-2">
                 {page > 1 && (
-                  <Link
-                    href={`/transactions${buildQuery({ page: String(page - 1) })}`}
-                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
-                  >
+                  <Link href={`/transactions${buildQuery({ page: String(page - 1) })}`}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors">
                     ← Prev
                   </Link>
                 )}
                 {page < totalPages && (
-                  <Link
-                    href={`/transactions${buildQuery({ page: String(page + 1) })}`}
-                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors"
-                  >
+                  <Link href={`/transactions${buildQuery({ page: String(page + 1) })}`}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 hover:text-white transition-colors">
                     Next →
                   </Link>
                 )}
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
