@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MrCA — Getting Started Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #fff;
+    color: #111;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* ── PAGE LAYOUT ── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 0;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .page:last-child { page-break-after: avoid; }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { page-break-after: always; }
+    .page:last-child { page-break-after: avoid; }
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    background: linear-gradient(160deg, #030712 0%, #0a1a0f 50%, #030712 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 60px 56px 50px;
+    min-height: 297mm;
+    position: relative;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cover-logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+  }
+  .cover-logo-text { color: #fff; }
+  .cover-logo-text h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .cover-logo-text p { font-size: 11px; color: #6ee7b7; font-weight: 500; letter-spacing: 0.05em; }
+
+  .cover-main { position: relative; z-index: 1; }
+  .cover-tag {
+    display: inline-block;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.3);
+    color: #6ee7b7;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 20px;
+    margin-bottom: 24px;
+  }
+  .cover-title {
+    font-size: 48px; font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+  }
+  .cover-title span { color: #10b981; }
+  .cover-subtitle {
+    font-size: 16px; color: #9ca3af;
+    font-weight: 400;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+
+  .cover-divider {
+    width: 60px; height: 3px;
+    background: linear-gradient(90deg, #10b981, transparent);
+    margin: 32px 0;
+  }
+
+  .cover-features {
+    display: flex; gap: 28px;
+  }
+  .cover-feature {
+    display: flex; align-items: center; gap: 8px;
+    color: #6b7280; font-size: 12px;
+  }
+  .cover-feature-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+  }
+
+  .cover-footer {
+    display: flex;
+    align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 24px;
+    position: relative; z-index: 1;
+  }
+  .cover-footer p { color: #4b5563; font-size: 11px; }
+  .cover-footer a { color: #10b981; text-decoration: none; }
+  .cover-version {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #6b7280; font-size: 11px;
+    padding: 4px 12px; border-radius: 20px;
+  }
+
+  /* ── CONTENT PAGES ── */
+  .content-page {
+    padding: 0;
+    min-height: 297mm;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-header {
+    background: linear-gradient(135deg, #0a1a0f 0%, #030712 100%);
+    padding: 28px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 2px solid #10b981;
+  }
+  .page-header-left { display: flex; align-items: center; gap: 10px; }
+  .page-header-logo { font-size: 14px; font-weight: 800; color: #fff; }
+  .page-header-logo span { color: #10b981; }
+  .page-header-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.2); }
+  .page-header-title { font-size: 12px; color: #6b7280; font-weight: 500; }
+  .page-num { font-size: 11px; color: #4b5563; }
+
+  .content-body { padding: 44px 48px; flex: 1; }
+
+  /* ── SECTION HEADERS ── */
+  .section-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 12px; border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  h2.section-title {
+    font-size: 26px; font-weight: 800;
+    color: #030712;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .section-subtitle {
+    color: #6b7280; font-size: 13px;
+    margin-bottom: 32px;
+  }
+
+  /* ── STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex; gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid #f3f4f6;
+    position: relative;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-line {
+    position: absolute;
+    left: 18px; top: 52px;
+    bottom: -1px;
+    width: 2px;
+    background: linear-gradient(to bottom, #10b981, #d1fae5);
+  }
+  .step:last-child .step-line { display: none; }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff; font-size: 13px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; position: relative; z-index: 1;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+  }
+  .step-content { flex: 1; padding-top: 6px; }
+  .step-content h4 {
+    font-size: 14px; font-weight: 700; color: #111;
+    margin-bottom: 4px;
+  }
+  .step-content p { font-size: 12px; color: #6b7280; line-height: 1.6; }
+  .step-content .step-note {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fefce8; border: 1px solid #fde68a;
+    color: #92400e; font-size: 11px;
+    padding: 3px 10px; border-radius: 6px;
+    margin-top: 8px;
+  }
+
+  /* ── FEATURE CARDS ── */
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-top: 8px;
+  }
+  .feature-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 18px;
+    background: #fafafa;
+  }
+  .feature-card-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #bbf7d0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; margin-bottom: 10px;
+  }
+  .feature-card h4 {
+    font-size: 13px; font-weight: 700; color: #111; margin-bottom: 4px;
+  }
+  .feature-card p { font-size: 11px; color: #6b7280; line-height: 1.5; }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 12px; padding: 14px 18px;
+    display: flex; gap: 12px; align-items: flex-start;
+    margin: 16px 0;
+  }
+  .callout-tip {
+    background: #eff6ff; border: 1px solid #bfdbfe;
+  }
+  .callout-tip .callout-icon { color: #2563eb; font-size: 16px; }
+  .callout-tip p { color: #1e40af; font-size: 12px; line-height: 1.5; }
+  .callout-warn {
+    background: #fefce8; border: 1px solid #fde68a;
+  }
+  .callout-warn .callout-icon { color: #d97706; font-size: 16px; }
+  .callout-warn p { color: #92400e; font-size: 12px; line-height: 1.5; }
+  .callout-success {
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+  }
+  .callout-success .callout-icon { color: #16a34a; font-size: 16px; }
+  .callout-success p { color: #15803d; font-size: 12px; line-height: 1.5; }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th {
+    background: #030712; color: #fff;
+    font-size: 11px; font-weight: 600; text-align: left;
+    padding: 10px 14px;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td {
+    padding: 10px 14px; font-size: 12px; color: #374151;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  tr:hover td { background: #f9fafb; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 600;
+  }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+  /* ── PAGE FOOTER ── */
+  .page-footer {
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 14px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-footer p { font-size: 10px; color: #9ca3af; }
+  .page-footer a { color: #10b981; text-decoration: none; }
+
+  /* ── CHECKLIST ── */
+  .checklist { list-style: none; margin: 16px 0; }
+  .checklist li {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+    font-size: 12px; color: #374151;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #dcfce7; border: 1.5px solid #86efac;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #16a34a; flex-shrink: 0; margin-top: 1px;
+  }
+  .empty-check {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid #d1d5db; flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* ── MINI COLUMNS ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── HIGHLIGHT BOX ── */
+  .highlight-box {
+    background: linear-gradient(135deg, #030712, #0a1a0f);
+    border-radius: 16px;
+    padding: 24px 28px;
+    color: #fff;
+    margin: 20px 0;
+    position: relative; overflow: hidden;
+  }
+  .highlight-box::after {
+    content: '';
+    position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .highlight-box h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .highlight-box p { font-size: 12px; color: #9ca3af; line-height: 1.6; }
+
+  .divider { height: 1px; background: #e5e7eb; margin: 24px 0; }
+  h3.sub-title { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 12px; }
+
+  .url-chip {
+    display: inline-block;
+    background: #f3f4f6; border: 1px solid #e5e7eb;
+    color: #374151; font-family: monospace; font-size: 11px;
+    padding: 3px 10px; border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 1 — COVER                                      -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="cover">
+    <div class="cover-logo">
+      <div class="cover-logo-icon">M</div>
+      <div class="cover-logo-text">
+        <h1>MrCA</h1>
+        <p>FINANCIAL OS</p>
+      </div>
+    </div>
+
+    <div class="cover-main">
+      <div class="cover-tag">Getting Started Guide</div>
+      <h1 class="cover-title">Your financial<br/><span>co-pilot</span> is<br/>ready to fly.</h1>
+      <p class="cover-subtitle">Everything you need to set up MrCA for your guesthouse, BnB, or lodge — from property configuration to your first booking.</p>
+      <div class="cover-divider"></div>
+      <div class="cover-features">
+        <div class="cover-feature"><div class="cover-feature-dot"></div> Properties & Rooms</div>
+        <div class="cover-feature"><div class="cover-feature-dot"></div> Bank Import</div>
+        <div class="cover-feature"><div class="cover-feature-dot"></div> Bookings</div>
+        <div class="cover-feature"><div class="cover-feature-dot"></div> OTA Reconciliation</div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <p>Built for South African hospitality · <a href="https://www.mrca.co.za">www.mrca.co.za</a></p>
+      <div class="cover-version">v1.0 · 2026</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 2 — TABLE OF CONTENTS                          -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page content-page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <span class="page-header-logo">Mr<span>CA</span></span>
+      <div class="page-header-divider"></div>
+      <span class="page-header-title">Getting Started Guide</span>
+    </div>
+    <span class="page-num">2 of 6</span>
+  </div>
+
+  <div class="content-body">
+    <div class="section-label">📋 Contents</div>
+    <h2 class="section-title">What's Inside</h2>
+    <p class="section-subtitle">Follow this guide from start to finish for the fastest setup experience.</p>
+
+    <div class="highlight-box">
+      <h3>⏱ Setup takes about 15 minutes</h3>
+      <p>This guide walks you through everything step by step. Once set up, your daily use of MrCA will be under 5 minutes. We've designed it to work in the background so you can focus on running your property.</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Section</th>
+          <th>What You'll Do</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>01</strong></td>
+          <td>Create Your Account</td>
+          <td>Register and verify your email</td>
+          <td><span class="badge badge-green">2 min</span></td>
+        </tr>
+        <tr>
+          <td><strong>02</strong></td>
+          <td>Set Up Your Property</td>
+          <td>Add property details, rooms, and rates</td>
+          <td><span class="badge badge-green">5 min</span></td>
+        </tr>
+        <tr>
+          <td><strong>03</strong></td>
+          <td>Import Your Bank Statement</td>
+          <td>Upload CSV and let AI categorise transactions</td>
+          <td><span class="badge badge-green">3 min</span></td>
+        </tr>
+        <tr>
+          <td><strong>04</strong></td>
+          <td>Create Your First Booking</td>
+          <td>Record a direct or walk-in booking</td>
+          <td><span class="badge badge-green">2 min</span></td>
+        </tr>
+        <tr>
+          <td><strong>05</strong></td>
+          <td>OTA Setup</td>
+          <td>Configure Booking.com, Airbnb, Lekkerslaap</td>
+          <td><span class="badge badge-blue">3 min</span></td>
+        </tr>
+        <tr>
+          <td><strong>06</strong></td>
+          <td>Security & Finance PIN</td>
+          <td>Protect financial data from staff access</td>
+          <td><span class="badge badge-gray">1 min</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-tip">
+      <span class="callout-icon">💡</span>
+      <p><strong>Pro tip:</strong> Complete Steps 1–3 first and check your Dashboard. You'll immediately see your cash position and transaction history — which gives you an instant sense of how MrCA works before going further.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <p>MrCA — Hospitality Financial OS · <a href="https://www.mrca.co.za">www.mrca.co.za</a></p>
+    <p>© 2026 MrCA. All rights reserved.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 3 — ACCOUNT + PROPERTY SETUP                   -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page content-page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <span class="page-header-logo">Mr<span>CA</span></span>
+      <div class="page-header-divider"></div>
+      <span class="page-header-title">Account & Property Setup</span>
+    </div>
+    <span class="page-num">3 of 6</span>
+  </div>
+
+  <div class="content-body">
+
+    <div class="section-label">01 — Account</div>
+    <h2 class="section-title">Create Your Account</h2>
+    <p class="section-subtitle">Getting registered takes 2 minutes. You only do this once.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Go to mrca.co.za and click <em>Get Started</em></h4>
+          <p>Visit <span class="url-chip">www.mrca.co.za</span> on any device. Click the green <strong>Get Started</strong> button to open the registration form.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Enter your details</h4>
+          <p>Fill in your name, email address, and a strong password. Use the email address you check daily — it will receive important notifications.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Verify your email</h4>
+          <p>Check your inbox for a verification email from <span class="url-chip">noreply@mrca.co.za</span>. Click the link inside. If you don't see it, check your spam folder.</p>
+          <div class="step-note">⏱ The verification link expires in 72 hours</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Sign in and reach your Dashboard</h4>
+          <p>Once verified, sign in. You'll land on your Dashboard — your financial command centre.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">02 — Property</div>
+    <h2 class="section-title">Set Up Your Property</h2>
+    <p class="section-subtitle">Your property was automatically created during registration. Now let's complete it.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Go to <em>Properties</em> in the sidebar</h4>
+          <p>Click <strong>Properties</strong> in the left navigation menu. You'll see your property card already created.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Add your rooms</h4>
+          <p>Under your property, find <strong>Rooms</strong> and click <strong>+ Add Room</strong>. For each room, enter: Room Name (e.g. "Room 1", "Garden Suite"), Room Type, and Nightly Rate in ZAR.</p>
+          <div class="step-note">💡 Add all rooms now — availability checks won't work without them</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Complete your billing profile</h4>
+          <p>Scroll down to <strong>Billing Profile</strong>. Add your VAT number, bank details, and upload your logo. This is used on all invoices sent to guests.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <p>MrCA — Hospitality Financial OS · <a href="https://www.mrca.co.za">www.mrca.co.za</a></p>
+    <p>© 2026 MrCA. All rights reserved.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 4 — BANK IMPORT + BOOKINGS                     -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page content-page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <span class="page-header-logo">Mr<span>CA</span></span>
+      <div class="page-header-divider"></div>
+      <span class="page-header-title">Bank Import & Bookings</span>
+    </div>
+    <span class="page-num">4 of 6</span>
+  </div>
+
+  <div class="content-body">
+
+    <div class="section-label">03 — Bank Import</div>
+    <h2 class="section-title">Import Your Bank Statement</h2>
+    <p class="section-subtitle">This is MrCA's most powerful feature. Upload once — AI handles the rest.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Download your bank statement as CSV</h4>
+          <p>Log in to your bank's internet banking or app and export the last 3 months as a <strong>CSV file</strong>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Go to Import → Bank Statement</h4>
+          <p>In the MrCA sidebar, scroll to <strong>Import</strong> and select <strong>Bank Statement</strong>. Select your bank and property from the dropdowns.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Upload and preview</h4>
+          <p>Click <strong>Choose File</strong>, select your CSV, then click the green <strong>Preview Transactions →</strong> button. MrCA's AI will suggest a category for every transaction.</p>
+          <div class="step-note">🧠 The AI understands SA business names — Eskom, Lekkerslaap, PosSettle, etc.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Confirm and import</h4>
+          <p>Review the categorised transactions. Correct any that don't look right, then click <strong>Import All</strong>. Your Dashboard will update immediately.</p>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>Bank</th><th>Export Location</th><th>Format</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Capitec Business</strong></td><td>App → Accounts → Statement → Export</td><td><span class="badge badge-green">CSV</span></td></tr>
+        <tr><td><strong>Standard Bank</strong></td><td>Internet Banking → Accounts → Download Statement</td><td><span class="badge badge-green">CSV</span></td></tr>
+        <tr><td><strong>FNB</strong></td><td>Online Banking → Accounts → Export as CSV</td><td><span class="badge badge-green">CSV</span></td></tr>
+        <tr><td><strong>ABSA</strong></td><td>Internet Banking → My Accounts → Download CSV</td><td><span class="badge badge-green">CSV</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <div class="section-label">04 — Bookings</div>
+    <h2 class="section-title">Create Your First Booking</h2>
+    <p class="section-subtitle">Record every guest stay — direct, walk-in, or OTA.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-card-icon">➕</div>
+        <h4>New Booking</h4>
+        <p>Tap the green <strong>+</strong> button (bottom right on Dashboard) or go to <strong>Bookings → New Booking</strong>.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">🏠</div>
+        <h4>Select Room</h4>
+        <p>Choose your property and room. MrCA shows ✓ available or 🚫 booked in real time based on your dates.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">👤</div>
+        <h4>Guest Details</h4>
+        <p>Enter guest name, email, and phone. These are used for invoice sending and WhatsApp communication.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">💳</div>
+        <h4>Collect Payment</h4>
+        <p>Toggle <strong>Payment received</strong> to record cash, EFT, or card payment at the time of booking.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <p>MrCA — Hospitality Financial OS · <a href="https://www.mrca.co.za">www.mrca.co.za</a></p>
+    <p>© 2026 MrCA. All rights reserved.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 5 — OTA + SECURITY                             -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page content-page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <span class="page-header-logo">Mr<span>CA</span></span>
+      <div class="page-header-divider"></div>
+      <span class="page-header-title">OTA Setup & Security</span>
+    </div>
+    <span class="page-num">5 of 6</span>
+  </div>
+
+  <div class="content-body">
+
+    <div class="section-label">05 — OTA Channels</div>
+    <h2 class="section-title">Configure Your OTA Channels</h2>
+    <p class="section-subtitle">Connect your Booking.com, Airbnb, and Lekkerslaap accounts for automated payout reconciliation.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Go to Settings → OTA Channels</h4>
+          <p>In the sidebar, scroll to <strong>OTA Channels</strong> under Settings. You'll see cards for each supported OTA platform.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Enable each platform you use</h4>
+          <p>Click <strong>Configure</strong> on Booking.com, Airbnb, and/or Lekkerslaap. Set the commission rate and payout model for each.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Run reconciliation monthly</h4>
+          <p>Go to <strong>OTA Payouts → Reconcile</strong>. Upload your OTA payout CSV. MrCA matches each payout to your bank transactions and creates booking records automatically.</p>
+          <div class="step-note">📥 Download OTA statements from each platform's finance or earnings section</div>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>Platform</th><th>Commission</th><th>Payout Delay</th><th>CSV Location</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Booking.com</strong></td>
+          <td>15%</td>
+          <td>~30 days</td>
+          <td>Extranet → Finance → Invoices</td>
+        </tr>
+        <tr>
+          <td><strong>Airbnb</strong></td>
+          <td>~3.45%</td>
+          <td>14 days</td>
+          <td>Earnings → Download CSV</td>
+        </tr>
+        <tr>
+          <td><strong>Lekkerslaap</strong></td>
+          <td>~10% + 2% handling</td>
+          <td>21 days</td>
+          <td>Owner Portal → Payments → Export</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warn">
+      <span class="callout-icon">⚠️</span>
+      <p><strong>Important:</strong> Always download payout statements as CSV, not PDF. MrCA's reconciliation engine requires CSV format to match payouts to your bank transactions automatically.</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">06 — Security</div>
+    <h2 class="section-title">Finance PIN Lock</h2>
+    <p class="section-subtitle">If staff use MrCA for operations, protect your financial data with a PIN.</p>
+
+    <div class="two-col">
+      <div>
+        <h3 class="sub-title">Setting up your PIN</h3>
+        <ul class="checklist">
+          <li><div class="empty-check"></div>Go to <strong>Settings</strong> in the sidebar</li>
+          <li><div class="empty-check"></div>Find <strong>Finance PIN Lock</strong> card</li>
+          <li><div class="empty-check"></div>Click <strong>Set PIN</strong></li>
+          <li><div class="empty-check"></div>Enter a 4–8 digit PIN and confirm</li>
+          <li><div class="empty-check"></div>Click <strong>Save PIN</strong></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="sub-title">What staff can access without PIN</h3>
+        <ul class="checklist">
+          <li><div class="check">✓</div>Dashboard (operational view)</li>
+          <li><div class="check">✓</div>Bookings & Calendar</li>
+          <li><div class="check">✓</div>Properties</li>
+        </ul>
+        <h3 class="sub-title" style="margin-top:12px">PIN required for</h3>
+        <ul class="checklist">
+          <li><div class="check">🔐</div>Transactions & Reports</li>
+          <li><div class="check">🔐</div>Invoices & Payroll</li>
+          <li><div class="check">🔐</div>Intelligence & OTA</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <p>MrCA — Hospitality Financial OS · <a href="https://www.mrca.co.za">www.mrca.co.za</a></p>
+    <p>© 2026 MrCA. All rights reserved.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PAGE 6 — QUICK REFERENCE + SUPPORT                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="page content-page">
+  <div class="page-header">
+    <div class="page-header-left">
+      <span class="page-header-logo">Mr<span>CA</span></span>
+      <div class="page-header-divider"></div>
+      <span class="page-header-title">Quick Reference & Support</span>
+    </div>
+    <span class="page-num">6 of 6</span>
+  </div>
+
+  <div class="content-body">
+
+    <div class="section-label">✅ Setup Checklist</div>
+    <h2 class="section-title">You're Ready When All Are Ticked</h2>
+    <p class="section-subtitle">Use this checklist to confirm your setup is complete before going live.</p>
+
+    <ul class="checklist">
+      <li><div class="empty-check"></div>Account registered and email verified</li>
+      <li><div class="empty-check"></div>Property details completed (name, address, type)</li>
+      <li><div class="empty-check"></div>All rooms added with correct names and nightly rates</li>
+      <li><div class="empty-check"></div>Billing profile completed (logo, VAT number, bank details)</li>
+      <li><div class="empty-check"></div>First bank statement imported (last 3 months recommended)</li>
+      <li><div class="empty-check"></div>Transaction categories reviewed and corrected</li>
+      <li><div class="empty-check"></div>OTA channels configured for each platform you use</li>
+      <li><div class="empty-check"></div>First booking created (test with a real or dummy booking)</li>
+      <li><div class="empty-check"></div>Dashboard checked — cash position showing correctly</li>
+      <li><div class="empty-check"></div>Finance PIN set (if you have staff using the platform)</li>
+      <li><div class="empty-check"></div>WhatsApp QR code downloaded and printed for reception</li>
+    </ul>
+
+    <div class="divider"></div>
+
+    <div class="three-col">
+      <div>
+        <h3 class="sub-title">🌐 Platform</h3>
+        <p style="font-size:12px;color:#6b7280;line-height:1.6">
+          <span class="url-chip">www.mrca.co.za</span><br/><br/>
+          Works on any device — phone, tablet, or desktop. No app download needed.
+        </p>
+      </div>
+      <div>
+        <h3 class="sub-title">📧 Support</h3>
+        <p style="font-size:12px;color:#6b7280;line-height:1.6">
+          <span class="url-chip">lebs@mrca.co.za</span><br/><br/>
+          Email us for setup help, questions, or anything that doesn't feel right.
+        </p>
+      </div>
+      <div>
+        <h3 class="sub-title">📖 In-App Help</h3>
+        <p style="font-size:12px;color:#6b7280;line-height:1.6">
+          Go to <strong>Help</strong> in the sidebar for step-by-step guides on every feature — searchable and always up to date.
+        </p>
+      </div>
+    </div>
+
+    <div class="highlight-box" style="margin-top:24px">
+      <h3>💚 You're not alone in this.</h3>
+      <p>MrCA was built by a guesthouse owner, for guesthouse owners. Every feature exists because it solved a real problem. If something doesn't make sense or you need help getting set up, reach out — we'll personally walk you through it.</p>
+    </div>
+
+    <div class="callout callout-success" style="margin-top:16px">
+      <span class="callout-icon">🚀</span>
+      <p><strong>Most owners see their full financial picture within 30 minutes of setup.</strong> Import 3 months of bank statements, add your rooms, and your Dashboard will immediately show cash position, transaction history, and key metrics.</p>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <p>MrCA — Hospitality Financial OS · <a href="https://www.mrca.co.za">www.mrca.co.za</a> · lebs@mrca.co.za</p>
+    <p>© 2026 MrCA. All rights reserved.</p>
+  </div>
+</div>
+
+</body>
+</html>
