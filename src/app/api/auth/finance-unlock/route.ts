@@ -5,6 +5,18 @@ import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import { sign } from "@/lib/finance-token";
 
+const IS_PROD = process.env.NODE_ENV === "production";
+
+function setCookie(res: NextResponse, token: string) {
+  res.cookies.set("finance_unlocked", token, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? "none" : "lax",
+    path: "/",
+    maxAge: 60 * 60 * 8, // 8 hours
+  });
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as { organisationId?: string })?.organisationId;
@@ -25,9 +37,7 @@ export async function POST(req: NextRequest) {
   if (!storedHash) {
     const token = sign(orgId);
     const res = NextResponse.json({ ok: true });
-    res.cookies.set("finance_unlocked", token, {
-      httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 8,
-    });
+    setCookie(res, token);
     return res;
   }
 
@@ -43,11 +53,6 @@ export async function POST(req: NextRequest) {
 
   const token = sign(orgId);
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("finance_unlocked", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 8,
-  });
+  setCookie(res, token);
   return res;
 }
