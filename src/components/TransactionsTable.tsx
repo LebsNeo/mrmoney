@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CategoryRulesManager } from "@/components/CategoryRulesManager";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { deleteTransaction, deleteTransactions } from "@/lib/actions/transactions";
 import { TransactionType, TransactionCategory, TransactionStatus } from "@prisma/client";
@@ -29,6 +30,7 @@ export function TransactionsTable({ transactions }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const allSelected = transactions.length > 0 && selected.size === transactions.length;
   const someSelected = selected.size > 0;
@@ -71,6 +73,19 @@ export function TransactionsTable({ transactions }: Props) {
 
   return (
     <div className="relative">
+      {/* Rules Manager */}
+      <CategoryRulesManager open={rulesOpen} onClose={() => setRulesOpen(false)} />
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-end mb-3">
+        <button
+          onClick={() => setRulesOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-800 border border-gray-700 text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
+        >
+          <span>⚙</span> Manage Rules
+        </button>
+      </div>
+
       {/* Bulk action bar */}
       {someSelected && (
         <div className="sticky top-0 z-20 mb-3 flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5">
