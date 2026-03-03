@@ -27,3 +27,4 @@ prisma/migrations/**/migration_lock.toml
 node_modules
 *.log
 .env.local.test
+.env.vercel
