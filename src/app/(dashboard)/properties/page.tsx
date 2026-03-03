@@ -7,6 +7,7 @@ import { PropertyRoomsCard } from "@/components/PropertyRoomsCard";
 import { PropertyBillingForm } from "@/components/PropertyBillingForm";
 import { AddPropertyButton } from "@/components/AddPropertyButton";
 import { PropertyEditButton } from "@/components/PropertyEditButton";
+import { WhatsAppQRCard } from "@/components/WhatsAppQRCard";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function PropertiesPage() {
@@ -127,6 +128,23 @@ export default async function PropertiesPage() {
                     baseRate: Number(r.baseRate),
                   }))}
                 />
+
+                {/* WhatsApp Booking QR */}
+                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-xl">📲</span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">WhatsApp Booking QR</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Print &amp; place at reception — guests scan to book instantly via WhatsApp
+                      </p>
+                    </div>
+                  </div>
+                  <WhatsAppQRCard
+                    propertyId={property.id}
+                    propertyName={property.name}
+                  />
+                </div>
 
                 {/* Invoice billing profile */}
                 <PropertyBillingForm
