@@ -111,7 +111,7 @@ export default async function BudgetEditPage({ searchParams }: PageProps) {
         period={period}
         previousPeriod={previousPeriod}
         initialItems={initialItems}
-        allCategories={ALL_EXPENSE_CATEGORIES}
+        allCategories={ALL_EXPENSE_CATEGORIES as any}
         availablePeriods={availablePeriods}
       />
     </div>

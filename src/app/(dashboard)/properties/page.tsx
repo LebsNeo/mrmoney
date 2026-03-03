@@ -126,6 +126,8 @@ export default async function PropertiesPage() {
                   rooms={property.rooms.map((r) => ({
                     ...r,
                     baseRate: Number(r.baseRate),
+                    
+                    
                   }))}
                 />
 
