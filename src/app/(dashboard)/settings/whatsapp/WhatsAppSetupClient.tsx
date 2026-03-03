@@ -120,21 +120,30 @@ export function WhatsAppSetupClient({ webhookUrl, stats, conversations }: Props)
   }
 
   async function sendTestDigest() {
+    if (!digestPhone) {
+      setDigestSendResult("⚠ Please enter and save your WhatsApp number first.");
+      setTimeout(() => setDigestSendResult(""), 5000);
+      return;
+    }
     setDigestSending(true);
     setDigestSendResult("");
     try {
-      const res = await fetch("/api/cron/daily-digest");
+      const res = await fetch("/api/whatsapp/test-digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digestPhone }),
+      });
       const data = await res.json();
       if (data.ok) {
-        setDigestSendResult(data.sent > 0 ? "✓ Digest sent! Check your WhatsApp." : "Digest not sent — make sure phone is saved and WhatsApp provider is configured.");
+        setDigestSendResult("✓ Test message sent! Check your WhatsApp now.");
       } else {
-        setDigestSendResult("Error: " + (data.error ?? "Unknown"));
+        setDigestSendResult("⚠ " + (data.error ?? "Failed to send. Please check your number and try again."));
       }
     } catch {
-      setDigestSendResult("Network error");
+      setDigestSendResult("⚠ Network error. Please try again.");
     } finally {
       setDigestSending(false);
-      setTimeout(() => setDigestSendResult(""), 6000);
+      setTimeout(() => setDigestSendResult(""), 8000);
     }
   }
 
@@ -442,7 +451,11 @@ Monday, 2 March 2026
             </div>
 
             {digestSendResult && (
-              <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <p className={`text-xs rounded-xl px-4 py-3 ${
+                digestSendResult.startsWith("✓")
+                  ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                  : "text-amber-400 bg-amber-500/10 border border-amber-500/20"
+              }`}>
                 {digestSendResult}
               </p>
             )}
