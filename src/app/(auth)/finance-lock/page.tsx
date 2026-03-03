@@ -22,7 +22,7 @@ function FinanceLockInner() {
       body: JSON.stringify({ pin: "__auto__" }),
     }).then(async (res) => {
       if (res.ok) {
-        router.replace(returnTo);
+        window.location.href = returnTo;
       } else {
         // PIN is required — focus first input
         inputs.current[0]?.focus();
@@ -66,8 +66,8 @@ function FinanceLockInner() {
       });
 
       if (res.ok) {
-        router.replace(returnTo);
-        router.refresh();
+        // Hard redirect so middleware re-evaluates with the new cookie
+        window.location.href = returnTo;
       } else {
         const d = await res.json();
         setError(d.error ?? "Incorrect PIN");

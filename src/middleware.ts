@@ -47,16 +47,11 @@ export default withAuth(
     // ── Finance PIN gate ──
     if (isFinanceRoute(pathname)) {
       const token = req.cookies.get("finance_unlocked")?.value;
-      const orgId = (req as any).nextauth?.token?.organisationId as string | undefined;
 
-      if (orgId && token) {
-        // Valid token → allow through
-        if (verify(token, orgId)) return NextResponse.next();
-      }
+      // Valid cookie — let through
+      if (token && verify(token)) return NextResponse.next();
 
-      // No valid token → check if org has a PIN set
-      // We can't query DB in Edge middleware, so redirect to lock page
-      // The lock page API will handle the "no PIN = auto-unlock" case
+      // No valid token → redirect to lock page (which auto-unlocks if no PIN set)
       const lockUrl = new URL("/finance-lock", req.url);
       lockUrl.searchParams.set("returnTo", pathname + req.nextUrl.search);
       return NextResponse.redirect(lockUrl);

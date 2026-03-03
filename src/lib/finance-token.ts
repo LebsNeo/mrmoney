@@ -13,13 +13,14 @@ export function sign(orgId: string): string {
   return Buffer.from(`${payload}.${sig}`).toString("base64url");
 }
 
-export function verify(token: string, orgId: string): boolean {
+export function verify(token: string, orgId?: string): boolean {
   try {
     const decoded = Buffer.from(token, "base64url").toString();
     const parts = decoded.split(".");
     if (parts.length !== 3) return false;
     const [tokenOrgId, expStr, sig] = parts;
-    if (tokenOrgId !== orgId) return false;
+    // Only check orgId match if provided
+    if (orgId && tokenOrgId !== orgId) return false;
     const exp = parseInt(expStr, 10);
     if (Date.now() / 1000 > exp) return false;
     const payload = `${tokenOrgId}.${expStr}`;
