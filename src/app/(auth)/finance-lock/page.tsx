@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 function FinanceLockInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") ?? "/transactions";
 
-  const [pin, setPin] = useState(["", "", "", ""]);
+  const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Auto-unlock if org has no PIN set
@@ -24,37 +22,15 @@ function FinanceLockInner() {
       if (res.ok) {
         window.location.href = returnTo;
       } else {
-        // PIN is required — focus first input
-        inputs.current[0]?.focus();
+        inputRef.current?.focus();
       }
     }).catch(() => {
-      inputs.current[0]?.focus();
+      inputRef.current?.focus();
     });
   }, []);
 
-  function handleChange(i: number, val: string) {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...pin];
-    next[i] = val;
-    setPin(next);
-    setError(null);
-    if (val && i < 3) inputs.current[i + 1]?.focus();
-    // Auto-submit when all 4 filled
-    if (val && i === 3) {
-      const full = [...next].join("");
-      if (full.length === 4) submit(full);
-    }
-  }
-
-  function handleKeyDown(i: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !pin[i] && i > 0) {
-      inputs.current[i - 1]?.focus();
-    }
-  }
-
-  async function submit(code?: string) {
-    const pinStr = code ?? pin.join("");
-    if (pinStr.length < 4) return;
+  async function submit(code: string) {
+    if (code.length < 4) return;
     setLoading(true);
     setError(null);
 
@@ -62,23 +38,28 @@ function FinanceLockInner() {
       const res = await fetch("/api/auth/finance-unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: pinStr }),
+        body: JSON.stringify({ pin: code }),
       });
 
       if (res.ok) {
-        // Hard redirect so middleware re-evaluates with the new cookie
         window.location.href = returnTo;
       } else {
         const d = await res.json();
         setError(d.error ?? "Incorrect PIN");
-        setPin(["", "", "", ""]);
-        inputs.current[0]?.focus();
+        setPin("");
+        inputRef.current?.focus();
       }
     } catch {
       setError("Network error. Please try again.");
-    } finally {
       setLoading(false);
     }
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setPin(val);
+    setError(null);
+    if (val.length === 4) submit(val);
   }
 
   return (
@@ -94,24 +75,30 @@ function FinanceLockInner() {
           Enter your PIN to access financial data
         </p>
 
-        {/* PIN dots */}
-        <div className="flex justify-center gap-4 mb-6">
-          {pin.map((digit, i) => (
-            <input
+        {/* PIN display boxes + hidden real input */}
+        <div className="relative flex justify-center gap-4 mb-6" onClick={() => inputRef.current?.focus()}>
+          {/* Hidden real input */}
+          <input
+            ref={inputRef}
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pin}
+            onChange={handleChange}
+            disabled={loading}
+            className="absolute opacity-0 w-0 h-0"
+            autoFocus
+          />
+          {/* Visual boxes */}
+          {[0, 1, 2, 3].map((i) => (
+            <div
               key={i}
-              ref={(el) => { inputs.current[i] = el; }}
-              type="password"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              disabled={loading}
-              className={`w-14 h-14 text-center text-2xl font-bold rounded-2xl border-2 bg-gray-900 text-white focus:outline-none transition-colors
-                ${digit ? "border-emerald-500" : "border-gray-700"}
-                ${error ? "border-red-500 animate-shake" : ""}
-                focus:border-emerald-500 disabled:opacity-50`}
-            />
+              className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center text-2xl font-bold transition-colors cursor-text
+                ${error ? "border-red-500" : pin.length > i ? "border-emerald-500 bg-emerald-500/10" : i === pin.length ? "border-emerald-500/50 bg-gray-900" : "border-gray-700 bg-gray-900"}
+              `}
+            >
+              {pin[i] ? "●" : ""}
+            </div>
           ))}
         </div>
 
@@ -120,18 +107,18 @@ function FinanceLockInner() {
           <p className="text-sm text-red-400 mb-4">{error}</p>
         )}
 
-        {/* Submit */}
+        {/* Submit button */}
         <button
-          onClick={() => submit()}
-          disabled={loading || pin.join("").length < 4}
-          className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => submit(pin)}
+          disabled={loading || pin.length < 4}
+          className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
         >
           {loading ? "Verifying..." : "Unlock Finance"}
         </button>
 
         <button
-          onClick={() => router.push("/dashboard")}
-          className="mt-4 text-xs text-gray-600 hover:text-gray-400 transition-colors"
+          onClick={() => { window.location.href = "/dashboard"; }}
+          className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
         >
           ← Back to Dashboard
         </button>
