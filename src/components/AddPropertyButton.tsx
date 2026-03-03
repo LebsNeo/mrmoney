@@ -9,7 +9,7 @@ export function AddPropertyButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors"
+        className="btn-primary"
       >
         + Add Property
       </button>

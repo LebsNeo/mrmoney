@@ -145,7 +145,7 @@ export function FinancePinSettings({ hasPin: initialHasPin }: Props) {
           {msg && <p className={`text-xs ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>}
           <div className="flex gap-2">
             <button onClick={handleSet} disabled={loading}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors disabled:opacity-50">
+              className="btn-primary">
               {loading ? "Saving..." : "Save PIN"}
             </button>
             <button onClick={reset} className="px-4 py-2 rounded-xl text-sm bg-gray-800 text-gray-400 hover:text-white transition-colors">

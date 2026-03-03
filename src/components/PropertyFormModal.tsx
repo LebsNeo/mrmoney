@@ -241,14 +241,14 @@ export function PropertyFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm bg-gray-800 border border-gray-700 text-gray-300 hover:text-white transition-colors"
+              className="btn-secondary flex-1"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex-1"
             >
               {saving
                 ? (mode === "create" ? "Creating..." : "Saving...")

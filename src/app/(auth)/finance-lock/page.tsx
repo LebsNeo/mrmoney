@@ -111,7 +111,7 @@ function FinanceLockInner() {
         <button
           onClick={() => submit(pin)}
           disabled={loading || pin.length < 4}
-          className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+          className="btn-primary w-full !py-3 !rounded-2xl mb-4"
         >
           {loading ? "Verifying..." : "Unlock Finance"}
         </button>

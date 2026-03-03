@@ -379,7 +379,7 @@ export default function BankImportPage() {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary"
             >
               {importing ? "Importing..." : `Import ${preview.length} transaction${preview.length !== 1 ? "s" : ""}`}
             </button>

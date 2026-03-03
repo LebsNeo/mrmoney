@@ -530,7 +530,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary"
         >
           {loading ? "Creating..." : "Create Booking"}
         </button>

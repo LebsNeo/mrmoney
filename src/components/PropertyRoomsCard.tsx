@@ -113,7 +113,7 @@ export function PropertyRoomsCard({ propertyId, rooms }: PropertyRoomsCardProps)
           {!showForm && (
             <button
               onClick={() => { setShowForm(true); setExpanded(true); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold transition-colors"
+              className="btn-primary !text-xs !py-1.5 !px-3"
             >
               <span className="text-sm leading-none">+</span>
               Add Room
@@ -147,7 +147,7 @@ export function PropertyRoomsCard({ propertyId, rooms }: PropertyRoomsCardProps)
           </p>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors"
+            className="btn-primary"
           >
             + Add Your First Room
           </button>
@@ -284,14 +284,14 @@ export function PropertyRoomsCard({ propertyId, rooms }: PropertyRoomsCardProps)
             <button
               type="submit"
               disabled={isPending}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
+              className="btn-primary flex-1 sm:flex-none"
             >
               {isPending ? "Saving…" : "Add Room"}
             </button>
             <button
               type="button"
               onClick={() => { setShowForm(false); setFormError(null); }}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-gray-800 text-gray-300 hover:text-white transition-colors"
+              className="btn-secondary"
             >
               Cancel
             </button>
