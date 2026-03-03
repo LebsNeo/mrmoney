@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import Link from "next/link";
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default async function PLPage({ searchParams }: Props) {
+  await requireFinanceAccess("/reports/pl");
   const params = await searchParams;
   const period = (params.period ?? "this_month") as PeriodPreset;
   const propertyId = params.propertyId;

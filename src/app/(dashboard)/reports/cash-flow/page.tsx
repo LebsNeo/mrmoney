@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default async function CashFlowPage({ searchParams }: Props) {
+  await requireFinanceAccess("/reports/cash-flow");
   const params = await searchParams;
   const period = (params.period ?? "this_month") as PeriodPreset;
   const propertyId = params.propertyId;

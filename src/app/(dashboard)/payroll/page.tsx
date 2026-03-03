@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +7,7 @@ import { getEmployeeAdvances } from "@/lib/actions/advances";
 import { PayrollClient } from "./PayrollClient";
 
 export default async function PayrollPage() {
+  await requireFinanceAccess("/payroll");
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string;
 

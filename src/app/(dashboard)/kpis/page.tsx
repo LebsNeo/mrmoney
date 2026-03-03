@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -63,6 +64,7 @@ export default async function KPIsPage({
 }: {
   searchParams: Promise<{ propertyId?: string; months?: string }>;
 }) {
+  await requireFinanceAccess("/kpis");
   const params = await searchParams;
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;

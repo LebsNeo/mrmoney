@@ -1,29 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { authRateLimit } from "@/lib/rate-limit";
-import { verify } from "@/lib/finance-token";
-
-// Routes that require finance PIN unlock
-const FINANCE_ROUTES = [
-  "/transactions",
-  "/invoices",
-  "/ota-payouts",
-  "/ota",
-  "/reports",
-  "/payroll",
-  "/budget",
-  "/profitability",
-  "/kpis",
-  "/intelligence",
-  "/forecast",
-  "/import",
-  "/digest",
-  "/settings/ota-channels",
-];
-
-function isFinanceRoute(pathname: string): boolean {
-  return FINANCE_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/") || pathname.startsWith(r + "?"));
-}
 
 export default withAuth(
   async function middleware(req: NextRequest) {
@@ -42,19 +19,6 @@ export default withAuth(
           { status: 429, headers: { "Content-Type": "application/json", "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)) } }
         );
       }
-    }
-
-    // ── Finance PIN gate ──
-    if (isFinanceRoute(pathname)) {
-      const token = req.cookies.get("finance_unlocked")?.value;
-
-      // Valid cookie — let through
-      if (token && verify(token)) return NextResponse.next();
-
-      // No valid token → redirect to lock page (which auto-unlocks if no PIN set)
-      const lockUrl = new URL("/finance-lock", req.url);
-      lockUrl.searchParams.set("returnTo", pathname + req.nextUrl.search);
-      return NextResponse.redirect(lockUrl);
     }
 
     return NextResponse.next();

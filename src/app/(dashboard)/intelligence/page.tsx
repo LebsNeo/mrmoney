@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,7 @@ interface PageProps {
 }
 
 export default async function IntelligencePage({ searchParams }: PageProps) {
+  await requireFinanceAccess("/intelligence");
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as { organisationId?: string })?.organisationId;
   const params = await searchParams;

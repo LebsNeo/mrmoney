@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import Link from "next/link";
 import { getInvoices } from "@/lib/actions/invoices";
 import { PageHeader } from "@/components/PageHeader";
@@ -20,6 +21,7 @@ interface PageProps {
 const FILTER_OPTIONS = Object.values(InvoiceStatus);
 
 export default async function InvoicesPage({ searchParams }: PageProps) {
+  await requireFinanceAccess("/invoices");
   const params = await searchParams;
   const page = parseInt(params.page ?? "1", 10);
   const rawStatus = params.status;

@@ -1,3 +1,4 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import { getTransactions, getTransactionSummary } from "@/lib/actions/transactions";
 import { PageHeader } from "@/components/PageHeader";
 import { PropertySwitcher } from "@/components/PropertySwitcher";
@@ -26,6 +27,7 @@ interface PageProps {
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps) {
+  await requireFinanceAccess("/transactions");
   const params = await searchParams;
   const page = parseInt(params.page ?? "1", 10);
   const type = params.type as TransactionType | undefined;

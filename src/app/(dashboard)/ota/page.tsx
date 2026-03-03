@@ -1,9 +1,11 @@
+import { requireFinanceAccess } from "@/lib/finance-guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { OTAClient } from "./OTAClient";
 
 export default async function OTAPage() {
+  await requireFinanceAccess("/ota");
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as { organisationId?: string })?.organisationId;
 
