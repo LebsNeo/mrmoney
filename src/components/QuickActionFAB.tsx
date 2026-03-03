@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { ExpenseModal } from "./ExpenseModal";
+
+// Pages where the FAB should be visible
+const FAB_VISIBLE_PATHS = ["/dashboard", "/"];
+
 
 const ACTIONS = [
   {
@@ -59,12 +63,19 @@ const ACTIONS = [
 type ActionKey = (typeof ACTIONS)[number]["key"];
 
 export function QuickActionFAB() {
-  const router = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
   const [open, setOpen]   = useState(false);
   const [modal, setModal] = useState<"expense-scan" | "expense-manual" | null>(null);
-  const [visible, setVisible] = useState(true); // scroll-to-hide
-  const ref       = useRef<HTMLDivElement>(null);
+  const [scrollVisible, setScrollVisible] = useState(true);
+  const ref        = useRef<HTMLDivElement>(null);
   const lastScroll = useRef(0);
+
+  // Hide on feature pages — only show on dashboard/home
+  const onAllowedPage = FAB_VISIBLE_PATHS.includes(pathname);
+
+  // Close menu when navigating away
+  useEffect(() => { setOpen(false); }, [pathname]);
 
   // Close on outside click
   useEffect(() => {
@@ -75,44 +86,37 @@ export function QuickActionFAB() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Scroll-to-hide on mobile — hide when scrolling down, show when scrolling up or stopped
+  // Scroll-to-hide on mobile
   useEffect(() => {
     let ticking = false;
-    let hideTimer: ReturnType<typeof setTimeout>;
-
     const onScroll = () => {
       if (!ticking) {
         requestAnimationFrame(() => {
           const current = window.scrollY;
           const isMobile = window.innerWidth < 768;
-
           if (isMobile) {
             if (current > lastScroll.current + 8) {
-              // scrolling down — hide
-              setVisible(false);
+              setScrollVisible(false);
               setOpen(false);
             } else if (current < lastScroll.current - 8) {
-              // scrolling up — show
-              setVisible(true);
+              setScrollVisible(true);
             }
             lastScroll.current = current;
-
-            // Always show when near bottom
             const nearBottom = (window.innerHeight + current) >= document.body.scrollHeight - 80;
-            if (nearBottom) setVisible(true);
+            if (nearBottom) setScrollVisible(true);
           } else {
-            setVisible(true);
+            setScrollVisible(true);
           }
-
           ticking = false;
         });
         ticking = true;
       }
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const visible = onAllowedPage && scrollVisible;
 
   function handleAction(key: ActionKey) {
     setOpen(false);
@@ -129,8 +133,8 @@ export function QuickActionFAB() {
     <>
       <div
         ref={ref}
-        className={`fixed bottom-20 right-4 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-3 transition-all duration-300 ${
-          visible ? "translate-y-0 opacity-100" : "translate-y-24 opacity-0 pointer-events-none"
+        className={`fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-2.5 transition-all duration-300 ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-16 opacity-0 pointer-events-none"
         }`}
       >
         {/* Action menu */}
@@ -168,20 +172,20 @@ export function QuickActionFAB() {
           onClick={() => setOpen(o => !o)}
           aria-label="Quick actions"
           className={`
-            relative w-14 h-14 rounded-full flex items-center justify-center
-            shadow-2xl transition-all duration-300
+            relative w-11 h-11 rounded-full flex items-center justify-center
+            shadow-xl transition-all duration-300
             ${open
               ? "bg-gray-800/90 backdrop-blur-xl border border-white/10 rotate-45 scale-95"
-              : "bg-gradient-to-br from-emerald-400 to-emerald-600 hover:scale-110 shadow-emerald-500/40 hover:shadow-emerald-500/60"
+              : "bg-gradient-to-br from-emerald-400 to-emerald-600 hover:scale-110 shadow-emerald-500/30 hover:shadow-emerald-500/50"
             }
           `}
         >
-          {/* Pulse ring — only when closed */}
+          {/* Subtle pulse ring — only when closed */}
           {!open && (
-            <span className="absolute inset-0 rounded-full bg-emerald-500/30 animate-ping opacity-75" />
+            <span className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping opacity-60" />
           )}
           <svg
-            className={`w-6 h-6 text-white transition-transform duration-300 ${open ? "rotate-0" : ""}`}
+            className="w-5 h-5 text-white transition-transform duration-300"
             fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
           >
             {open
