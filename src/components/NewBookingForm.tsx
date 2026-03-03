@@ -10,7 +10,7 @@ interface Room {
   id: string;
   name: string;
   type: string;
-  baseRate: { toString(): string };
+  baseRate: number;
 }
 
 interface AvailabilityRoom {
@@ -91,7 +91,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   useEffect(() => {
     const room = rooms.find((r) => r.id === roomId);
     if (room) {
-      setCustomRoomRate(parseFloat(room.baseRate.toString()));
+      setCustomRoomRate(room.baseRate);
     }
   }, [roomId]);
 

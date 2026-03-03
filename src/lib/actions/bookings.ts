@@ -58,16 +58,16 @@ export async function getPropertiesWithRooms() {
       },
       orderBy: { name: "asc" },
     });
-    return serialize(properties) as Array<{
-      id: string;
-      name: string;
-      rooms: Array<{
-        id: string;
-        name: string;
-        type: string;
-        baseRate: { toString(): string };
-      }>;
-    }>;
+    return properties.map((p) => ({
+      id: p.id,
+      name: p.name,
+      rooms: p.rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type as string,
+        baseRate: Number(r.baseRate),
+      })),
+    }));
   } catch {
     return [];
   }
