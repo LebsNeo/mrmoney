@@ -98,10 +98,34 @@ export async function updateTransactionCategory(
   id: string,
   category: TransactionCategory
 ): Promise<void> {
-  await prisma.transaction.update({
+  // Update the transaction
+  const tx = await prisma.transaction.update({
     where: { id },
     data: { category },
+    select: { description: true, organisationId: true },
   });
+
+  // ── Learning layer: save correction as a learned rule ──
+  // Extract a meaningful keyword from the description (first 40 chars, cleaned)
+  if (tx.description && tx.organisationId) {
+    const keyword = tx.description
+      .replace(/\|.*$/, "") // strip reference part
+      .trim()
+      .toLowerCase()
+      .substring(0, 40);
+
+    if (keyword.length > 3) {
+      // Upsert — if same org has same keyword, update category
+      await prisma.$executeRaw`
+        INSERT INTO categorisation_rules (id, organisation_id, keyword, category, confidence, source, created_at, updated_at)
+        VALUES (gen_random_uuid(), ${tx.organisationId}::uuid, ${keyword}, ${category}::\"TransactionCategory\", 'HIGH', 'user_correction', now(), now())
+        ON CONFLICT (organisation_id, keyword) DO UPDATE SET category = EXCLUDED.category, confidence = EXCLUDED.confidence, updated_at = now()
+      `.catch(() => {
+        // Table may not exist yet — fail silently, don't break category update
+      });
+    }
+  }
+
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
   revalidatePath("/reports/pl");

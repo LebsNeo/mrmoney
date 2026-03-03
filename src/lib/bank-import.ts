@@ -6,6 +6,7 @@
 import { TransactionCategory, TransactionType } from "@prisma/client";
 import { parse as parseDate, isValid } from "date-fns";
 import { autoCategoriseTransaction, Confidence } from "./auto-categorise";
+import { llmBatchCategorise, TxToClassify } from "./llm-categorise";
 import { prisma } from "./prisma";
 import { logger } from "./logger";
 
@@ -269,11 +270,55 @@ export async function parseBankStatementCSV(
     }
   }
 
+  // ── Layer 2a: Apply learned org-specific rules first ──
+  const allTxs = [...transactions, ...potentialDuplicates];
+  let learnedRules: Array<{ keyword: string; category: string }> = [];
+  try {
+    learnedRules = await prisma.$queryRaw`
+      SELECT keyword, category FROM categorisation_rules
+      WHERE organisation_id = ${_organisationId}
+    ` as Array<{ keyword: string; category: string }>;
+  } catch { /* table may not exist yet */ }
+
+  for (const tx of allTxs) {
+    if (tx.confidence === "HIGH") continue;
+    const haystack = tx.description.toLowerCase();
+    for (const rule of learnedRules) {
+      if (haystack.includes(rule.keyword.toLowerCase())) {
+        tx.category = rule.category as ParsedTransaction["category"];
+        tx.confidence = "HIGH";
+        break;
+      }
+    }
+  }
+
+  // ── Layer 2b: LLM batch upgrade for remaining LOW/OTHER ──
+  const needsLLM: TxToClassify[] = allTxs
+    .map((tx, i) => ({ tx, i }))
+    .filter(({ tx }) => tx.confidence === "LOW" || tx.category === "OTHER")
+    .map(({ tx, i }) => ({
+      index: i,
+      description: tx.description,
+      amount: tx.amount,
+      type: tx.type,
+    }));
+
+  if (needsLLM.length > 0) {
+    const llmResults = await llmBatchCategorise(needsLLM);
+    for (const [idx, result] of llmResults) {
+      if (allTxs[idx]) {
+        allTxs[idx].category = result.category;
+        allTxs[idx].confidence = result.confidence;
+      }
+    }
+  }
+
   logger.info("Bank statement parsed", {
     bankFormat,
     valid: transactions.length,
     duplicates: potentialDuplicates.length,
     unrecognised: unrecognised.length,
+    llmUpgraded: needsLLM.length,
   });
 
   return { transactions, potentialDuplicates, unrecognised };
