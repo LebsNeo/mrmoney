@@ -2,10 +2,24 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { PasswordChangeForm } from "./PasswordChangeForm";
+import { FinancePinSettings } from "@/components/FinancePinSettings";
+import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
   const user = session?.user as any;
+  const orgId = user?.organisationId as string | undefined;
+
+  // Check if finance PIN is set
+  let hasPin = false;
+  if (orgId) {
+    try {
+      const org = await prisma.$queryRaw<Array<{ financePin: string | null }>>`
+        SELECT "financePin" FROM organisations WHERE id = ${orgId}
+      `;
+      hasPin = !!org[0]?.financePin;
+    } catch { /* ignore */ }
+  }
 
   const name = user?.name ?? "—";
   const email = user?.email ?? "—";
@@ -45,6 +59,9 @@ export default async function SettingsPage() {
           <span className="text-sm text-white font-medium">{orgName}</span>
         </div>
       </div>
+
+      {/* Finance PIN */}
+      <FinancePinSettings hasPin={hasPin} />
 
       {/* Password change */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
