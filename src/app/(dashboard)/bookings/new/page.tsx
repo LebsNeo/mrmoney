@@ -1,3 +1,4 @@
+// fixed: WHATSAPP enum synced to DB
 import { PageHeader } from "@/components/PageHeader";
 import { NewBookingForm } from "@/components/NewBookingForm";
 import { getPropertiesWithRooms } from "@/lib/actions/bookings";
