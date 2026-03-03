@@ -3,8 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBooking } from "@/lib/actions/bookings";
-import { BookingSource } from "@prisma/client";
 import { useToast } from "@/context/ToastContext";
+
+// Local enum mirror — avoids importing @prisma/client in a client component
+enum BookingSource {
+  DIRECT = "DIRECT",
+  WALKIN = "WALKIN",
+  BOOKING_COM = "BOOKING_COM",
+  AIRBNB = "AIRBNB",
+  LEKKERSLAAP = "LEKKERSLAAP",
+  EXPEDIA = "EXPEDIA",
+  WHATSAPP = "WHATSAPP",
+  OTHER = "OTHER",
+}
 
 interface Room {
   id: string;
