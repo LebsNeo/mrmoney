@@ -71,7 +71,7 @@ export default async function OTAPayoutsPage({ searchParams }: PageProps) {
             </Suspense>
             <Link
               href="/ota-payouts/import"
-              className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+              className="btn-primary"
             >
               Import CSV
             </Link>

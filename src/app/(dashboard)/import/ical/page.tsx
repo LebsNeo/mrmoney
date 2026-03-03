@@ -151,7 +151,7 @@ export default function ICalPage() {
             <button
               onClick={handleSyncAll}
               disabled={isPending || feeds.length === 0}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors disabled:opacity-50"
+              className="btn-primary"
             >
               {isPending ? "Syncing..." : "🔄 Sync All"}
             </button>
@@ -234,7 +234,7 @@ export default function ICalPage() {
             <button
               onClick={handleAdd}
               disabled={isPending}
-              className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors disabled:opacity-50"
+              className="btn-primary"
             >
               {isPending ? "Adding..." : "Add Feed"}
             </button>
@@ -272,7 +272,7 @@ export default function ICalPage() {
           <div className="text-4xl mb-3">📅</div>
           <p className="text-gray-400 text-sm font-medium">No iCal feeds yet</p>
           <p className="text-gray-600 text-xs mt-1">Add feeds from Booking.com, Airbnb and Lekkerslaap to start syncing bookings automatically.</p>
-          <button onClick={() => setShowAdd(true)} className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-400 transition-colors">
+          <button onClick={() => setShowAdd(true)} className="btn-primary">
             + Add your first feed
           </button>
         </div>

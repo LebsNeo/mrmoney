@@ -124,7 +124,7 @@ export function InvoicePrintView({ invoice, isPublic = false }: { invoice: Invoi
         </div>
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors"
+          className="btn-primary"
         >
           🖨️ Print / Save as PDF
         </button>

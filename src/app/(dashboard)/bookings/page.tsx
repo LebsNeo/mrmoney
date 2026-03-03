@@ -96,7 +96,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             <ExportButton data={csvData} filename="bookings-export" />
             <Link
               href="/bookings/new"
-              className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+              className="btn-primary"
             >
               + New Booking
             </Link>

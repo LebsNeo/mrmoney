@@ -11,7 +11,6 @@ interface DigestData {
   dayOfWeek: string;
   properties: PropertyDigest[];
   totalRevenueMTD: number;
-  cashPosition: number;
   pendingWhatsApp: number;
   topChannel: string | null;
   topChannelPct: number;
@@ -118,19 +117,6 @@ export async function buildDigest(organisationId: string): Promise<DigestData | 
   });
   const totalRevenueMTD = parseFloat(String(mtdResult._sum.amount ?? 0));
 
-  // Cash position (sum of all income - expenses ever)
-  const incomeResult = await prisma.transaction.aggregate({
-    where: { organisationId, deletedAt: null, type: "INCOME" },
-    _sum: { amount: true },
-  });
-  const expenseResult = await prisma.transaction.aggregate({
-    where: { organisationId, deletedAt: null, type: "EXPENSE" },
-    _sum: { amount: true },
-  });
-  const cashPosition =
-    parseFloat(String(incomeResult._sum.amount ?? 0)) -
-    parseFloat(String(expenseResult._sum.amount ?? 0));
-
   // Pending WhatsApp bookings
   const pendingWhatsApp = await prisma.whatsAppConversation.count({
     where: { organisationId, state: "CONFIRMING" },
@@ -184,7 +170,6 @@ export async function buildDigest(organisationId: string): Promise<DigestData | 
     dayOfWeek: days[saTime.getDay()],
     properties: propertyDigests,
     totalRevenueMTD,
-    cashPosition,
     pendingWhatsApp,
     topChannel,
     topChannelPct,
@@ -220,7 +205,6 @@ export function formatDigestMessage(data: DigestData): string {
   }
 
   msg += `📊 *Revenue MTD:* ${R(data.totalRevenueMTD)}\n`;
-  msg += `💵 *Cash position:* ${R(data.cashPosition)}\n`;
 
   if (data.topChannel) {
     msg += `📈 *Top channel:* ${data.topChannel} (${data.topChannelPct}%)\n`;

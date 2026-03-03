@@ -101,7 +101,7 @@ export function FinancePinSettings({ hasPin: initialHasPin }: Props) {
         <div className="flex gap-2">
           <button
             onClick={() => { setMode("set"); setMsg(null); }}
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 hover:bg-emerald-400 text-white transition-colors"
+            className="btn-primary"
           >
             {hasPin ? "Change PIN" : "Set PIN"}
           </button>

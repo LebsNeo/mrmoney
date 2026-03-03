@@ -41,7 +41,7 @@ export default async function OTAImportPage() {
           </p>
           <Link
             href="/properties"
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600"
+            className="btn-primary"
           >
             Go to Properties
           </Link>
