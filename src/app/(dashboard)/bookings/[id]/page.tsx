@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getBookingById } from "@/lib/actions/bookings";
 import { StatusBadge } from "@/components/StatusBadge";
 import { BookingActions } from "@/components/BookingActions";
+import { ProofOfPaymentUpload } from "@/components/ProofOfPaymentUpload";
 import { PageHeader } from "@/components/PageHeader";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 import { calcNights } from "@/lib/kpi";
@@ -113,6 +114,25 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 <p className="text-gray-300 text-sm">{booking.notes}</p>
               </div>
             )}
+          </div>
+
+          {/* Proof of Payment */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Proof of Payment</h2>
+                <p className="text-xs text-gray-600 mt-0.5">Bank notification, WhatsApp screenshot, receipt image</p>
+              </div>
+              {booking.proofOfPaymentUrl && (
+                <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">✓ Attached</span>
+              )}
+            </div>
+            {booking.proofOfPaymentNote && !booking.proofOfPaymentUrl && null}
+            <ProofOfPaymentUpload
+              bookingId={booking.id}
+              existingUrl={booking.proofOfPaymentUrl ?? null}
+              existingNote={booking.proofOfPaymentNote ?? null}
+            />
           </div>
 
           {/* Financial Breakdown */}

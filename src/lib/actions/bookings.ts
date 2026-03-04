@@ -330,6 +330,53 @@ export async function createBooking(input: {
 
 // ─── Update booking status ─────────────────────────────────────────────────────
 
+// ─── Attach proof of payment ──────────────────────────────────────────────────
+
+export async function attachProofOfPayment(
+  bookingId: string,
+  proofOfPaymentUrl: string,
+  proofOfPaymentNote?: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const orgId = await getOrgId();
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, property: { organisationId: orgId }, deletedAt: null },
+    });
+    if (!booking) return { success: false, message: "Booking not found" };
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        proofOfPaymentUrl,
+        proofOfPaymentNote: proofOfPaymentNote ?? null,
+      },
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: (e as Error).message };
+  }
+}
+
+export async function removeProofOfPayment(
+  bookingId: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const orgId = await getOrgId();
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, property: { organisationId: orgId }, deletedAt: null },
+    });
+    if (!booking) return { success: false, message: "Booking not found" };
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { proofOfPaymentUrl: null, proofOfPaymentNote: null },
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: (e as Error).message };
+  }
+}
+
 export async function updateBookingStatus(
   bookingId: string,
   status: BookingStatus
