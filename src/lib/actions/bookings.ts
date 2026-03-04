@@ -113,6 +113,10 @@ export async function getBookings(filters?: {
         include: {
           property: { select: { id: true, name: true } },
           room: { select: { id: true, name: true, type: true } },
+          bookingRooms: {
+            where: { deletedAt: null },
+            select: { roomId: true, pricePerNight: true, nights: true, totalAmount: true, room: { select: { id: true, name: true, type: true } } },
+          },
           transactions: {
             select: {
               id: true,

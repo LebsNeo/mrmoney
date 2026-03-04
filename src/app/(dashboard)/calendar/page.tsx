@@ -16,7 +16,8 @@ interface Booking {
   netAmount: string;
   externalRef: string | null;
   notes: string | null;
-  room: { id: string; name: string };
+  room: { id: string; name: string } | null;
+  bookingRooms?: { roomId: string; room: { id: string; name: string } }[];
   property: { id: string; name: string };
 }
 
@@ -83,7 +84,13 @@ export default function CalendarPage() {
 
   const bookingForRoomDay = (roomId: string, day: number) => {
     const d = new Date(year, month - 1, day);
-    return bookings.find(b => b.room.id === roomId && new Date(b.checkIn) <= d && new Date(b.checkOut) > d) ?? null;
+    return bookings.find(b => {
+      const inRange = new Date(b.checkIn) <= d && new Date(b.checkOut) > d;
+      if (!inRange) return false;
+      // Match primary room OR any room in a multi-room booking
+      if (b.room?.id === roomId) return true;
+      return b.bookingRooms?.some((br: { roomId: string }) => br.roomId === roomId) ?? false;
+    }) ?? null;
   };
 
   const isCheckInDay = (b: Booking, day: number) =>
@@ -238,8 +245,8 @@ export default function CalendarPage() {
                                 isCI && "rounded-l-full pl-2",
                                 isCO && "rounded-r-full",
                               )}
-                              title={`${b.guestName} · ${b.room.name} · ${c.label}`}>
-                              <span className="hidden sm:inline">{b.room.name} · </span>
+                              title={`${b.guestName} · ${b.room?.name ?? "Multi-room"} · ${c.label}`}>
+                              <span className="hidden sm:inline">{b.room?.name ?? "Multi-room"} · </span>
                               {b.guestName.split(" ")[0]}
                               {isCI && <span className="ml-1 opacity-60">→</span>}
                             </button>
@@ -367,7 +374,12 @@ export default function CalendarPage() {
                   </button>
                 </div>
                 <h3 className="text-xl font-bold text-white">{selected.guestName}</h3>
-                <p className="text-sm text-white/50 mt-0.5">{selected.property.name} · {selected.room.name}</p>
+                <p className="text-sm text-white/50 mt-0.5">
+                  {selected.property.name} ·{" "}
+                  {selected.bookingRooms && selected.bookingRooms.length > 1
+                    ? `${selected.bookingRooms.length} rooms`
+                    : selected.room?.name ?? "Room"}
+                </p>
               </div>
             </div>
 
