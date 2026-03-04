@@ -51,7 +51,8 @@ export default function CalendarPage() {
   const [rooms, setRooms]         = useState<Room[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState<Booking | null>(null);
-  const [view, setView]           = useState<"month"|"grid">("month");
+  const [view, setView]           = useState<"month"|"week"|"day"|"grid">("month");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     fetch("/api/user/properties").then(r=>r.json()).then(d=>{
@@ -63,16 +64,66 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ year: String(year), month: String(month) });
-      if (propertyId) qs.set("propertyId", propertyId);
-      const d = await fetch(`/api/calendar?${qs}`).then(r=>r.json());
-      setBookings(d.data?.bookings ?? []);
+      // For week/day views, also fetch adjacent month if week spans month boundary
+      const fetchMonth = async (y: number, m: number) => {
+        const qs = new URLSearchParams({ year: String(y), month: String(m) });
+        if (propertyId) qs.set("propertyId", propertyId);
+        return fetch(`/api/calendar?${qs}`).then(r => r.json());
+      };
+      const d = await fetchMonth(year, month);
+      let allBookings: Booking[] = d.data?.bookings ?? [];
+      // If week/day view crosses into next month, fetch next month too
+      if (view === "week" || view === "day") {
+        const weekDays = getWeekDays(currentDate);
+        const lastDay = weekDays[weekDays.length - 1];
+        if (lastDay.getMonth() + 1 !== month || lastDay.getFullYear() !== year) {
+          const d2 = await fetchMonth(lastDay.getFullYear(), lastDay.getMonth() + 1);
+          const extra: Booking[] = d2.data?.bookings ?? [];
+          const ids = new Set(allBookings.map((b: Booking) => b.id));
+          allBookings = [...allBookings, ...extra.filter((b: Booking) => !ids.has(b.id))];
+        }
+      }
+      setBookings(allBookings);
       setRooms(d.data?.rooms ?? []);
     } finally { setLoading(false); }
-  }, [year, month, propertyId]);
+  }, [year, month, propertyId, view, currentDate]);
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Week/Day helpers ──────────────────────────────────────────
+  function getWeekDays(date: Date): Date[] {
+    const day = date.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() + mondayOffset);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }
+
+  function bookingsOnDate(date: Date): Booking[] {
+    const d = new Date(date); d.setHours(12, 0, 0, 0);
+    return bookings.filter(b => new Date(b.checkIn) <= d && new Date(b.checkOut) > d);
+  }
+
+  function bookingForRoomDate(roomId: string, date: Date): Booking | null {
+    const d = new Date(date); d.setHours(12, 0, 0, 0);
+    return bookings.find(b => {
+      if (!(new Date(b.checkIn) <= d && new Date(b.checkOut) > d)) return false;
+      if (b.room?.id === roomId) return true;
+      return b.bookingRooms?.some((br: { roomId: string }) => br.roomId === roomId) ?? false;
+    }) ?? null;
+  }
+
+  function isDateToday(d: Date) {
+    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  }
+
+  const weekDays = getWeekDays(currentDate);
+
+  // ── Month-view helpers ────────────────────────────────────────
   const daysInMonth   = new Date(year, month, 0).getDate();
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
   const totalCells    = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
@@ -98,8 +149,28 @@ export default function CalendarPage() {
   const isCheckOutDay = (b: Booking, day: number) =>
     new Date(b.checkOut).getDate() === day && new Date(b.checkOut).getMonth() + 1 === month;
 
-  const prev = () => month === 1 ? (setYear(y=>y-1), setMonth(12)) : setMonth(m=>m-1);
-  const next = () => month === 12 ? (setYear(y=>y+1), setMonth(1))  : setMonth(m=>m+1);
+  const prev = () => {
+    if (view === "day") {
+      const d = new Date(currentDate); d.setDate(d.getDate() - 1);
+      setCurrentDate(d); setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    } else if (view === "week") {
+      const d = new Date(currentDate); d.setDate(d.getDate() - 7);
+      setCurrentDate(d); setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    } else {
+      month === 1 ? (setYear(y=>y-1), setMonth(12)) : setMonth(m=>m-1);
+    }
+  };
+  const next = () => {
+    if (view === "day") {
+      const d = new Date(currentDate); d.setDate(d.getDate() + 1);
+      setCurrentDate(d); setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    } else if (view === "week") {
+      const d = new Date(currentDate); d.setDate(d.getDate() + 7);
+      setCurrentDate(d); setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+    } else {
+      month === 12 ? (setYear(y=>y+1), setMonth(1)) : setMonth(m=>m+1);
+    }
+  };
 
   const occupiedDays = new Set(
     bookings.flatMap(b => {
@@ -125,12 +196,24 @@ export default function CalendarPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {/* View toggle */}
           <div className="glass flex rounded-xl p-1 gap-1">
-            {(["month","grid"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize",
+            {([
+              { v: "month", label: "📅 Month" },
+              { v: "week",  label: "🗓 Week"  },
+              { v: "day",   label: "☀️ Day"   },
+              { v: "grid",  label: "🏨 Rooms" },
+            ] as const).map(({ v, label }) => (
+              <button key={v} onClick={() => {
+                setView(v);
+                if (v === "day" || v === "week") {
+                  setCurrentDate(new Date());
+                  setYear(new Date().getFullYear());
+                  setMonth(new Date().getMonth() + 1);
+                }
+              }}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                   view === v ? "bg-emerald-500/20 text-emerald-400 shadow-sm" : "text-gray-500 hover:text-gray-300"
                 )}>
-                {v === "month" ? "📅 Month" : "🏨 Rooms"}
+                {label}
               </button>
             ))}
           </div>
@@ -151,8 +234,20 @@ export default function CalendarPage() {
             className="w-9 h-9 rounded-xl glass flex items-center justify-center text-gray-400 hover:text-white hover:border-white/10 transition-all">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
           </button>
-          <div className="text-center min-w-[140px]">
-            <p className="text-lg font-bold text-white">{MONTHS[month-1]} {year}</p>
+          <div className="text-center min-w-[180px]">
+            {view === "day" && (
+              <p className="text-lg font-bold text-white">
+                {currentDate.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            )}
+            {view === "week" && (
+              <p className="text-lg font-bold text-white">
+                {weekDays[0].toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} – {weekDays[6].toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
+            )}
+            {(view === "month" || view === "grid") && (
+              <p className="text-lg font-bold text-white">{MONTHS[month-1]} {year}</p>
+            )}
             <p className="text-xs text-gray-500">{bookings.length} booking{bookings.length!==1?"s":""}</p>
           </div>
           <button onClick={next}
@@ -187,6 +282,194 @@ export default function CalendarPage() {
           <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3" />
           <p className="text-gray-500 text-sm">Loading calendar...</p>
         </div>
+      ) : view === "day" ? (
+
+        /* ── DAY VIEW ──────────────────────────────────────────── */
+        (() => {
+          const dayBookings = bookingsOnDate(currentDate);
+          const arriving   = dayBookings.filter(b => {
+            const ci = new Date(b.checkIn); return ci.getDate() === currentDate.getDate() && ci.getMonth() === currentDate.getMonth() && ci.getFullYear() === currentDate.getFullYear();
+          });
+          const departing  = dayBookings.filter(b => {
+            const co = new Date(b.checkOut); return co.getDate() === currentDate.getDate() && co.getMonth() === currentDate.getMonth() && co.getFullYear() === currentDate.getFullYear();
+          });
+          const staying    = dayBookings.filter(b => !arriving.includes(b) && !departing.includes(b));
+
+          const BookingCard = ({ b, badge }: { b: Booking; badge: string }) => {
+            const c = ota(b.source);
+            const roomLabel = b.bookingRooms && b.bookingRooms.length > 1
+              ? `${b.bookingRooms.length} rooms: ${b.bookingRooms.map((br: { room: { name: string } }) => br.room.name).join(", ")}`
+              : b.room?.name ?? "Room";
+            return (
+              <button onClick={() => setSelected(b)} className={cn("w-full text-left glass rounded-xl p-4 border transition-all hover:scale-[1.01]", c.border)}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-white">{b.guestName}</span>
+                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", c.bg, c.border, c.text)}>{badge}</span>
+                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full border", c.bg, c.border, c.text)}>{c.label}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{roomLabel}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{fmt(b.checkIn)} → {fmt(b.checkOut)} · {nights(b.checkIn, b.checkOut)} nights</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold text-white">{money(b.grossAmount)}</p>
+                    <p className="text-[10px] text-gray-500">gross</p>
+                  </div>
+                </div>
+              </button>
+            );
+          };
+
+          if (dayBookings.length === 0) return (
+            <div className="glass rounded-2xl p-16 text-center">
+              <p className="text-4xl mb-3">🌙</p>
+              <p className="text-white font-semibold mb-1">No activity today</p>
+              <p className="text-gray-500 text-sm">No check-ins, check-outs or stays on this day.</p>
+            </div>
+          );
+
+          return (
+            <div className="space-y-4">
+              {arriving.length > 0 && (
+                <div className="glass rounded-2xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                    <span className="text-emerald-400 text-sm">🛎</span>
+                    <span className="text-sm font-semibold text-white">Arriving ({arriving.length})</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {arriving.map(b => <BookingCard key={b.id} b={b} badge="CHECK IN" />)}
+                  </div>
+                </div>
+              )}
+              {staying.length > 0 && (
+                <div className="glass rounded-2xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                    <span className="text-blue-400 text-sm">🏨</span>
+                    <span className="text-sm font-semibold text-white">Staying ({staying.length})</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {staying.map(b => <BookingCard key={b.id} b={b} badge="STAYING" />)}
+                  </div>
+                </div>
+              )}
+              {departing.length > 0 && (
+                <div className="glass rounded-2xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                    <span className="text-amber-400 text-sm">🚪</span>
+                    <span className="text-sm font-semibold text-white">Departing ({departing.length})</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {departing.map(b => <BookingCard key={b.id} b={b} badge="CHECK OUT" />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()
+
+      ) : view === "week" ? (
+
+        /* ── WEEK VIEW ─────────────────────────────────────────── */
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="border-collapse w-full" style={{ minWidth: "600px" }}>
+              <thead>
+                <tr className="border-b border-white/5">
+                  <th className="sticky left-0 z-10 bg-gray-950/90 backdrop-blur-xl text-left text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-4 py-3 w-36 border-r border-white/5">
+                    Room
+                  </th>
+                  {weekDays.map((d, i) => {
+                    const isToday = isDateToday(d);
+                    const isSel = d.getDate() === currentDate.getDate() && d.getMonth() === currentDate.getMonth();
+                    return (
+                      <th key={i} className={cn("text-center py-3 px-2 cursor-pointer transition-colors hover:bg-white/5", isToday && "bg-emerald-500/10")}
+                        onClick={() => { setCurrentDate(new Date(d)); setView("day"); }}>
+                        <p className={cn("text-[10px] font-semibold uppercase tracking-wider", isToday ? "text-emerald-400" : "text-gray-500")}>
+                          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}
+                        </p>
+                        <p className={cn("text-sm font-bold mt-0.5", isToday ? "text-emerald-400" : isSel ? "text-white" : "text-gray-400")}>
+                          {d.getDate()}
+                        </p>
+                        <p className="text-[9px] text-gray-600">{d.toLocaleDateString("en-ZA", { month: "short" })}</p>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map(room => (
+                  <tr key={room.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                    <td className="sticky left-0 z-10 bg-gray-950/90 backdrop-blur-xl px-4 py-2.5 border-r border-white/5">
+                      <p className="text-xs font-semibold text-gray-300 whitespace-nowrap">{room.name}</p>
+                      <p className="text-[10px] text-gray-600">{room.property.name}</p>
+                    </td>
+                    {weekDays.map((d, i) => {
+                      const booking = bookingForRoomDate(room.id, d);
+                      const c = booking ? ota(booking.source) : null;
+                      const isToday = isDateToday(d);
+                      const isCI = booking && new Date(booking.checkIn).toDateString() === d.toDateString();
+                      const isCO = booking && new Date(booking.checkOut).toDateString() === d.toDateString();
+                      return (
+                        <td key={i} className={cn(
+                          "h-14 border-r border-white/[0.03] transition-all relative text-center px-1",
+                          isToday && "bg-emerald-500/[0.04]",
+                          booking && c && cn(c.bg, "cursor-pointer hover:brightness-125"),
+                          isCI && "rounded-l-xl",
+                          isCO && "rounded-r-xl",
+                        )}
+                          onClick={() => booking && setSelected(booking)}
+                          title={booking ? `${booking.guestName} · ${c?.label}` : undefined}
+                        >
+                          {booking && isCI && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1">
+                              <span className={cn("text-[9px] font-bold truncate max-w-full", c?.text)}>{booking.guestName.split(" ")[0]}</span>
+                              <span className={cn("text-[8px] opacity-60", c?.text)}>→ IN</span>
+                            </div>
+                          )}
+                          {booking && !isCI && !isCO && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className={cn("w-1.5 h-1.5 rounded-full", c?.dot)} />
+                            </div>
+                          )}
+                          {isToday && !booking && (
+                            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500/50" />
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                {rooms.length === 0 && (
+                  <tr><td colSpan={8} className="py-12 text-center text-gray-500 text-sm">No rooms configured</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* Week booking summary */}
+          {(() => {
+            const weekBookings = Array.from(new Set(weekDays.flatMap(d => bookingsOnDate(d).map(b => b.id))))
+              .map(id => bookings.find(b => b.id === id)!).filter(Boolean);
+            if (weekBookings.length === 0) return null;
+            return (
+              <div className="border-t border-white/5 px-5 py-4">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">This week — {weekBookings.length} active booking{weekBookings.length !== 1 ? "s" : ""}</p>
+                <div className="flex flex-wrap gap-2">
+                  {weekBookings.map(b => {
+                    const c = ota(b.source);
+                    return (
+                      <button key={b.id} onClick={() => setSelected(b)}
+                        className={cn("text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all hover:brightness-125", c.bg, c.border, c.text)}>
+                        {b.guestName.split(" ")[0]} · {b.room?.name ?? `${b.bookingRooms?.length ?? 1} rooms`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
       ) : view === "month" ? (
 
         /* ── MONTH VIEW ────────────────────────────────────────── */
@@ -216,16 +499,19 @@ export default function CalendarPage() {
                 )}>
                   {inMonth && (
                     <>
-                      {/* Day number */}
+                      {/* Day number — click to jump to day view */}
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className={cn(
+                        <button onClick={() => {
+                          const d = new Date(year, month - 1, day);
+                          setCurrentDate(d); setView("day");
+                        }} className={cn(
                           "inline-flex items-center justify-center w-7 h-7 text-xs font-semibold rounded-full transition-all",
                           isToday
                             ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                            : "text-gray-500 hover:text-gray-300"
+                            : "text-gray-500 hover:bg-white/10 hover:text-white"
                         )}>
                           {day}
-                        </span>
+                        </button>
                         {dayBookings.length > 0 && (
                           <span className="text-[9px] text-gray-600">{dayBookings.length}</span>
                         )}
