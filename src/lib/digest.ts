@@ -6,11 +6,25 @@
 import { prisma } from "./prisma";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from "date-fns";
 
+export interface ArrivalPaymentInfo {
+  bookingId: string;
+  guestName: string;
+  roomName: string;
+  nights: number;
+  grossAmount: number;
+  amountPaid: number;
+  balance: number;
+  paymentMethod: string | null;  // CASH | EFT | CARD | null (unpaid)
+  paidAt: string | null;          // ISO date string
+  paymentStatus: "PAID_IN_FULL" | "PARTIAL" | "UNPAID";
+}
+
 export interface DailyDigest {
   yesterdayRevenue: number;
   yesterdayCheckouts: number;
   todayCheckIns: number;
   todayCheckOuts: number;
+  todayArrivals: ArrivalPaymentInfo[];
   overdueInvoices: { count: number; totalAmount: number };
   unmatchedPayouts: number;
   cashPosition: number;
@@ -49,13 +63,94 @@ export async function generateDailyDigest(
     },
   });
 
-  // Today check-ins
+  // Today check-ins (count)
   const todayCheckIns = await prisma.booking.count({
     where: {
       propertyId,
       deletedAt: null,
       checkIn: { gte: todayStart, lte: todayEnd },
     },
+  });
+
+  // Today arrivals — full detail with payment info
+  const arrivalBookings = await prisma.booking.findMany({
+    where: {
+      propertyId,
+      deletedAt: null,
+      checkIn: { gte: todayStart, lte: todayEnd },
+    },
+    include: {
+      room: true,
+      bookingRooms: {
+        where: { deletedAt: null },
+        include: { room: true },
+      },
+      transactions: {
+        where: { deletedAt: null, type: "INCOME", status: "CLEARED" },
+        orderBy: { date: "asc" },
+      },
+      invoices: {
+        where: { deletedAt: null },
+        include: {
+          receipts: {
+            where: { deletedAt: null },
+            orderBy: { date: "asc" },
+          },
+        },
+      },
+    },
+    orderBy: { checkIn: "asc" },
+  });
+
+  const todayArrivals: ArrivalPaymentInfo[] = arrivalBookings.map((b) => {
+    const nights = Math.max(1, Math.round(
+      (new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000
+    ));
+    const grossAmount = parseFloat(b.grossAmount.toString());
+    const amountPaid = b.transactions.reduce(
+      (sum: number, t: { amount: { toString: () => string } }) => sum + parseFloat(t.amount.toString()), 0
+    );
+    const balance = Math.max(0, grossAmount - amountPaid);
+
+    // Payment method: check receipts first (from mark-as-paid), then parse transaction description
+    const allReceipts = b.invoices.flatMap((inv: { receipts: { paymentMethod: string; date: Date }[] }) => inv.receipts);
+    const latestReceipt = allReceipts[allReceipts.length - 1];
+    const latestTx = b.transactions[b.transactions.length - 1];
+
+    let paymentMethod: string | null = latestReceipt?.paymentMethod ?? null;
+    let paidAt: string | null = latestReceipt?.date ? new Date(latestReceipt.date).toISOString() : null;
+
+    // Fall back to parsing transaction description if no receipt
+    if (!paymentMethod && latestTx?.description) {
+      const desc = (latestTx.description as string).toLowerCase();
+      if (desc.includes("cash")) paymentMethod = "CASH";
+      else if (desc.includes("eft")) paymentMethod = "EFT";
+      else if (desc.includes("card")) paymentMethod = "CARD";
+      paidAt = paidAt ?? (latestTx.date ? new Date(latestTx.date as Date).toISOString() : null);
+    }
+
+    const paymentStatus: ArrivalPaymentInfo["paymentStatus"] =
+      amountPaid === 0 ? "UNPAID" :
+      balance > 0.01 ? "PARTIAL" : "PAID_IN_FULL";
+
+    // Room name: multi-room or single
+    const brList = b.bookingRooms as { room: { name: string } }[];
+    const roomName = brList.length > 1
+      ? brList.map(br => br.room.name).join(", ")
+      : b.room?.name ?? "Room";
+
+    return {
+      bookingId: b.id,
+      guestName: b.guestName,
+      roomName,
+      nights,
+      grossAmount,
+      amountPaid,
+      balance,
+      paymentMethod,
+      paidAt,
+      paymentStatus,
+    };
   });
 
   // Today check-outs
@@ -166,6 +261,7 @@ export async function generateDailyDigest(
     yesterdayCheckouts,
     todayCheckIns,
     todayCheckOuts,
+    todayArrivals,
     overdueInvoices,
     unmatchedPayouts,
     cashPosition,

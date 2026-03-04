@@ -129,6 +129,84 @@ export default async function DigestPage() {
         </div>
       </div>
 
+      {/* Today's Arrivals — payment status */}
+      {digest.todayArrivals && digest.todayArrivals.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl">
+          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-white">🛎 Today&apos;s Arrivals</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Payment status for each check-in</p>
+            </div>
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
+              {digest.todayArrivals.length} guest{digest.todayArrivals.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="divide-y divide-gray-800">
+            {digest.todayArrivals.map((arrival) => {
+              const statusColor =
+                arrival.paymentStatus === "PAID_IN_FULL" ? "emerald" :
+                arrival.paymentStatus === "PARTIAL" ? "amber" : "red";
+              const statusLabel =
+                arrival.paymentStatus === "PAID_IN_FULL" ? "Paid in Full" :
+                arrival.paymentStatus === "PARTIAL" ? "Partial Payment" : "Unpaid";
+              const methodLabel = arrival.paymentMethod
+                ? arrival.paymentMethod === "CASH" ? "💵 Cash"
+                : arrival.paymentMethod === "EFT" ? "🏦 EFT"
+                : arrival.paymentMethod === "CARD" ? "💳 Card"
+                : arrival.paymentMethod.replace(/_/g, " ")
+                : null;
+              const paidDate = arrival.paidAt
+                ? new Date(arrival.paidAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })
+                : null;
+
+              return (
+                <div key={arrival.bookingId} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-white">{arrival.guestName}</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-${statusColor}-500/10 text-${statusColor}-400 border border-${statusColor}-500/20`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {arrival.roomName} · {arrival.nights} night{arrival.nights !== 1 ? "s" : ""}
+                      </p>
+                      {/* Payment trail */}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        {methodLabel && (
+                          <span className="text-gray-400">
+                            {methodLabel}
+                            {paidDate && <span className="text-gray-600 ml-1">on {paidDate}</span>}
+                          </span>
+                        )}
+                        {arrival.amountPaid > 0 && (
+                          <span className="text-emerald-400 font-medium">
+                            Paid: {formatCurrency(arrival.amountPaid)}
+                          </span>
+                        )}
+                        {arrival.balance > 0.01 && (
+                          <span className="text-amber-400 font-medium">
+                            Balance due: {formatCurrency(arrival.balance)}
+                          </span>
+                        )}
+                        {arrival.paymentStatus === "UNPAID" && (
+                          <span className="text-red-400 font-medium">⚠ No payment recorded</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-white">{formatCurrency(arrival.grossAmount)}</p>
+                      <p className="text-[10px] text-gray-500">total</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Outstanding Items */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl">
         <div className="px-6 py-4 border-b border-gray-800">
