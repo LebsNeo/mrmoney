@@ -399,6 +399,42 @@ export default function CalendarPage() {
                 ))}
               </div>
 
+              {/* Rooms booked */}
+              {(() => {
+                const brs = selected.bookingRooms;
+                const n = nights(selected.checkIn, selected.checkOut);
+                if (brs && brs.length > 0) {
+                  return (
+                    <div className="glass rounded-xl overflow-hidden">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-4 pt-3 pb-2">
+                        🏨 Rooms Booked ({brs.length})
+                      </p>
+                      <div className="divide-y divide-white/5">
+                        {brs.map((br: { roomId: string; room: { id: string; name: string } }) => (
+                          <div key={br.roomId} className="flex items-center justify-between px-4 py-2.5">
+                            <span className="text-sm text-white font-medium">{br.room.name}</span>
+                            <span className="text-xs text-gray-500">{n} night{n !== 1 ? "s" : ""}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                // Single room fallback
+                if (selected.room) {
+                  return (
+                    <div className="glass rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">🏨 Room</p>
+                        <p className="text-sm text-white font-medium">{selected.room.name}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">{n} night{n !== 1 ? "s" : ""}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {/* Revenue */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="glass rounded-xl p-4">
