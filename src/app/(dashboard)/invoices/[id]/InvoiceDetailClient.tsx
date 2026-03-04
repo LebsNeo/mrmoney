@@ -263,9 +263,12 @@ export function InvoiceDetailClient({ invoice }: { invoice: InvoiceWithRelations
                 {displayClientEmail ? (
                   <p className="text-sm text-gray-400">{displayClientEmail}</p>
                 ) : (
-                  <p className="text-xs text-amber-400">
-                    ⚠ No email — click Edit to add one before sending
-                  </p>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                  >
+                    ⚠️ No client email — tap to add
+                  </button>
                 )}
               </div>
             )}
@@ -440,48 +443,63 @@ export function InvoiceDetailClient({ invoice }: { invoice: InvoiceWithRelations
           </div>
 
           {/* Property billing profile (read-only) */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">From</h3>
-              <a href="/properties" className="text-[10px] text-emerald-400 hover:text-emerald-300">Edit Profile →</a>
-            </div>
-            {invoice.property.logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={invoice.property.logoUrl}
-                alt={invoice.property.name}
-                className="max-h-12 max-w-[140px] object-contain mb-3"
-              />
-            )}
-            <div className="space-y-1 text-sm">
-              <p className="text-white font-semibold">{invoice.property.name}</p>
-              {invoice.property.address && (
-                <p className="text-gray-400 text-xs">{invoice.property.address}</p>
-              )}
-              {(invoice.property.suburb || invoice.property.city || invoice.property.postalCode) && (
-                <p className="text-gray-400 text-xs">
-                  {[invoice.property.suburb, invoice.property.city, invoice.property.postalCode].filter(Boolean).join(", ")}
-                </p>
-              )}
-              {invoice.property.phone && <p className="text-gray-400 text-xs">📞 {invoice.property.phone}</p>}
-              {invoice.property.email && <p className="text-gray-400 text-xs">✉ {invoice.property.email}</p>}
-              {invoice.property.taxNumber && <p className="text-gray-400 text-xs">VAT/Tax: {invoice.property.taxNumber}</p>}
-              {invoice.property.bankName && (
-                <div className="mt-2 pt-2 border-t border-gray-800">
-                  <p className="text-gray-500 text-[10px] uppercase mb-1">Bank</p>
-                  <p className="text-gray-400 text-xs">{invoice.property.bankName}</p>
-                  {invoice.property.bankAccount && <p className="text-gray-400 text-xs">Acc: {invoice.property.bankAccount}</p>}
-                  {invoice.property.bankBranch && <p className="text-gray-400 text-xs">Branch: {invoice.property.bankBranch}</p>}
+          {!invoice.property.phone && !invoice.property.email && !invoice.property.taxNumber ? (
+            /* ── Billing profile incomplete — prominent CTA ── */
+            <div className="bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl p-5">
+              <div className="flex items-start gap-3 mb-4">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="text-amber-400 font-semibold text-sm">Billing profile incomplete</p>
+                  <p className="text-amber-300/70 text-xs mt-1">
+                    Your property is missing contact details, VAT number and bank info. Invoices sent to clients will look unprofessional without this.
+                  </p>
                 </div>
-              )}
+              </div>
+              <a
+                href={`/properties?highlight=${invoice.property.id}`}
+                className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-black transition-colors"
+              >
+                Complete Billing Profile →
+              </a>
             </div>
-            {!invoice.property.phone && !invoice.property.email && !invoice.property.taxNumber && (
-              <p className="text-xs text-amber-400 mt-2">
-                ⚠ Billing profile incomplete —{" "}
-                <a href="/properties" className="underline">add details</a>
-              </p>
-            )}
-          </div>
+          ) : (
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">From</h3>
+                <a href="/properties" className="text-xs text-emerald-400 hover:text-emerald-300 font-medium">Edit Profile →</a>
+              </div>
+              {invoice.property.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={invoice.property.logoUrl}
+                  alt={invoice.property.name}
+                  className="max-h-12 max-w-[140px] object-contain mb-3"
+                />
+              )}
+              <div className="space-y-1 text-sm">
+                <p className="text-white font-semibold">{invoice.property.name}</p>
+                {invoice.property.address && (
+                  <p className="text-gray-400 text-xs">{invoice.property.address}</p>
+                )}
+                {(invoice.property.suburb || invoice.property.city || invoice.property.postalCode) && (
+                  <p className="text-gray-400 text-xs">
+                    {[invoice.property.suburb, invoice.property.city, invoice.property.postalCode].filter(Boolean).join(", ")}
+                  </p>
+                )}
+                {invoice.property.phone && <p className="text-gray-400 text-xs">📞 {invoice.property.phone}</p>}
+                {invoice.property.email && <p className="text-gray-400 text-xs">✉ {invoice.property.email}</p>}
+                {invoice.property.taxNumber && <p className="text-gray-400 text-xs">VAT/Tax: {invoice.property.taxNumber}</p>}
+                {invoice.property.bankName && (
+                  <div className="mt-2 pt-2 border-t border-gray-800">
+                    <p className="text-gray-500 text-[10px] uppercase mb-1">Bank</p>
+                    <p className="text-gray-400 text-xs">{invoice.property.bankName}</p>
+                    {invoice.property.bankAccount && <p className="text-gray-400 text-xs">Acc: {invoice.property.bankAccount}</p>}
+                    {invoice.property.bankBranch && <p className="text-gray-400 text-xs">Branch: {invoice.property.bankBranch}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Mark as Paid */}
           {!isPaid && !isCancelled && invoice.effectiveStatus !== "DRAFT" && (

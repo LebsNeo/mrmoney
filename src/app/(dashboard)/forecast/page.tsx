@@ -164,10 +164,12 @@ export default async function ForecastPage({
           <span className="text-amber-400 text-lg shrink-0">⚠️</span>
           <div>
             <p className="text-sm font-medium text-amber-400">No rooms configured for this property</p>
-            <p className="text-xs text-amber-300/70 mt-0.5">
-              Occupancy % and break-even ADR require rooms to be set up.{" "}
-              <a href="/properties" className="underline hover:text-amber-200">Add rooms →</a>
+            <p className="text-xs text-amber-300/70 mt-0.5 mb-3">
+              Occupancy % and break-even ADR require rooms to be set up.
             </p>
+            <a href="/properties" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition-colors">
+              Add Rooms →
+            </a>
           </div>
         </div>
       )}
