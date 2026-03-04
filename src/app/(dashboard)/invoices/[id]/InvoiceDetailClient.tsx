@@ -49,6 +49,13 @@ type InvoiceWithRelations = {
     checkOut: Date | string;
     room: { name: string } | null;
   } | null;
+  receipts?: {
+    id: string;
+    amount: unknown;
+    paymentMethod: string;
+    date: Date | string;
+    reference: string | null;
+  }[];
 };
 
 function n(v: unknown) { return Number(v) || 0; }
@@ -369,6 +376,39 @@ export function InvoiceDetailClient({ invoice }: { invoice: InvoiceWithRelations
                 <span>Total</span>
                 <span>R{(editing ? total : n(invoice.totalAmount)).toFixed(2)}</span>
               </div>
+              {isPaid && (
+                <div className="flex justify-between text-sm text-emerald-400">
+                  <span>Amount Paid</span>
+                  <span>- R{n(invoice.totalAmount).toFixed(2)}</span>
+                </div>
+              )}
+              <div className={`flex justify-between text-base font-bold pt-1.5 border-t border-gray-700 ${isPaid ? "text-emerald-400" : "text-white"}`}>
+                <span>Amount Due</span>
+                <span>R{isPaid ? "0.00" : (editing ? total : n(invoice.totalAmount)).toFixed(2)}</span>
+              </div>
+              {isPaid && invoice.receipts && invoice.receipts.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-800 space-y-1">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Payment Details</p>
+                  {invoice.receipts.slice(0, 1).map(r => (
+                    <div key={r.id} className="text-xs text-gray-400 space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>Date</span>
+                        <span>{new Date(r.date).toLocaleDateString("en-ZA")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Method</span>
+                        <span>{r.paymentMethod.replace(/_/g, " ")}</span>
+                      </div>
+                      {r.reference && (
+                        <div className="flex justify-between">
+                          <span>Reference</span>
+                          <span className="font-mono">{r.reference}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

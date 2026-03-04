@@ -3,6 +3,14 @@
 import { useEffect } from "react";
 import type { LineItem } from "@/lib/actions/invoices";
 
+type Receipt = {
+  id: string;
+  amount: unknown;
+  paymentMethod: string;
+  date: Date | string;
+  reference: string | null;
+};
+
 type InvoiceForPrint = {
   id: string;
   invoiceNumber: string;
@@ -18,6 +26,7 @@ type InvoiceForPrint = {
   lineItems: LineItem[] | null;
   notes: string | null;
   sentAt: Date | string | null;
+  receipts?: Receipt[];
   property: {
     name: string;
     address: string | null;
@@ -74,6 +83,10 @@ export function InvoicePrintView({ invoice, isPublic = false }: { invoice: Invoi
   const taxRate = n(invoice.taxRate);
   const taxAmount = n(invoice.taxAmount);
   const total = n(invoice.totalAmount);
+  const isPaid = invoice.status === "PAID";
+  const latestReceipt = invoice.receipts?.[0] ?? null;
+  const amountPaid = isPaid ? total : 0;
+  const amountDue = total - amountPaid;
   const footer = p.invoiceFooter || `Thank you for choosing ${p.name}. We look forward to welcoming you again!`;
 
   const clientName = invoice.clientName || invoice.booking?.guestName || null;
@@ -147,6 +160,8 @@ export function InvoicePrintView({ invoice, isPublic = false }: { invoice: Invoi
           margin: "0 auto",
           borderRadius: "8px",
           boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
+          position: "relative",
+          overflow: "hidden",
         }}>
 
           {/* Header */}
@@ -251,14 +266,67 @@ export function InvoicePrintView({ invoice, isPublic = false }: { invoice: Invoi
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: 800, borderTop: "2px solid #111", paddingTop: "8px", marginTop: "8px" }}>
-                <span>Total Due</span>
+                <span>Total</span>
                 <span>R {total.toFixed(2)}</span>
+              </div>
+              {isPaid && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "#10b981", marginTop: "6px" }}>
+                  <span>Amount Paid</span>
+                  <span>- R {amountPaid.toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{
+                display: "flex", justifyContent: "space-between",
+                fontSize: isPaid ? "15px" : "16px",
+                fontWeight: 800,
+                borderTop: "2px solid #111",
+                paddingTop: "8px",
+                marginTop: "8px",
+                color: isPaid ? "#10b981" : "#111",
+              }}>
+                <span>Amount Due</span>
+                <span>R {amountDue.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          {/* Payment details — only if bank info set */}
-          {p.bankName && (
+          {/* PAID stamp */}
+          {isPaid && (
+            <div style={{
+              position: "absolute",
+              top: "180px",
+              right: "48px",
+              transform: "rotate(-20deg)",
+              border: "4px solid #10b981",
+              borderRadius: "8px",
+              padding: "6px 18px",
+              opacity: 0.18,
+              pointerEvents: "none",
+            }}>
+              <span style={{ fontSize: "52px", fontWeight: 900, color: "#10b981", letterSpacing: "4px" }}>PAID</span>
+            </div>
+          )}
+
+          {/* Payment receipt details — show when paid */}
+          {isPaid && latestReceipt && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "14px 16px", marginBottom: "24px" }}>
+              <p style={{ margin: "0 0 8px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", color: "#16a34a", textTransform: "uppercase" }}>✓ Payment Received</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", fontSize: "13px" }}>
+                <span style={{ color: "#6b7280" }}>Date Paid</span>
+                <span style={{ fontWeight: 600 }}>{fmt(latestReceipt.date)}</span>
+                <span style={{ color: "#6b7280" }}>Method</span>
+                <span style={{ fontWeight: 600 }}>{latestReceipt.paymentMethod.replace(/_/g, " ")}</span>
+                {latestReceipt.reference && (
+                  <><span style={{ color: "#6b7280" }}>Reference</span><span style={{ fontWeight: 600 }}>{latestReceipt.reference}</span></>
+                )}
+                <span style={{ color: "#6b7280" }}>Amount</span>
+                <span style={{ fontWeight: 600, color: "#16a34a" }}>R {n(latestReceipt.amount).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Payment details — only if bank info set AND invoice not yet paid */}
+          {p.bankName && !isPaid && (
             <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "14px 16px", marginBottom: "24px" }}>
               <p style={{ margin: "0 0 8px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", color: "#6b7280", textTransform: "uppercase" }}>Payment Details</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", fontSize: "13px" }}>
