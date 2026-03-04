@@ -331,7 +331,7 @@ export default function CalendarPage() {
           {rooms.length === 0 && (
             <div className="p-12 text-center">
               <p className="text-4xl mb-3">🏨</p>
-              <p className="text-white font-semibold mb-1">No rooms set up yet</p>
+              <p className="text-amber-400 font-semibold mb-1">⚠ No rooms found for this property</p>
               <p className="text-gray-500 text-sm mb-4">Add rooms to your property to start using the calendar.</p>
               <a href="/properties" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors">
                 Add Rooms →

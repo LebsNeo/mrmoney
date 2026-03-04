@@ -229,7 +229,7 @@ export function IntelligenceClient({ properties, selectedPropertyId, channelData
           {!roomData || roomData.rooms.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <p className="text-3xl mb-3">🏨</p>
-              <p className="text-white font-semibold mb-1">No rooms or bookings yet</p>
+              <p className="text-amber-400 font-semibold mb-1">⚠ No rooms or bookings found for this property</p>
               <p className="text-gray-500 text-sm mb-4">Set up your rooms to start tracking occupancy and revenue per room.</p>
               <a href="/properties" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors">
                 Set Up Rooms →

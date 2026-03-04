@@ -449,7 +449,7 @@ export function InvoiceDetailClient({ invoice }: { invoice: InvoiceWithRelations
               <div className="flex items-start gap-3 mb-4">
                 <span className="text-2xl">⚠️</span>
                 <div>
-                  <p className="text-amber-400 font-semibold text-sm">Billing profile incomplete</p>
+                  <p className="text-amber-400 font-semibold text-sm">⚠ Billing profile incomplete</p>
                   <p className="text-amber-300/70 text-xs mt-1">
                     Your property is missing contact details, VAT number and bank info. Invoices sent to clients will look unprofessional without this.
                   </p>

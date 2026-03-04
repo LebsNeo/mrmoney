@@ -167,7 +167,7 @@ export default async function ForecastPage({
             <p className="text-xs text-amber-300/70 mt-0.5 mb-3">
               Occupancy % and break-even ADR require rooms to be set up.
             </p>
-            <a href="/properties" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition-colors">
+            <a href="/properties" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 transition-colors">
               Add Rooms →
             </a>
           </div>
