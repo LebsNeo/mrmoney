@@ -190,6 +190,11 @@ export async function getInvoiceById(id: string) {
         include: {
           room: true,
           property: true,
+          bookingRooms: {
+            where: { deletedAt: null },
+            include: { room: true },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
       property: true,

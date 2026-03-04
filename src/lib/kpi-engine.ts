@@ -405,7 +405,7 @@ export async function getKPISummary(
     { bookings: number; revenue: number; nights: number }
   >();
   for (const b of bookings) {
-    const rt = b.room.type as string;
+    const rt = b.room?.type as string;
     const existing = roomTypeMap.get(rt) ?? { bookings: 0, revenue: 0, nights: 0 };
     const bIn = new Date(b.checkIn);
     const bOut = new Date(b.checkOut);

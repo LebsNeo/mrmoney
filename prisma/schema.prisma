@@ -309,9 +309,10 @@ model Room {
   deletedAt     DateTime?
 
   // Relations
-  property   Property    @relation(fields: [propertyId], references: [id])
-  bookings   Booking[]
-  icalFeeds  ICalFeed[]
+  property     Property      @relation(fields: [propertyId], references: [id])
+  bookings     Booking[]
+  icalFeeds    ICalFeed[]
+  bookingRooms BookingRoom[]
 
   @@index([propertyId])
   @@map("rooms")
@@ -362,7 +363,7 @@ model Vendor {
 model Booking {
   id             String        @id @default(uuid())
   propertyId     String
-  roomId         String
+  roomId         String?       // nullable — first room for backward compat; multi-room uses bookingRooms
   source         BookingSource @default(DIRECT)
   guestName      String
   guestEmail     String?
@@ -389,11 +390,12 @@ model Booking {
 
   // Relations
   property      Property       @relation(fields: [propertyId], references: [id])
-  room          Room           @relation(fields: [roomId], references: [id])
-  transactions           Transaction[]
-  invoices               Invoice[]
-  otaPayoutItems         OTAPayoutItem[]
-  whatsappConversations  WhatsAppConversation[]
+  room          Room?          @relation(fields: [roomId], references: [id])
+  bookingRooms             BookingRoom[]
+  transactions             Transaction[]
+  invoices                 Invoice[]
+  otaPayoutItems           OTAPayoutItem[]
+  whatsappConversations    WhatsAppConversation[]
 
   @@index([propertyId])
   @@index([roomId])
@@ -402,6 +404,24 @@ model Booking {
   @@index([status])
   @@index([source])
   @@map("bookings")
+}
+
+model BookingRoom {
+  id            String   @id @default(uuid())
+  bookingId     String
+  roomId        String
+  pricePerNight Decimal  @db.Decimal(19, 4)
+  nights        Int
+  totalAmount   Decimal  @db.Decimal(19, 4)
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  room    Room    @relation(fields: [roomId], references: [id])
+
+  @@index([bookingId])
+  @@index([roomId])
+  @@map("booking_rooms")
 }
 
 model Transaction {

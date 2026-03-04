@@ -166,7 +166,7 @@ export async function onBookingCheckedOut(bookingId: string): Promise<FinanceRes
           amount: grossAmount,
           currency: booking.property.currency,
           date: checkOutDate,
-          description: `Accommodation — ${booking.guestName} · ${nights} night${nights !== 1 ? "s" : ""} (${booking.room.name})`,
+          description: `Accommodation — ${booking.guestName} · ${nights} night${nights !== 1 ? "s" : ""} (${booking.room?.name ?? "Room"})`,
           reference: bookingId,
           vatRate: booking.vatRate,
           vatAmount: vatCalc.vatAmount,

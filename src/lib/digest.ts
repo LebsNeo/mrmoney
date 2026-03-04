@@ -145,7 +145,7 @@ export async function generateDailyDigest(
       });
       const topAmt = parseFloat((roomRevenue[0]._sum.amount ?? 0).toString());
       if (topBooking) {
-        topInsight = `Top earner this month: ${topBooking.room.name} at R${topAmt.toFixed(2)}.`;
+        topInsight = `Top earner this month: ${topBooking.room?.name ?? "Room"} at R${topAmt.toFixed(2)}.`;
       }
     }
 

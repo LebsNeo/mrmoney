@@ -52,7 +52,8 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
 
   // Form state
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
-  const [roomId, setRoomId] = useState("");
+  // Multi-room: map of roomId → pricePerNight override
+  const [selectedRooms, setSelectedRooms] = useState<Map<string, number>>(new Map());
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -62,7 +63,6 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const [commissionPct, setCommissionPct] = useState(0);
   const [isVatInclusive, setIsVatInclusive] = useState(false);
   const [vatEnabled, setVatEnabled] = useState(false);
-  const [customRoomRate, setCustomRoomRate] = useState<number | null>(null);
 
   // Payment at booking creation
   const [collectPayment, setCollectPayment] = useState(false);
@@ -77,23 +77,15 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const selectedProperty = properties.find((p) => p.id === propertyId);
   const rooms = selectedProperty?.rooms ?? [];
 
-  // When property changes, reset room
+  // When property changes, reset room selections
   useEffect(() => {
-    setRoomId(rooms[0]?.id ?? "");
+    setSelectedRooms(new Map());
   }, [propertyId]);
 
   // When source changes, update commission
   useEffect(() => {
     setCommissionPct(OTA_COMMISSION[source] ?? 0);
   }, [source]);
-
-  // When room changes, set rate
-  useEffect(() => {
-    const room = rooms.find((r) => r.id === roomId);
-    if (room) {
-      setCustomRoomRate(room.baseRate);
-    }
-  }, [roomId]);
 
   // Fetch room availability when dates + property change
   const fetchAvailability = useCallback(async () => {
@@ -108,14 +100,8 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       const json = await res.json();
       const data: AvailabilityRoom[] = json.data ?? [];
       setAvailabilityMap(new Map(data.map(r => [r.id, r])));
-      // Auto-select first available room if current room is unavailable
-      const current = data.find(r => r.id === roomId);
-      if (current && !current.available) {
-        const first = data.find(r => r.available);
-        if (first) setRoomId(first.id);
-      }
     } catch {
-      // silently fail — availability check is advisory
+      // silently fail — advisory
     } finally {
       setCheckingAvailability(false);
     }
@@ -123,19 +109,37 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
 
   useEffect(() => { fetchAvailability(); }, [fetchAvailability]);
 
+  function toggleRoom(roomId: string, baseRate: number) {
+    setSelectedRooms(prev => {
+      const next = new Map(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.set(roomId, baseRate);
+      }
+      return next;
+    });
+  }
+
+  function setRoomPrice(roomId: string, price: number) {
+    setSelectedRooms(prev => {
+      const next = new Map(prev);
+      next.set(roomId, price);
+      return next;
+    });
+  }
+
   // Derived financial values
-  const roomRate = customRoomRate ?? 0;
   const nights =
     checkIn && checkOut
-      ? Math.max(
-          0,
-          Math.round(
-            (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        )
+      ? Math.max(0, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
       : 0;
-  const grossAmount = roomRate * nights;
+
+  const roomsArray = Array.from(selectedRooms.entries()).map(([roomId, pricePerNight]) => ({
+    roomId,
+    pricePerNight,
+  }));
+  const grossAmount = roomsArray.reduce((sum, r) => sum + r.pricePerNight * nights, 0);
   const otaCommission = grossAmount * commissionPct;
   const netAmount = grossAmount - otaCommission;
   const vatRate = vatEnabled ? ORG_VAT_RATE : 0;
@@ -154,8 +158,8 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
     e.preventDefault();
     setError(null);
 
-    if (!propertyId || !roomId || !guestName || !checkIn || !checkOut) {
-      setError("Please fill in all required fields");
+    if (!propertyId || selectedRooms.size === 0 || !guestName || !checkIn || !checkOut) {
+      setError("Please select at least one room and fill in all required fields");
       return;
     }
     if (nights <= 0) {
@@ -167,7 +171,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
     try {
       const result = await createBooking({
         propertyId,
-        roomId,
+        rooms: roomsArray,
         guestName,
         guestEmail,
         guestPhone,
@@ -175,7 +179,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         checkOut,
         source,
         otaCommissionPct: commissionPct,
-        roomRate,
+        roomRate: roomsArray[0]?.pricePerNight ?? 0,
         grossAmount,
         isVatInclusive,
         vatRate,
@@ -213,82 +217,108 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         </div>
       )}
 
-      {/* Property & Room */}
+      {/* Property & Rooms */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Property & Room
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Property *</label>
-            <select
-              value={propertyId}
-              onChange={(e) => setPropertyId(e.target.value)}
-              className={inputClass}
-            >
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>
-              Room *
-              {checkingAvailability && (
-                <span className="ml-2 text-[10px] text-gray-500 font-normal">Checking availability...</span>
-              )}
-            </label>
-            <select
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              className={inputClass}
-            >
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            Property & Rooms
+          </h2>
+          {selectedRooms.size > 0 && (
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
+              {selectedRooms.size} room{selectedRooms.size !== 1 ? "s" : ""} selected
+            </span>
+          )}
+        </div>
+
+        <div>
+          <label className={labelClass}>Property *</label>
+          <select
+            value={propertyId}
+            onChange={(e) => setPropertyId(e.target.value)}
+            className={inputClass}
+          >
+            {properties.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Multi-room cards */}
+        <div>
+          <label className={labelClass}>
+            Rooms *
+            {checkingAvailability && (
+              <span className="ml-2 text-[10px] text-gray-500 font-normal">Checking availability...</span>
+            )}
+          </label>
+          {rooms.length === 0 ? (
+            <p className="text-sm text-amber-400">⚠ No rooms configured for this property. <a href="/properties" className="underline">Add rooms →</a></p>
+          ) : (
+            <div className="space-y-2">
               {rooms.map((r) => {
                 const avail = availabilityMap.get(r.id);
                 const isUnavailable = avail && !avail.available;
+                const isSelected = selectedRooms.has(r.id);
+                const price = selectedRooms.get(r.id) ?? r.baseRate;
                 return (
-                  <option key={r.id} value={r.id} disabled={!!isUnavailable}>
-                    {isUnavailable
-                      ? `🚫 ${r.name} — Occupied (${avail!.conflictBooking?.guestName})`
-                      : avail
-                      ? `✓ ${r.name} (${r.type})`
-                      : `${r.name} (${r.type})`}
-                  </option>
+                  <div
+                    key={r.id}
+                    className={`rounded-xl border p-3 transition-colors ${
+                      isUnavailable
+                        ? "border-gray-800 bg-gray-800/30 opacity-50"
+                        : isSelected
+                        ? "border-emerald-500/50 bg-emerald-500/5"
+                        : "border-gray-700 bg-gray-800/50 hover:border-gray-600"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={!!isUnavailable}
+                        onChange={() => toggleRoom(r.id, r.baseRate)}
+                        className="w-4 h-4 accent-emerald-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-white">{r.name}</span>
+                          <span className="text-xs text-gray-500">{r.type}</span>
+                        </div>
+                        {isUnavailable && avail?.conflictBooking && (
+                          <p className="text-[10px] text-red-400 mt-0.5">
+                            🚫 Occupied — {avail.conflictBooking.guestName}
+                          </p>
+                        )}
+                        {!isUnavailable && avail?.available && checkIn && checkOut && (
+                          <p className="text-[10px] text-emerald-400 mt-0.5">✓ Available</p>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs text-gray-500">R</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={price}
+                            onChange={(e) => setRoomPrice(r.id, parseFloat(e.target.value) || 0)}
+                            className="w-24 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-emerald-500"
+                          />
+                          <span className="text-xs text-gray-500">/night</span>
+                        </div>
+                      )}
+                      {!isSelected && (
+                        <span className="text-xs text-gray-500 shrink-0">R {r.baseRate.toLocaleString("en-ZA")}/night</span>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </select>
-            {/* Conflict warning for selected room */}
-            {(() => {
-              const avail = availabilityMap.get(roomId);
-              if (avail && !avail.available && avail.conflictBooking) {
-                const ci = new Date(avail.conflictBooking.checkIn).toLocaleDateString("en-ZA");
-                const co = new Date(avail.conflictBooking.checkOut).toLocaleDateString("en-ZA");
-                return (
-                  <p className="text-xs text-red-400 mt-1.5">
-                    ⚠ Room occupied by <strong>{avail.conflictBooking.guestName}</strong> ({ci} → {co})
-                  </p>
-                );
-              }
-              if (avail?.available && checkIn && checkOut) {
-                return <p className="text-xs text-emerald-400 mt-1.5">✓ Available for selected dates</p>;
-              }
-              return null;
-            })()}
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Room Rate / Night (ZAR) *</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={customRoomRate ?? ""}
-            onChange={(e) => setCustomRoomRate(parseFloat(e.target.value) || 0)}
-            placeholder="e.g. 1500.00"
-            className={inputClass}
-          />
+            </div>
+          )}
+          {selectedRooms.size === 0 && rooms.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">Select one or more rooms above. Tick multiple for group/family bookings.</p>
+          )}
         </div>
       </div>
 
@@ -418,13 +448,23 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       </div>
 
       {/* Live Preview */}
-      {nights > 0 && roomRate > 0 && (
+      {nights > 0 && selectedRooms.size > 0 && grossAmount > 0 && (
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6">
           <h2 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-4">
-            Live Preview — {nights} night{nights !== 1 ? "s" : ""}
+            Live Preview — {selectedRooms.size} room{selectedRooms.size !== 1 ? "s" : ""} × {nights} night{nights !== 1 ? "s" : ""}
           </h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+            {/* Per-room breakdown */}
+            {roomsArray.map(({ roomId, pricePerNight }) => {
+              const room = rooms.find(r => r.id === roomId);
+              return (
+                <div key={roomId} className="flex justify-between text-xs text-gray-500">
+                  <span>{room?.name ?? "Room"} ({nights}× R{fmt(pricePerNight)})</span>
+                  <span>R {fmt(pricePerNight * nights)}</span>
+                </div>
+              );
+            })}
+            <div className="flex justify-between border-t border-gray-700 pt-2">
               <span className="text-gray-400">Gross Amount</span>
               <span className="text-white">R {fmt(grossAmount)}</span>
             </div>
@@ -440,9 +480,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
             </div>
             {vatEnabled && (
               <div className="flex justify-between">
-                <span className="text-gray-400">
-                  VAT (15%{isVatInclusive ? " incl." : ""})
-                </span>
+                <span className="text-gray-400">VAT (15%{isVatInclusive ? " incl." : ""})</span>
                 <span className="text-yellow-400">R {fmt(vatAmount)}</span>
               </div>
             )}

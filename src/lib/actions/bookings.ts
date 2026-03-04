@@ -193,21 +193,22 @@ export async function getBookingById(id: string) {
 
 export async function createBooking(input: {
   propertyId: string;
-  roomId: string;
+  // Multi-room: pass rooms array. Single-room: still supported via roomId/roomRate for backward compat.
+  rooms?: { roomId: string; pricePerNight: number }[];
+  roomId?: string;   // backward compat / single room
   source: BookingSource;
   guestName: string;
   guestEmail?: string;
   guestPhone?: string;
   checkIn: string;          // YYYY-MM-DD
   checkOut: string;
-  roomRate: number;
-  grossAmount: number;
+  roomRate: number;         // first room rate (or total for single-room compat)
+  grossAmount?: number;
   otaCommissionPct?: number; // 0–1, e.g. 0.15
   vatRate?: number;
   isVatInclusive?: boolean;
   notes?: string;
   externalRef?: string;
-  // Optional: record payment immediately (cash walk-in etc.)
   collectPayment?: boolean;
   paymentMethod?: PaymentMethod;
   paymentAmount?: number;
@@ -221,19 +222,32 @@ export async function createBooking(input: {
     });
     if (!property) return { success: false, message: "Property not found" };
 
-    const room = await prisma.room.findFirst({
-      where: { id: input.roomId, propertyId: input.propertyId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!room) return { success: false, message: "Room not found" };
+    // Normalise rooms — support both multi-room array and legacy single roomId
+    const roomsInput: { roomId: string; pricePerNight: number }[] =
+      input.rooms && input.rooms.length > 0
+        ? input.rooms
+        : input.roomId
+        ? [{ roomId: input.roomId, pricePerNight: input.roomRate }]
+        : [];
+
+    if (roomsInput.length === 0) return { success: false, message: "At least one room is required" };
 
     const checkIn = new Date(input.checkIn + "T12:00:00Z");
     const checkOut = new Date(input.checkOut + "T12:00:00Z");
     const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000);
     if (nights <= 0) return { success: false, message: "Check-out must be after check-in" };
 
+    // Validate & calculate per room
+    for (const r of roomsInput) {
+      const room = await prisma.room.findFirst({
+        where: { id: r.roomId, propertyId: input.propertyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!room) return { success: false, message: `Room not found: ${r.roomId}` };
+    }
+
+    const grossAmount = roomsInput.reduce((sum, r) => sum + r.pricePerNight * nights, 0);
     const commissionPct = input.otaCommissionPct ?? 0;
-    const grossAmount = input.grossAmount || input.roomRate * nights;
     const otaCommission = grossAmount * commissionPct;
     const netAmount = grossAmount - otaCommission;
     const vatRate = input.vatRate ?? 0;
@@ -244,18 +258,21 @@ export async function createBooking(input: {
           : grossAmount * vatRate
         : 0;
 
+    const primaryRoomId = roomsInput[0].roomId;
+    const primaryRoomRate = roomsInput[0].pricePerNight;
+
     const booking = await prisma.$transaction(async (tx) => {
       const b = await tx.booking.create({
         data: {
           propertyId: input.propertyId,
-          roomId: input.roomId,
+          roomId: primaryRoomId,
           source: input.source,
           guestName: input.guestName,
           guestEmail: input.guestEmail ?? null,
           guestPhone: input.guestPhone ?? null,
           checkIn,
           checkOut,
-          roomRate: input.roomRate,
+          roomRate: primaryRoomRate,
           grossAmount,
           otaCommission,
           netAmount,
@@ -268,8 +285,20 @@ export async function createBooking(input: {
         },
       });
 
+      // Insert booking_rooms for all rooms
+      await tx.bookingRoom.createMany({
+        data: roomsInput.map((r) => ({
+          bookingId: b.id,
+          roomId: r.roomId,
+          pricePerNight: r.pricePerNight,
+          nights,
+          totalAmount: r.pricePerNight * nights,
+        })),
+      });
+
       // Immediately record payment if provided (walk-in cash, EFT on arrival)
       if (input.collectPayment && input.paymentAmount && input.paymentAmount > 0) {
+        const roomSummary = roomsInput.length > 1 ? `${roomsInput.length} rooms` : "1 room";
         await tx.transaction.create({
           data: {
             organisationId: orgId,
@@ -280,7 +309,7 @@ export async function createBooking(input: {
             category: "ACCOMMODATION",
             date: new Date(),
             amount: input.paymentAmount,
-            description: `${input.paymentMethod === "EFT" ? "EFT" : input.paymentMethod === "CARD" ? "Card" : "Cash"} payment — ${input.guestName} (${nights} night${nights !== 1 ? "s" : ""})`,
+            description: `${input.paymentMethod === "EFT" ? "EFT" : input.paymentMethod === "CARD" ? "Card" : "Cash"} payment — ${input.guestName} (${roomSummary}, ${nights} night${nights !== 1 ? "s" : ""})`,
             status: "CLEARED",
           },
         });

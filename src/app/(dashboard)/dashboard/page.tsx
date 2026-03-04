@@ -344,7 +344,7 @@ export default async function DashboardPage({
                     <div className="min-w-0">
                       <p className="text-sm text-white truncate">{booking.guestName}</p>
                       <p className="text-xs text-gray-500">
-                        {booking.room.name} · {formatDate(booking.checkIn)} · {nights}n
+                        {booking.room?.name ?? "Room"} · {formatDate(booking.checkIn)} · {nights}n
                       </p>
                     </div>
                     <div className="text-right shrink-0">

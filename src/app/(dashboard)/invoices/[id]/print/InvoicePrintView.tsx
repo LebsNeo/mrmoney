@@ -57,6 +57,17 @@ function getLineItems(invoice: InvoiceForPrint): LineItem[] {
   if (invoice.lineItems && Array.isArray(invoice.lineItems) && invoice.lineItems.length > 0) {
     return invoice.lineItems as LineItem[];
   }
+  // Multi-room booking — one line item per room
+  const bookingRooms = (invoice.booking as any)?.bookingRooms;
+  if (bookingRooms && Array.isArray(bookingRooms) && bookingRooms.length > 0) {
+    return bookingRooms.map((br: any) => ({
+      description: `${br.room?.name ?? "Room"} (${br.nights} night${br.nights !== 1 ? "s" : ""})`,
+      qty: br.nights,
+      unitPrice: n(br.pricePerNight),
+      amount: n(br.totalAmount),
+    }));
+  }
+  // Single-room booking fallback
   if (invoice.booking) {
     const nights = Math.max(1, Math.round(
       (new Date(invoice.booking.checkOut).getTime() - new Date(invoice.booking.checkIn).getTime()) / 86400000
