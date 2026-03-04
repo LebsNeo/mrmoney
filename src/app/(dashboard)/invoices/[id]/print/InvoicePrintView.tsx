@@ -84,11 +84,19 @@ export function InvoicePrintView({ invoice, isPublic = false }: { invoice: Invoi
       {/* Print-specific global styles */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #invoice-print-root { display: block !important; }
-          #print-toolbar { display: none !important; }
-          nav, aside, header { display: none !important; }
-          .no-print { display: none !important; }
+          body * { visibility: hidden !important; }
+          #invoice-print-root,
+          #invoice-print-root * { visibility: visible !important; }
+          #invoice-print-root {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          #print-toolbar { display: none !important; visibility: hidden !important; }
         }
         @page {
           size: A4;
