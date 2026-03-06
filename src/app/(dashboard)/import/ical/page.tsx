@@ -6,6 +6,9 @@ import { addICalFeed, deleteICalFeed, triggerFeedSync, triggerAllSync } from "@/
 import { OTAPlatform } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 
+interface ExportRoom { roomId: string; roomName: string; icalUrl: string; }
+interface ExportData { propertyName: string; rooms: ExportRoom[]; }
+
 const PLATFORMS: { value: OTAPlatform; label: string; emoji: string }[] = [
   { value: "BOOKING_COM", label: "Booking.com", emoji: "🔵" },
   { value: "AIRBNB", label: "Airbnb", emoji: "🔴" },
@@ -49,6 +52,8 @@ export default function ICalPage() {
     feedName: "",
     icalUrl: "",
   });
+  const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
@@ -68,7 +73,13 @@ export default function ICalPage() {
       const props = propsData.data ?? propsData;
       setProperties(Array.isArray(props) ? props : []);
       if (Array.isArray(props) && props.length > 0 && !form.propertyId) {
-        setForm(f => ({ ...f, propertyId: props[0].id }));
+        const firstId = props[0].id;
+        setForm(f => ({ ...f, propertyId: firstId }));
+        // Load export URLs for first property
+        fetch(`/api/ical/export-urls?propertyId=${firstId}`)
+          .then(r => r.json())
+          .then(d => setExportData(d.data ?? null))
+          .catch(() => {});
       }
     } catch {
       showToast("Failed to load feeds", false);
@@ -343,6 +354,63 @@ export default function ICalPage() {
         <p>• Syncing is on-demand — click "Sync All" or schedule auto-sync via a cron job.</p>
         <p>• Duplicate bookings are automatically prevented using the booking UID from each OTA.</p>
       </div>
+
+      {/* Export: MrCA → OTA */}
+      {exportData && exportData.rooms.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-white">📤 Export MrCA Calendar to OTAs</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Copy a room&apos;s iCal URL and paste it into Booking.com, Airbnb, or Lekkerslaap to block dates and prevent double-bookings.
+            </p>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{exportData.propertyName} — Room Export URLs</p>
+            </div>
+            <div className="divide-y divide-gray-800">
+              {exportData.rooms.map(room => (
+                <div key={room.roomId} className="px-4 py-3 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-white font-medium">{room.roomName}</p>
+                    <p className="text-xs text-gray-600 truncate font-mono mt-0.5">{room.icalUrl}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(room.icalUrl);
+                      setCopiedUrl(room.roomId);
+                      setTimeout(() => setCopiedUrl(null), 2000);
+                    }}
+                    className={`shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                      copiedUrl === room.roomId
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    {copiedUrl === room.roomId ? "✓ Copied!" : "Copy URL"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-gray-500">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+              <p className="font-semibold text-gray-300 mb-1">🔵 Booking.com</p>
+              <p>Extranet → Property → Calendar → Import → paste URL</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+              <p className="font-semibold text-gray-300 mb-1">🔴 Airbnb</p>
+              <p>Manage Listing → Availability → Sync Calendars → Import → paste URL</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+              <p className="font-semibold text-gray-300 mb-1">🟢 Lekkerslaap</p>
+              <p>Owner Portal → Calendar → Import iCal → paste URL</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
