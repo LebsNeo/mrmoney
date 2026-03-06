@@ -83,10 +83,39 @@ export const MetaProvider: WhatsAppProvider = {
   },
 
   verifySignature(body: string, headers: Record<string, string>, _url?: string): boolean {
-    const secret = process.env.WHATSAPP_APP_SECRET;
+    // Allow per-org secret override injected by webhook router
+    const secret = headers["x-mrca-app-secret-override"] ?? process.env.WHATSAPP_APP_SECRET;
     if (!secret) return true; // Skip in dev
     const sig = headers["x-hub-signature-256"] ?? "";
     const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
     return sig === expected;
   },
-};
+
+  async sendWithToken(msg: OutgoingMessage, accessToken: string): Promise<void> {
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    if (!phoneId) throw new Error("WHATSAPP_PHONE_ID not set");
+
+    const to = msg.to.startsWith("+") ? msg.to.slice(1) : msg.to;
+
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${phoneId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to,
+          type: "text",
+          text: { body: msg.body },
+        }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Meta send failed: ${err}`);
+    }
+  },
+} as WhatsAppProvider & { sendWithToken: (msg: OutgoingMessage, token: string) => Promise<void> };

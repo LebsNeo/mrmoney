@@ -217,6 +217,7 @@ model Organisation {
   employees             Employee[]
   payrollRuns           PayrollRun[]
   employeeAdvances      EmployeeAdvance[]
+  whatsappConnection    WhatsAppConnection?
   whatsappConversations WhatsAppConversation[]
 
   @@index([slug])
@@ -708,6 +709,24 @@ model Alert {
   @@index([isRead])
   @@index([priority])
   @@map("alerts")
+}
+
+model WhatsAppConnection {
+  id            String   @id @default(uuid())
+  organisationId String  @unique  // one WA number per org
+  phoneNumberId String   @unique  // Meta phone_number_id — used for webhook routing
+  accessToken   String   // Meta access token (encrypted at rest recommended)
+  wabaId        String   // WhatsApp Business Account ID
+  displayPhone  String   // Human-readable phone e.g. "+27 69 500 7856"
+  appSecret     String?  // App secret for signature verification
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organisation  Organisation @relation(fields: [organisationId], references: [id])
+
+  @@index([phoneNumberId])
+  @@index([organisationId])
 }
 
 model ICalFeed {

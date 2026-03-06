@@ -33,19 +33,59 @@ export async function POST(req: NextRequest) {
 
     const provider = getProvider();
 
-    // Verify signature — pass full request URL so Twilio HMAC matches exactly
+    // Verify signature using per-org app secret (or fall back to env var)
     const requestUrl = req.url;
-    if (!provider.verifySignature(rawBody, headers, requestUrl)) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
 
-    // Parse body (Twilio = form, Meta = JSON)
+    // Parse body early so we can extract phone_number_id for per-org secret lookup
     let body: unknown;
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("application/x-www-form-urlencoded")) {
       body = Object.fromEntries(new URLSearchParams(rawBody));
     } else {
       try { body = JSON.parse(rawBody); } catch { body = {}; }
+    }
+
+    // Extract phoneNumberId from Meta webhook body for per-org routing
+    let incomingPhoneNumberId: string | null = null;
+    try {
+      const parsed = body as any;
+      incomingPhoneNumberId =
+        parsed?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id ?? null;
+    } catch { /* ignore */ }
+
+    // Look up org connection by phoneNumberId (multi-tenant)
+    // Fall back to env var for legacy / GolfBnB bootstrap
+    let orgId: string | null = null;
+    let orgAppSecret: string | null = null;
+    let orgAccessToken: string | null = null;
+
+    if (incomingPhoneNumberId) {
+      const conn = await prisma.whatsAppConnection.findUnique({
+        where: { phoneNumberId: incomingPhoneNumberId, isActive: true },
+        select: { organisationId: true, appSecret: true, accessToken: true },
+      });
+      if (conn) {
+        orgId = conn.organisationId;
+        orgAppSecret = conn.appSecret;
+        orgAccessToken = conn.accessToken;
+      }
+    }
+
+    // Fall back to env var (GolfBnB hardcoded config)
+    if (!orgId) {
+      orgId = process.env.WHATSAPP_ORG_ID ?? null;
+      orgAppSecret = process.env.WHATSAPP_APP_SECRET ?? null;
+      orgAccessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? null;
+    }
+
+    // Verify signature — use org-specific app secret if available
+    const secretForVerification = orgAppSecret ?? process.env.WHATSAPP_APP_SECRET;
+    const headersWithSecret = secretForVerification
+      ? { ...headers, "x-mrca-app-secret-override": secretForVerification }
+      : headers;
+
+    if (!provider.verifySignature(rawBody, headersWithSecret, requestUrl)) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const msg = provider.parseWebhook(body, headers);
@@ -55,12 +95,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Look up which org owns this WhatsApp number
-    // We use WHATSAPP_ORG_ID env var — set per deployment
-    // (In future: look up by phone number in a whatsapp_settings table)
-    const orgId = process.env.WHATSAPP_ORG_ID;
     if (!orgId) {
-      console.error("WHATSAPP_ORG_ID not set");
+      console.error("WhatsApp webhook: no org found for phoneNumberId", incomingPhoneNumberId);
       return NextResponse.json({ ok: true });
     }
 
@@ -74,15 +110,27 @@ export async function POST(req: NextRequest) {
     // Process message and get reply
     const reply = await handleIncomingMessage(msg, orgId);
 
-    // Send reply
+    // Send reply using org-specific token if available
     if (reply) {
-      await provider.send({ to: msg.from, body: reply });
+      if (orgAccessToken) {
+        // Use org-specific token via Meta Cloud API directly
+        const to = msg.from.startsWith("+") ? msg.from.slice(1) : msg.from;
+        const phoneId = process.env.WHATSAPP_PHONE_ID;
+        if (phoneId) {
+          await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${orgAccessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body: reply } }),
+          });
+        }
+      } else {
+        await provider.send({ to: msg.from, body: reply });
+      }
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("WhatsApp webhook error:", err);
-    // Always 200 — prevent provider from retrying
     return NextResponse.json({ ok: true });
   }
 }
