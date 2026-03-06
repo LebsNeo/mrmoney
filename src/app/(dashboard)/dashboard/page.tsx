@@ -117,6 +117,45 @@ export default async function DashboardPage({
     }
   }
 
+  // Tonight's House — arrivals, stayovers, departures
+  interface HouseBooking {
+    id: string;
+    guestName: string;
+    checkIn: Date;
+    checkOut: Date;
+    room: { name: string } | null;
+  }
+  let arrivals: HouseBooking[] = [];
+  let departures: HouseBooking[] = [];
+  let stayovers: HouseBooking[] = [];
+
+  if (orgId && selectedPropertyId) {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    const baseWhere = {
+      property: { organisationId: orgId, id: selectedPropertyId },
+      status: { not: "CANCELLED" as const },
+      deletedAt: null,
+    };
+    const bookingSelect = { id: true, guestName: true, checkIn: true, checkOut: true, room: { select: { name: true } } };
+
+    [arrivals, departures, stayovers] = await Promise.all([
+      prisma.booking.findMany({
+        where: { ...baseWhere, checkIn: { gte: todayStart, lte: todayEnd } },
+        select: bookingSelect, orderBy: { checkIn: "asc" },
+      }),
+      prisma.booking.findMany({
+        where: { ...baseWhere, checkOut: { gte: todayStart, lte: todayEnd } },
+        select: bookingSelect, orderBy: { checkOut: "asc" },
+      }),
+      prisma.booking.findMany({
+        where: { ...baseWhere, checkIn: { lt: todayStart }, checkOut: { gt: todayEnd } },
+        select: bookingSelect, orderBy: { checkOut: "asc" },
+      }),
+    ]);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -154,6 +193,83 @@ export default async function DashboardPage({
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Daily Digest</p>
             <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">View full digest →</p>
           </Link>
+        </div>
+      )}
+
+      {/* Tonight's House */}
+      {(arrivals.length > 0 || stayovers.length > 0 || departures.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          {/* Arrivals */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
+              <span className="text-base">🛬</span>
+              <div>
+                <p className="text-xs font-semibold text-white">Arriving Today</p>
+                <p className="text-[10px] text-gray-500">{arrivals.length} guest{arrivals.length !== 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            {arrivals.length === 0 ? (
+              <p className="px-4 py-4 text-xs text-gray-600">No arrivals today</p>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {arrivals.map(b => (
+                  <div key={b.id} className="px-4 py-3">
+                    <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
+                    <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · out {formatDate(b.checkOut)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* In-house / Stayovers */}
+          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center gap-2">
+              <span className="text-base">🏠</span>
+              <div>
+                <p className="text-xs font-semibold text-emerald-300">In-House Tonight</p>
+                <p className="text-[10px] text-emerald-500/70">{stayovers.length} stayover{stayovers.length !== 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            {stayovers.length === 0 ? (
+              <p className="px-4 py-4 text-xs text-gray-600">No stayovers tonight</p>
+            ) : (
+              <div className="divide-y divide-emerald-500/10">
+                {stayovers.map(b => {
+                  const nightsLeft = Math.ceil((new Date(b.checkOut).getTime() - Date.now()) / 86400000);
+                  return (
+                    <div key={b.id} className="px-4 py-3">
+                      <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
+                      <p className="text-xs text-emerald-400/70">{b.room?.name ?? "Room"} · {nightsLeft}n left · out {formatDate(b.checkOut)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Departures */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
+              <span className="text-base">🛫</span>
+              <div>
+                <p className="text-xs font-semibold text-white">Departing Today</p>
+                <p className="text-[10px] text-gray-500">{departures.length} guest{departures.length !== 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            {departures.length === 0 ? (
+              <p className="px-4 py-4 text-xs text-gray-600">No departures today</p>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {departures.map(b => (
+                  <div key={b.id} className="px-4 py-3">
+                    <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
+                    <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · in {formatDate(b.checkIn)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
