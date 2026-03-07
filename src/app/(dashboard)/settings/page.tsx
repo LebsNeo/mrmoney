@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PasswordChangeForm } from "./PasswordChangeForm";
 import { FinancePinSettings } from "@/components/FinancePinSettings";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -59,6 +60,22 @@ export default async function SettingsPage() {
           <span className="text-sm text-white font-medium">{orgName}</span>
         </div>
       </div>
+
+      {/* WhatsApp */}
+      <Link href="/settings/whatsapp" className="block">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex items-center justify-between hover:border-gray-700 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">💬</span>
+            <div>
+              <h2 className="text-white font-semibold text-base">WhatsApp Connection</h2>
+              <p className="text-xs text-gray-500">Connect your business WhatsApp number</p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </div>
+      </Link>
 
       {/* Finance PIN */}
       <FinancePinSettings hasPin={hasPin} />

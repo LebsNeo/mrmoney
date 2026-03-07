@@ -57,6 +57,7 @@ const moreNav = [
   { href: "/automation", label: "Automation", emoji: "✨" },
   { href: "/digest", label: "Daily Digest", emoji: "📰" },
   { href: "/reports", label: "Reports", emoji: "📋" },
+  { href: "/settings/whatsapp", label: "WhatsApp", emoji: "💬" },
   { href: "/settings", label: "Settings", emoji: "⚙️" },
 ];
 
