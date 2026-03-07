@@ -51,24 +51,19 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
     appSecret: "",
   });
 
-  // FB SDK init callback
   const initFB = useCallback(() => {
-    if (!META_APP_ID) return;
-    window.FB.init({
-      appId: META_APP_ID,
-      cookie: true,
-      xfbml: false,
-      version: "v21.0",
-    });
+    if (!META_APP_ID || !window.FB) return;
+    window.FB.init({ appId: META_APP_ID, cookie: true, xfbml: false, version: "v21.0" });
     setFbReady(true);
   }, []);
 
+  // Set fbAsyncInit BEFORE sdk.js loads so FB calls it automatically
   useEffect(() => {
-    if (typeof window !== "undefined" && window.FB && META_APP_ID) {
-      window.FB.init({ appId: META_APP_ID, cookie: true, xfbml: false, version: "v21.0" });
-      setFbReady(true);
-    }
-  }, []);
+    if (!META_APP_ID) return;
+    window.fbAsyncInit = initFB;
+    // If SDK already loaded (e.g. hot reload), init immediately
+    if (typeof window !== "undefined" && window.FB) initFB();
+  }, [initFB]);
 
   function handleEmbeddedSignup() {
     if (!fbReady || !window.FB) {
@@ -157,15 +152,12 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
 
   return (
     <>
-      {/* FB SDK */}
+      {/* FB SDK — afterInteractive loads sooner; fbAsyncInit is set in useEffect above */}
       {META_APP_ID && (
         <Script
           src="https://connect.facebook.net/en_US/sdk.js"
-          strategy="lazyOnload"
-          onLoad={() => {
-            window.fbAsyncInit = initFB;
-            initFB();
-          }}
+          strategy="afterInteractive"
+          onLoad={initFB}
         />
       )}
 
@@ -278,7 +270,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
                 </div>
                 <button
                   onClick={handleEmbeddedSignup}
-                  disabled={signupPending || !fbReady}
+                  disabled={signupPending}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   {signupPending ? (
@@ -289,8 +281,6 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
                       </svg>
                       Connecting…
                     </>
-                  ) : !fbReady ? (
-                    "Loading…"
                   ) : (
                     <>
                       <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v6.8C17.56 20.87 21 16.84 21 12c0-5.52-4.48-10-9-10z"/></svg>
@@ -299,7 +289,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
                   )}
                 </button>
                 <p className="text-xs text-gray-600">
-                  {fbReady ? "Facebook SDK ready" : "Loading Facebook SDK…"}
+                  {fbReady ? "Facebook SDK ready ✓" : ""}
                 </p>
               </div>
             )}
