@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }: Props) {
-  const [editing, setEditing] = useState(!connection);
+  const [editing, setEditing] = useState(false); // always show embedded signup first
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
