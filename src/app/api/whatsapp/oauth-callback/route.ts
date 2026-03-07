@@ -22,17 +22,44 @@ async function exchangeCode(code: string, redirectUri: string): Promise<string> 
 }
 
 async function getGrantedWabaId(userToken: string): Promise<string | null> {
-  const url = new URL(`${GRAPH}/me`);
-  url.searchParams.set("fields", "granular_scopes");
-  url.searchParams.set("access_token", userToken);
-  const res = await fetch(url.toString());
-  const data = await res.json();
-  const scopes: Array<{ scope: string; target_ids?: string[] }> = data.granular_scopes ?? [];
+  // Strategy 1: granular_scopes (works when WABA explicitly granted via embedded signup)
+  const url1 = new URL(`${GRAPH}/me`);
+  url1.searchParams.set("fields", "granular_scopes");
+  url1.searchParams.set("access_token", userToken);
+  const res1 = await fetch(url1.toString());
+  const data1 = await res1.json();
+  console.log("granular_scopes response:", JSON.stringify(data1).substring(0, 400));
+  const scopes: Array<{ scope: string; target_ids?: string[] }> = data1.granular_scopes ?? [];
   for (const s of scopes) {
     if (s.target_ids?.length && (s.scope === "whatsapp_business_management" || s.scope === "whatsapp_business_messaging")) {
       return s.target_ids[0];
     }
   }
+
+  // Strategy 2: look up WABAs via /me/businesses
+  console.log("granular_scopes empty — falling back to /me/businesses");
+  const url2 = new URL(`${GRAPH}/me/businesses`);
+  url2.searchParams.set("fields", "id,name,owned_whatsapp_business_accounts{id,name}");
+  url2.searchParams.set("access_token", userToken);
+  const res2 = await fetch(url2.toString());
+  const data2 = await res2.json();
+  console.log("businesses response:", JSON.stringify(data2).substring(0, 400));
+  const businesses: Array<{ id: string; owned_whatsapp_business_accounts?: { data: Array<{ id: string }> } }> = data2.data ?? [];
+  for (const biz of businesses) {
+    const wabas = biz.owned_whatsapp_business_accounts?.data ?? [];
+    if (wabas.length) return wabas[0].id;
+  }
+
+  // Strategy 3: direct WABA lookup via /me/whatsapp_business_accounts
+  console.log("businesses empty — falling back to /me/whatsapp_business_accounts");
+  const url3 = new URL(`${GRAPH}/me/whatsapp_business_accounts`);
+  url3.searchParams.set("access_token", userToken);
+  const res3 = await fetch(url3.toString());
+  const data3 = await res3.json();
+  console.log("whatsapp_business_accounts response:", JSON.stringify(data3).substring(0, 400));
+  const wabas3: Array<{ id: string }> = data3.data ?? [];
+  if (wabas3.length) return wabas3[0].id;
+
   return null;
 }
 
