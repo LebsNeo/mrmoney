@@ -200,9 +200,9 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
           </div>
         )}
 
-        {/* Webhook info */}
-        <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-blue-400">Step 1 — Configure webhook in Meta Business Manager</p>
+        {/* Webhook info — only relevant once connected */}
+        {displayConnection && <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-blue-400">Webhook — Configure in Meta Business Manager</p>
           <div>
             <p className="text-xs text-gray-500 mb-1.5">Callback URL</p>
             <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
             </div>
           </div>
           <p className="text-xs text-gray-600">Subscribe to the <strong className="text-gray-400">messages</strong> field after saving.</p>
-        </div>
+        </div>}
 
         {/* ── CONNECTED STATE ─────────────────────────────────────────── */}
         {displayConnection && !editing && (
