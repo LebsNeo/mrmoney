@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect, useCallback } from "react";
-import Script from "next/script";
 import { saveWhatsAppConnection, deleteWhatsAppConnection } from "./whatsapp-actions";
 
 declare global {
@@ -57,12 +56,17 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
     setFbReady(true);
   }, []);
 
-  // Set fbAsyncInit BEFORE sdk.js loads so FB calls it automatically
+  // Load FB SDK via plain DOM injection — most reliable cross-env approach
   useEffect(() => {
     if (!META_APP_ID) return;
+    if (window.FB) { initFB(); return; } // already loaded
     window.fbAsyncInit = initFB;
-    // If SDK already loaded (e.g. hot reload), init immediately
-    if (typeof window !== "undefined" && window.FB) initFB();
+    const script = document.createElement("script");
+    script.id = "facebook-jssdk";
+    script.src = "https://connect.facebook.net/en_US/sdk.js";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
   }, [initFB]);
 
   function handleEmbeddedSignup() {
@@ -152,14 +156,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
 
   return (
     <>
-      {/* FB SDK — afterInteractive loads sooner; fbAsyncInit is set in useEffect above */}
-      {META_APP_ID && (
-        <Script
-          src="https://connect.facebook.net/en_US/sdk.js"
-          strategy="afterInteractive"
-          onLoad={initFB}
-        />
-      )}
+      {/* FB SDK loaded via useEffect — no Next.js Script needed */}
 
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
