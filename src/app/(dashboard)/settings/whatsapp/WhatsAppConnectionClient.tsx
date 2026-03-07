@@ -59,7 +59,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
   }, [searchParams]);
 
   function handleEmbeddedSignup() {
-    const appUrl = window.location.origin;
+    const appUrl = "https://www.mrca.co.za";
     const redirectUri = encodeURIComponent(`${appUrl}/api/whatsapp/oauth-callback`);
     const params = [
       `client_id=${META_APP_ID}`,
