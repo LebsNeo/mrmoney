@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { WhatsAppSetupClient } from "./WhatsAppSetupClient";
 import { WhatsAppConnectionClient } from "./WhatsAppConnectionClient";
@@ -72,11 +73,13 @@ export default async function WhatsAppSettingsPage() {
       />
 
       {/* Connection Management */}
+      <Suspense fallback={null}>
       <WhatsAppConnectionClient
         connection={serialisedConnection}
         webhookUrl={webhookUrl}
         verifyToken={process.env.WHATSAPP_VERIFY_TOKEN ?? "mrca_webhook_2026"}
       />
+      </Suspense>
 
       {/* Conversation Stats & History */}
       <WhatsAppSetupClient

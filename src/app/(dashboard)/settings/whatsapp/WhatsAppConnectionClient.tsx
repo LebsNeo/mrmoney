@@ -1,20 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { saveWhatsAppConnection, deleteWhatsAppConnection } from "./whatsapp-actions";
-
-declare global {
-  interface Window {
-    FB: {
-      init: (opts: Record<string, unknown>) => void;
-      login: (
-        cb: (res: { authResponse?: { code?: string; accessToken?: string }; status: string }) => void,
-        opts: Record<string, unknown>
-      ) => void;
-    };
-    fbAsyncInit?: () => void;
-  }
-}
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? "";
 const EMBEDDED_CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_CONFIG_ID ?? "";
@@ -34,13 +22,12 @@ interface Props {
 }
 
 export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }: Props) {
-  const [editing, setEditing] = useState(false); // always show embedded signup first
+  const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [fbReady, setFbReady] = useState(false);
-  const [signupPending, setSignupPending] = useState(false);
   const [newConnection, setNewConnection] = useState<Connection | null>(connection);
+  const searchParams = useSearchParams();
 
   const [form, setForm] = useState({
     phoneNumberId: connection?.phoneNumberId ?? "",
@@ -50,70 +37,39 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
     appSecret: "",
   });
 
-  const initFB = useCallback(() => {
-    if (!META_APP_ID || !window.FB) return;
-    window.FB.init({ appId: META_APP_ID, cookie: true, xfbml: false, version: "v21.0" });
-    setFbReady(true);
-  }, []);
-
-  // Load FB SDK via plain DOM injection — most reliable cross-env approach
+  // Handle redirect-back from Facebook OAuth
   useEffect(() => {
-    if (!META_APP_ID) return;
-    if (window.FB) { initFB(); return; } // already loaded
-    window.fbAsyncInit = initFB;
-    const script = document.createElement("script");
-    script.id = "facebook-jssdk";
-    script.src = "https://connect.facebook.net/en_US/sdk.js";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-  }, [initFB]);
+    const success = searchParams.get("success");
+    const error = searchParams.get("error");
+    if (success === "1") {
+      showToast("✓ WhatsApp connected! You're live.", true);
+      window.history.replaceState({}, "", "/settings/whatsapp");
+      // Reload to fetch updated connection from server
+      setTimeout(() => window.location.reload(), 1500);
+    } else if (error) {
+      const msgs: Record<string, string> = {
+        cancelled: "Signup cancelled.",
+        no_waba: "No WhatsApp Business Account found. Please complete the signup.",
+        no_phone: "No phone numbers on your WABA. Add one in Meta Business Manager.",
+        failed: "Connection failed. Please try again.",
+      };
+      showToast(msgs[error] ?? "Something went wrong.", false);
+      window.history.replaceState({}, "", "/settings/whatsapp");
+    }
+  }, [searchParams]);
 
   function handleEmbeddedSignup() {
-    if (!fbReady || !window.FB) {
-      showToast("Facebook SDK not loaded yet. Please wait a moment.", false);
-      return;
-    }
-    setSignupPending(true);
-    const loginOpts: Record<string, unknown> = {
-      response_type: "code",
-      override_default_response_type: true,
-      extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
-    };
-    if (EMBEDDED_CONFIG_ID) loginOpts.config_id = EMBEDDED_CONFIG_ID;
-
-    window.FB.login(async (res) => {
-      if (res.status !== "connected" || !res.authResponse?.code) {
-        setSignupPending(false);
-        if (res.status !== "connected") showToast("Signup cancelled or failed. Please try again.", false);
-        return;
-      }
-      try {
-        const r = await fetch("/api/whatsapp/embedded-signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: res.authResponse.code }),
-        });
-        const data = await r.json();
-        if (!r.ok || !data.ok) {
-          showToast(data.error ?? "Failed to connect. Please try again.", false);
-        } else {
-          setNewConnection({
-            id: "new",
-            phoneNumberId: data.phoneNumberId,
-            wabaId: data.wabaId,
-            displayPhone: data.displayPhone,
-            isActive: true,
-          });
-          setEditing(false);
-          showToast("✓ WhatsApp connected! You're live.", true);
-        }
-      } catch {
-        showToast("Network error. Please try again.", false);
-      } finally {
-        setSignupPending(false);
-      }
-    }, loginOpts);
+    const appUrl = window.location.origin;
+    const redirectUri = encodeURIComponent(`${appUrl}/api/whatsapp/oauth-callback`);
+    const params = [
+      `client_id=${META_APP_ID}`,
+      `redirect_uri=${redirectUri}`,
+      `response_type=code`,
+      `scope=whatsapp_business_management,whatsapp_business_messaging,business_management`,
+      EMBEDDED_CONFIG_ID ? `config_id=${EMBEDDED_CONFIG_ID}` : "",
+      `extras=${encodeURIComponent(JSON.stringify({ setup: {}, featureType: "", sessionInfoVersion: "3" }))}`,
+    ].filter(Boolean).join("&");
+    window.location.href = `https://www.facebook.com/dialog/oauth?${params}`;
   }
 
   function showToast(msg: string, ok: boolean) {
@@ -233,10 +189,9 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
             <div className="flex gap-2">
               <button
                 onClick={handleEmbeddedSignup}
-                disabled={signupPending || !fbReady}
-                className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
               >
-                {signupPending ? "Connecting…" : "Reconnect / Change number"}
+                Reconnect / Change number
               </button>
               <button
                 onClick={() => setEditing(true)}
@@ -267,27 +222,16 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
                 </div>
                 <button
                   onClick={handleEmbeddedSignup}
-                  disabled={signupPending}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-sm font-semibold transition-colors"
                 >
-                  {signupPending ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
-                      </svg>
-                      Connecting…
-                    </>
-                  ) : (
+                  {(
                     <>
                       <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v6.8C17.56 20.87 21 16.84 21 12c0-5.52-4.48-10-9-10z"/></svg>
                       Connect WhatsApp with Facebook
                     </>
                   )}
                 </button>
-                <p className="text-xs text-gray-600">
-                  {fbReady ? "Facebook SDK ready ✓" : ""}
-                </p>
+                <p className="text-xs text-gray-600"></p>
               </div>
             )}
 
