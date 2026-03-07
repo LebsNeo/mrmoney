@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.mrca.co.za";
+  const appUrl = "https://www.mrca.co.za";
   const redirectUri = `${appUrl}/api/whatsapp/oauth-callback`;
 
   if (error || !code) {
@@ -85,7 +85,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.redirect(`${appUrl}/settings/whatsapp?success=1`);
   } catch (err) {
-    console.error("oauth-callback error:", err);
-    return NextResponse.redirect(`${appUrl}/settings/whatsapp?error=failed`);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("oauth-callback error FULL:", msg);
+    return NextResponse.redirect(`${appUrl}/settings/whatsapp?error=failed&msg=${encodeURIComponent(msg)}`);
   }
 }

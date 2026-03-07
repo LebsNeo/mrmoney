@@ -51,7 +51,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
         cancelled: "Signup cancelled.",
         no_waba: "No WhatsApp Business Account found. Please complete the signup.",
         no_phone: "No phone numbers on your WABA. Add one in Meta Business Manager.",
-        failed: "Connection failed. Please try again.",
+        failed: searchParams.get("msg") ? `Error: ${searchParams.get("msg")}` : "Connection failed. Please try again.",
       };
       showToast(msgs[error] ?? "Something went wrong.", false);
       window.history.replaceState({}, "", "/settings/whatsapp");
