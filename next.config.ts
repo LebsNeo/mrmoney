@@ -25,11 +25,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://connect.facebook.net",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://*.fbcdn.net https://*.facebook.com",
       "font-src 'self'",
-      "connect-src 'self' https://*.neon.tech",
+      "connect-src 'self' https://*.neon.tech https://graph.facebook.com https://*.facebook.com",
+      "frame-src https://www.facebook.com https://web.facebook.com",
     ].join("; "),
   },
 ];
