@@ -9,12 +9,14 @@ const GRAPH = "https://graph.facebook.com/v21.0";
 
 async function exchangeCode(code: string, redirectUri: string): Promise<string> {
   const url = new URL(`${GRAPH}/oauth/access_token`);
-  url.searchParams.set("client_id", META_APP_ID);
-  url.searchParams.set("client_secret", META_APP_SECRET);
+  url.searchParams.set("client_id", META_APP_ID.trim());
+  url.searchParams.set("client_secret", META_APP_SECRET.trim());
   url.searchParams.set("code", code);
   url.searchParams.set("redirect_uri", redirectUri);
+  console.log("exchange URL:", url.toString().replace(META_APP_SECRET, "***"));
   const res = await fetch(url.toString());
   const data = await res.json();
+  console.log("exchange response:", JSON.stringify(data).substring(0, 300));
   if (!res.ok || !data.access_token) throw new Error(data.error?.message ?? "Token exchange failed");
   return data.access_token as string;
 }
