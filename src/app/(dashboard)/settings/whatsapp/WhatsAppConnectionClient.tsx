@@ -49,7 +49,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
     } else if (error) {
       const msgs: Record<string, string> = {
         cancelled: "Signup cancelled.",
-        no_waba: "No WhatsApp Business Account found. Please complete the signup.",
+        no_waba: "No WhatsApp Business Account found. Please go to facebook.com/settings/?tab=business_tools → remove RoomKudu → then try again.",
         no_phone: "No phone numbers on your WABA. Add one in Meta Business Manager.",
         failed: searchParams.get("msg") ? `Error: ${searchParams.get("msg")}` : "Connection failed. Please try again.",
       };
@@ -61,13 +61,19 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
   function handleEmbeddedSignup() {
     const appUrl = "https://www.mrca.co.za";
     const redirectUri = encodeURIComponent(`${appUrl}/api/whatsapp/oauth-callback`);
+    const extras = encodeURIComponent(JSON.stringify({
+      setup: { channel: "whatsapp_embedded_signup" },
+      featureType: "whatsapp_embedded_signup",
+      sessionInfoVersion: "3",
+    }));
     const params = [
       `client_id=${META_APP_ID}`,
       `redirect_uri=${redirectUri}`,
       `response_type=code`,
       `scope=whatsapp_business_management,whatsapp_business_messaging,business_management`,
       EMBEDDED_CONFIG_ID ? `config_id=${EMBEDDED_CONFIG_ID}` : "",
-      `extras=${encodeURIComponent(JSON.stringify({ setup: {}, featureType: "", sessionInfoVersion: "3" }))}`,
+      `extras=${extras}`,
+      `override_default_response_type=true`,
     ].filter(Boolean).join("&");
     window.location.href = `https://www.facebook.com/dialog/oauth?${params}`;
   }

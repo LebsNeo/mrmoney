@@ -7,21 +7,40 @@ const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!;
 const META_APP_SECRET = process.env.META_APP_SECRET!;
 const GRAPH = "https://graph.facebook.com/v21.0";
 
-async function exchangeCode(code: string, redirectUri: string): Promise<string> {
+async function exchangeCode(code: string, redirectUri: string): Promise<{ token: string; wabaId?: string }> {
   const url = new URL(`${GRAPH}/oauth/access_token`);
   url.searchParams.set("client_id", META_APP_ID.trim());
   url.searchParams.set("client_secret", META_APP_SECRET.trim());
   url.searchParams.set("code", code);
   url.searchParams.set("redirect_uri", redirectUri);
-  console.log("exchange URL:", url.toString().replace(META_APP_SECRET, "***"));
+  console.log("exchange URL:", url.toString().replace(META_APP_SECRET.trim(), "***"));
   const res = await fetch(url.toString());
   const data = await res.json();
-  console.log("exchange response:", JSON.stringify(data).substring(0, 300));
+  console.log("exchange response:", JSON.stringify(data).substring(0, 500));
   if (!res.ok || !data.access_token) throw new Error(data.error?.message ?? "Token exchange failed");
-  return data.access_token as string;
+  // Embedded signup sometimes returns waba_id or data_access_expiration_time in the response
+  const wabaId: string | undefined = data.waba_id ?? data.whatsapp_business_id ?? undefined;
+  if (wabaId) console.log("WABA ID from exchange:", wabaId);
+  return { token: data.access_token as string, wabaId };
 }
 
 async function getGrantedWabaId(userToken: string): Promise<string | null> {
+  // Strategy 0: debug_token reveals all granted scopes including WABA targets
+  const appToken = `${META_APP_ID.trim()}|${META_APP_SECRET.trim()}`;
+  const urlDebug = new URL(`${GRAPH}/debug_token`);
+  urlDebug.searchParams.set("input_token", userToken);
+  urlDebug.searchParams.set("access_token", appToken);
+  const resDebug = await fetch(urlDebug.toString());
+  const dataDebug = await resDebug.json();
+  console.log("debug_token response:", JSON.stringify(dataDebug?.data ?? dataDebug).substring(0, 600));
+  const granularDebug: Array<{ scope: string; target_ids?: string[] }> = dataDebug?.data?.granular_scopes ?? [];
+  for (const s of granularDebug) {
+    if (s.target_ids?.length && (s.scope === "whatsapp_business_management" || s.scope === "whatsapp_business_messaging")) {
+      console.log("WABA from debug_token:", s.target_ids[0]);
+      return s.target_ids[0];
+    }
+  }
+
   // Strategy 1: granular_scopes (works when WABA explicitly granted via embedded signup)
   const url1 = new URL(`${GRAPH}/me`);
   url1.searchParams.set("fields", "granular_scopes");
@@ -96,9 +115,12 @@ export async function GET(req: NextRequest) {
     const orgId = (session?.user as { organisationId?: string })?.organisationId;
     if (!orgId) return NextResponse.redirect(`${appUrl}/login`);
 
-    const userToken = await exchangeCode(code, redirectUri);
-    const wabaId = await getGrantedWabaId(userToken);
-    if (!wabaId) return NextResponse.redirect(`${appUrl}/settings/whatsapp?error=no_waba`);
+    const { token: userToken, wabaId: exchangeWabaId } = await exchangeCode(code, redirectUri);
+    const wabaId = exchangeWabaId ?? await getGrantedWabaId(userToken);
+    if (!wabaId) {
+      console.log("All WABA strategies failed — no_waba");
+      return NextResponse.redirect(`${appUrl}/settings/whatsapp?error=no_waba`);
+    }
 
     const phones = await getPhoneNumbers(wabaId, userToken);
     if (!phones.length) return NextResponse.redirect(`${appUrl}/settings/whatsapp?error=no_phone`);
