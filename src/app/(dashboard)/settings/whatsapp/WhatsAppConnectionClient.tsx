@@ -70,7 +70,7 @@ export function WhatsAppConnectionClient({ connection, webhookUrl, verifyToken }
       `client_id=${META_APP_ID}`,
       `redirect_uri=${redirectUri}`,
       `response_type=code`,
-      `scope=whatsapp_business_management,whatsapp_business_messaging,business_management`,
+      `scope=whatsapp_business_management,whatsapp_business_messaging,business_management,manage_app_solution`,
       EMBEDDED_CONFIG_ID ? `config_id=${EMBEDDED_CONFIG_ID}` : "",
       `extras=${extras}`,
       `override_default_response_type=true`,
