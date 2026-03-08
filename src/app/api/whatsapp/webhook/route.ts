@@ -110,22 +110,28 @@ export async function POST(req: NextRequest) {
     if (!org) return NextResponse.json({ ok: true });
 
     // Process message and get reply
-    const reply = await handleIncomingMessage(msg, orgId);
-    console.log("[wh] reply:", reply ? `"${reply.slice(0, 50)}..."` : "empty/null");
+    let reply = "";
+    try {
+      reply = await handleIncomingMessage(msg, orgId);
+      console.log("[wh] reply:", reply ? `"${reply.slice(0, 60)}..."` : "EMPTY");
+    } catch (engineErr) {
+      console.error("[wh] engine error:", engineErr instanceof Error ? engineErr.message : String(engineErr));
+    }
 
     // Send reply using org-specific token if available
     if (reply) {
-      if (orgAccessToken) {
-        // Use org-specific token via Meta Cloud API directly
-        const to = msg.from.startsWith("+") ? msg.from.slice(1) : msg.from;
-        const phoneId = process.env.WHATSAPP_PHONE_ID;
-        if (phoneId) {
-          await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${orgAccessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body: reply } }),
-          });
-        }
+      const to = msg.from.startsWith("+") ? msg.from.slice(1) : msg.from;
+      const phoneId = process.env.WHATSAPP_PHONE_ID;
+      const tokenToUse = orgAccessToken ?? process.env.WHATSAPP_ACCESS_TOKEN;
+      console.log("[wh] sending to:", to, "phoneId:", phoneId, "hasToken:", !!tokenToUse);
+      if (phoneId && tokenToUse) {
+        const sendRes = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${tokenToUse}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body: reply } }),
+        });
+        const sendData = await sendRes.json();
+        console.log("[wh] send result:", JSON.stringify(sendData).slice(0, 100));
       } else {
         await provider.send({ to: msg.from, body: reply });
       }
