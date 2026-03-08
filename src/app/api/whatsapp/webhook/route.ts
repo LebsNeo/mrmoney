@@ -84,7 +84,13 @@ export async function POST(req: NextRequest) {
       ? { ...headers, "x-mrca-app-secret-override": secretForVerification }
       : headers;
 
+    // DEBUG — remove after fix
+    const debugSig = headers["x-hub-signature-256"] ?? "MISSING";
+    const debugSecret = (secretForVerification ?? "NONE").slice(0, 6) + "...";
+    console.log(`[webhook-debug] sig=${debugSig.slice(0, 20)} secret_prefix=${debugSecret} bodyLen=${rawBody.length}`);
+
     if (!provider.verifySignature(rawBody, headersWithSecret, requestUrl)) {
+      console.log(`[webhook-debug] signature FAILED`);
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
