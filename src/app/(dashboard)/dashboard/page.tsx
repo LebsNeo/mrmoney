@@ -175,14 +175,16 @@ export default async function DashboardPage({
       {/* Phase 7 — Daily Digest Preview */}
       {digest && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <div className="glass rounded-xl p-4 hover:border-white/10 transition-all">
+          <Link href="#tonight" className="glass rounded-xl p-4 hover:border-emerald-500/30 transition-all group cursor-pointer">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-ins Today</p>
             <p className="text-2xl font-bold gradient-text">{digest.todayCheckIns}</p>
-          </div>
-          <div className="glass rounded-xl p-4 hover:border-white/10 transition-all">
+            <p className="text-[10px] text-emerald-500/60 mt-1 group-hover:text-emerald-400 transition-colors">View guests ↓</p>
+          </Link>
+          <Link href="#tonight" className="glass rounded-xl p-4 hover:border-blue-500/30 transition-all group cursor-pointer">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-outs Today</p>
             <p className="text-2xl font-bold gradient-text-blue">{digest.todayCheckOuts}</p>
-          </div>
+            <p className="text-[10px] text-blue-500/60 mt-1 group-hover:text-blue-400 transition-colors">View guests ↓</p>
+          </Link>
           <div className={`rounded-xl border p-4 transition-all ${digest.cashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Cash Position</p>
             <p className={`text-base font-bold truncate ${digest.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
@@ -198,7 +200,7 @@ export default async function DashboardPage({
 
       {/* Tonight's House */}
       {(arrivals.length > 0 || stayovers.length > 0 || departures.length > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div id="tonight" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 scroll-mt-6">
           {/* Arrivals */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
@@ -213,10 +215,13 @@ export default async function DashboardPage({
             ) : (
               <div className="divide-y divide-gray-800">
                 {arrivals.map(b => (
-                  <div key={b.id} className="px-4 py-3">
-                    <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
-                    <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · out {formatDate(b.checkOut)}</p>
-                  </div>
+                  <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                    <div className="min-w-0">
+                      <p className="text-sm text-white font-medium truncate group-hover:text-emerald-400 transition-colors">{b.guestName}</p>
+                      <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · out {formatDate(b.checkOut)}</p>
+                    </div>
+                    <svg className="w-3 h-3 text-gray-600 group-hover:text-emerald-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                  </Link>
                 ))}
               </div>
             )}
@@ -238,10 +243,13 @@ export default async function DashboardPage({
                 {stayovers.map(b => {
                   const nightsLeft = Math.ceil((new Date(b.checkOut).getTime() - Date.now()) / 86400000);
                   return (
-                    <div key={b.id} className="px-4 py-3">
-                      <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
-                      <p className="text-xs text-emerald-400/70">{b.room?.name ?? "Room"} · {nightsLeft}n left · out {formatDate(b.checkOut)}</p>
-                    </div>
+                    <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-emerald-500/5 transition-colors group">
+                      <div className="min-w-0">
+                        <p className="text-sm text-white font-medium truncate group-hover:text-emerald-400 transition-colors">{b.guestName}</p>
+                        <p className="text-xs text-emerald-400/70">{b.room?.name ?? "Room"} · {nightsLeft}n left · out {formatDate(b.checkOut)}</p>
+                      </div>
+                      <svg className="w-3 h-3 text-gray-600 group-hover:text-emerald-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </Link>
                   );
                 })}
               </div>
@@ -262,10 +270,13 @@ export default async function DashboardPage({
             ) : (
               <div className="divide-y divide-gray-800">
                 {departures.map(b => (
-                  <div key={b.id} className="px-4 py-3">
-                    <p className="text-sm text-white font-medium truncate">{b.guestName}</p>
-                    <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · in {formatDate(b.checkIn)}</p>
-                  </div>
+                  <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                    <div className="min-w-0">
+                      <p className="text-sm text-white font-medium truncate group-hover:text-blue-400 transition-colors">{b.guestName}</p>
+                      <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · in {formatDate(b.checkIn)}</p>
+                    </div>
+                    <svg className="w-3 h-3 text-gray-600 group-hover:text-blue-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                  </Link>
                 ))}
               </div>
             )}
