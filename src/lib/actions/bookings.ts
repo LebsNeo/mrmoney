@@ -81,6 +81,8 @@ export async function getBookings(filters?: {
   source?: BookingSource;
   from?: string;
   to?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
   page?: number;
   limit?: number;
   organisationId?: string; // ignored — always scoped from session
@@ -97,11 +99,11 @@ export async function getBookings(filters?: {
       ...(filters?.propertyId ? { propertyId: filters.propertyId } : {}),
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.source ? { source: filters.source } : {}),
-      ...(filters?.from || filters?.to
+      ...(filters?.from || filters?.to || filters?.dateFrom || filters?.dateTo
         ? {
             checkIn: {
-              ...(filters.from ? { gte: new Date(filters.from) } : {}),
-              ...(filters.to ? { lte: new Date(filters.to) } : {}),
+              ...(filters?.dateFrom ? { gte: filters.dateFrom } : filters?.from ? { gte: new Date(filters.from) } : {}),
+              ...(filters?.dateTo ? { lte: filters.dateTo } : filters?.to ? { lte: new Date(filters.to) } : {}),
             },
           }
         : {}),

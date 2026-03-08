@@ -5,6 +5,7 @@ import { PropertySwitcher } from "@/components/PropertySwitcher";
 import { EmptyState } from "@/components/EmptyState";
 import { BookingCard } from "@/components/BookingCard";
 import { ExportButton } from "@/components/ExportButton";
+import { BookingsDateFilter } from "@/components/BookingsDateFilter";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { calcNights } from "@/lib/kpi";
 import Link from "next/link";
@@ -20,6 +21,8 @@ interface PageProps {
     status?: string;
     source?: string;
     page?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }>;
 }
 
@@ -28,6 +31,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const page = parseInt(params.page ?? "1", 10);
   const status = params.status as BookingStatus | undefined;
   const source = params.source as BookingSource | undefined;
+  const dateFrom = params.dateFrom;
+  const dateTo = params.dateTo;
 
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
@@ -47,14 +52,17 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     page,
     limit: 20,
     organisationId: orgId,
-    // Only filter by property if explicitly selected
     propertyId: params.propertyId,
+    dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+    dateTo: dateTo ? new Date(dateTo + "T23:59:59") : undefined,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {
     const q = new URLSearchParams();
     if (status) q.set("status", status);
     if (source) q.set("source", source);
+    if (dateFrom) q.set("dateFrom", dateFrom);
+    if (dateTo) q.set("dateTo", dateTo);
     q.set("page", String(page));
     for (const [k, v] of Object.entries(overrides)) {
       if (v === undefined) q.delete(k);
@@ -105,7 +113,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6 items-center">
+        <Suspense fallback={null}>
+          <BookingsDateFilter dateFrom={dateFrom} dateTo={dateTo} />
+        </Suspense>
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-400 font-medium">Status:</label>
           <div className="flex flex-wrap gap-1">
