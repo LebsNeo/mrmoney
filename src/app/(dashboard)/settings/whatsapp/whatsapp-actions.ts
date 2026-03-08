@@ -22,27 +22,36 @@ export async function saveWhatsAppConnection(input: {
   try {
     const orgId = await getOrgId();
 
-    await prisma.whatsAppConnection.upsert({
-      where: { organisationId: orgId },
-      create: {
-        organisationId: orgId,
-        phoneNumberId: input.phoneNumberId.trim(),
-        accessToken: input.accessToken.trim(),
-        wabaId: input.wabaId.trim(),
-        displayPhone: input.displayPhone.trim(),
-        appSecret: input.appSecret?.trim() || null,
-        isActive: true,
-      },
-      update: {
-        phoneNumberId: input.phoneNumberId.trim(),
-        accessToken: input.accessToken.trim(),
-        wabaId: input.wabaId.trim(),
-        displayPhone: input.displayPhone.trim(),
-        ...(input.appSecret?.trim() ? { appSecret: input.appSecret.trim() } : {}),
-        isActive: true,
-        updatedAt: new Date(),
-      },
+    const existingWa = await prisma.whatsAppConnection.findFirst({
+      where: { OR: [{ phoneNumberId: input.phoneNumberId.trim() }, { organisationId: orgId }] },
     });
+    if (existingWa) {
+      await prisma.whatsAppConnection.update({
+        where: { id: existingWa.id },
+        data: {
+          organisationId: orgId,
+          phoneNumberId: input.phoneNumberId.trim(),
+          accessToken: input.accessToken.trim(),
+          wabaId: input.wabaId.trim(),
+          displayPhone: input.displayPhone.trim(),
+          ...(input.appSecret?.trim() ? { appSecret: input.appSecret.trim() } : {}),
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.whatsAppConnection.create({
+        data: {
+          organisationId: orgId,
+          phoneNumberId: input.phoneNumberId.trim(),
+          accessToken: input.accessToken.trim(),
+          wabaId: input.wabaId.trim(),
+          displayPhone: input.displayPhone.trim(),
+          appSecret: input.appSecret?.trim() || null,
+          isActive: true,
+        },
+      });
+    }
 
     revalidatePath("/settings/whatsapp");
     return { ok: true };

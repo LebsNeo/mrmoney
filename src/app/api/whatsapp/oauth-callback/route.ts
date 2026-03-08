@@ -128,11 +128,19 @@ export async function GET(req: NextRequest) {
     await subscribeWaba(wabaId, userToken);
 
     const phone = phones[0];
-    await prisma.whatsAppConnection.upsert({
-      where: { organisationId: orgId },
-      create: { organisationId: orgId, phoneNumberId: phone.id, accessToken: userToken, wabaId, displayPhone: phone.display_phone_number, isActive: true },
-      update: { phoneNumberId: phone.id, accessToken: userToken, wabaId, displayPhone: phone.display_phone_number, isActive: true, updatedAt: new Date() },
+    const existingConn = await prisma.whatsAppConnection.findFirst({
+      where: { OR: [{ phoneNumberId: phone.id }, { organisationId: orgId }] },
     });
+    if (existingConn) {
+      await prisma.whatsAppConnection.update({
+        where: { id: existingConn.id },
+        data: { organisationId: orgId, phoneNumberId: phone.id, accessToken: userToken, wabaId, displayPhone: phone.display_phone_number, isActive: true, updatedAt: new Date() },
+      });
+    } else {
+      await prisma.whatsAppConnection.create({
+        data: { organisationId: orgId, phoneNumberId: phone.id, accessToken: userToken, wabaId, displayPhone: phone.display_phone_number, isActive: true },
+      });
+    }
 
     return NextResponse.redirect(`${appUrl}/settings/whatsapp?success=1`);
   } catch (err) {

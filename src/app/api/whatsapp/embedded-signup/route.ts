@@ -115,26 +115,35 @@ export async function POST(req: NextRequest) {
     // 5. Use first phone (most signups have one)
     const phone = phones[0];
 
-    // 6. Save to DB
-    await prisma.whatsAppConnection.upsert({
-      where: { organisationId: orgId },
-      create: {
-        organisationId: orgId,
-        phoneNumberId: phone.id,
-        accessToken: userToken,
-        wabaId,
-        displayPhone: phone.display_phone_number,
-        isActive: true,
-      },
-      update: {
-        phoneNumberId: phone.id,
-        accessToken: userToken,
-        wabaId,
-        displayPhone: phone.display_phone_number,
-        isActive: true,
-        updatedAt: new Date(),
-      },
+    // 6. Save to DB — look up by phoneNumberId OR organisationId to avoid unique conflicts
+    const existing = await prisma.whatsAppConnection.findFirst({
+      where: { OR: [{ phoneNumberId: phone.id }, { organisationId: orgId }] },
     });
+    if (existing) {
+      await prisma.whatsAppConnection.update({
+        where: { id: existing.id },
+        data: {
+          organisationId: orgId,
+          phoneNumberId: phone.id,
+          accessToken: userToken,
+          wabaId,
+          displayPhone: phone.display_phone_number,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.whatsAppConnection.create({
+        data: {
+          organisationId: orgId,
+          phoneNumberId: phone.id,
+          accessToken: userToken,
+          wabaId,
+          displayPhone: phone.display_phone_number,
+          isActive: true,
+        },
+      });
+    }
 
     return NextResponse.json({
       ok: true,
