@@ -102,3 +102,27 @@ export function generateInvoiceNumber(prefix: string, sequence: number): string 
 export function formatPercent(value: number, decimals = 1): string {
   return `${(value * 100).toFixed(decimals)}%`;
 }
+
+// ─────────────────────────────────────────────
+// SAST DATE RANGES (UTC+2)
+// Vercel runs in UTC. Dates stored in DB as midnight SAST = UTC-2h.
+// Always use these helpers for day-based queries.
+// ─────────────────────────────────────────────
+const SAST_OFFSET_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+export function getSASTDayRange(date?: Date): { start: Date; end: Date } {
+  const base = date ?? new Date();
+  // Midnight UTC of the day
+  const utcMidnight = new Date(base);
+  utcMidnight.setUTCHours(0, 0, 0, 0);
+  // Shift back 2h to get SAST midnight (= UTC 22:00 previous day)
+  const start = new Date(utcMidnight.getTime() - SAST_OFFSET_MS);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { start, end };
+}
+
+export function getSASTYesterdayRange(): { start: Date; end: Date } {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return getSASTDayRange(yesterday);
+}

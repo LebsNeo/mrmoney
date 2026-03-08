@@ -4,7 +4,8 @@
  */
 
 import { prisma } from "./prisma";
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { subDays, startOfMonth, endOfMonth } from "date-fns";
+import { getSASTDayRange, getSASTYesterdayRange } from "./utils";
 
 export interface ArrivalPaymentInfo {
   bookingId: string;
@@ -36,11 +37,8 @@ export async function generateDailyDigest(
   propertyId: string
 ): Promise<DailyDigest> {
   const today = new Date();
-  const todayStart = startOfDay(today);
-  const todayEnd = endOfDay(today);
-  const yesterday = subDays(today, 1);
-  const yesterdayStart = startOfDay(yesterday);
-  const yesterdayEnd = endOfDay(yesterday);
+  const { start: todayStart, end: todayEnd } = getSASTDayRange();
+  const { start: yesterdayStart, end: yesterdayEnd } = getSASTYesterdayRange();
 
   // Yesterday revenue
   const yesterdayRevResult = await prisma.transaction.aggregate({

@@ -14,6 +14,7 @@ import { getBreakEvenRate } from "@/lib/forecasting";
 import { generateProfitabilityInsights } from "@/lib/profitability";
 import { getKPITrends, getPerformanceBenchmarks } from "@/lib/kpi-engine";
 import { generateDailyDigest } from "@/lib/digest";
+import { getSASTDayRange } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -130,8 +131,8 @@ export default async function DashboardPage({
   let stayovers: HouseBooking[] = [];
 
   if (orgId && selectedPropertyId) {
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    // SAST-aware day range (Vercel runs UTC, dates stored as midnight SAST = UTC-2h)
+    const { start: todayStart, end: todayEnd } = getSASTDayRange();
 
     const baseWhere = {
       property: { organisationId: orgId, id: selectedPropertyId },
