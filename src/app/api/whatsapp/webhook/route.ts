@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
     // }
 
     const msg = provider.parseWebhook(body, headers);
+    console.log("[wh] parsed msg:", msg ? `from=${msg.from} body="${msg.body}"` : "null (status/non-text)");
 
     // Always 200 to provider (even if not a user message)
     if (!msg || !msg.body.trim()) {
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
 
     // Process message and get reply
     const reply = await handleIncomingMessage(msg, orgId);
+    console.log("[wh] reply:", reply ? `"${reply.slice(0, 50)}..."` : "empty/null");
 
     // Send reply using org-specific token if available
     if (reply) {
