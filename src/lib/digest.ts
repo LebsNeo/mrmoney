@@ -54,29 +54,32 @@ export async function generateDailyDigest(
   });
   const yesterdayRevenue = parseFloat((yesterdayRevResult._sum.amount ?? 0).toString());
 
-  // Yesterday checkouts
+  // Yesterday checkouts — exclude cancelled
   const yesterdayCheckouts = await prisma.booking.count({
     where: {
       propertyId,
       deletedAt: null,
+      status: { not: "CANCELLED" },
       checkOut: { gte: yesterdayStart, lte: yesterdayEnd },
     },
   });
 
-  // Today check-ins (count)
+  // Today check-ins (count) — exclude cancelled
   const todayCheckIns = await prisma.booking.count({
     where: {
       propertyId,
       deletedAt: null,
+      status: { not: "CANCELLED" },
       checkIn: { gte: todayStart, lte: todayEnd },
     },
   });
 
-  // Today arrivals — full detail with payment info
+  // Today arrivals — full detail with payment info (exclude cancelled)
   const arrivalBookings = await prisma.booking.findMany({
     where: {
       propertyId,
       deletedAt: null,
+      status: { not: "CANCELLED" },
       checkIn: { gte: todayStart, lte: todayEnd },
     },
     include: {
@@ -153,11 +156,12 @@ export async function generateDailyDigest(
     };
   });
 
-  // Today check-outs
+  // Today check-outs — exclude cancelled
   const todayCheckOuts = await prisma.booking.count({
     where: {
       propertyId,
       deletedAt: null,
+      status: { not: "CANCELLED" },
       checkOut: { gte: todayStart, lte: todayEnd },
     },
   });
