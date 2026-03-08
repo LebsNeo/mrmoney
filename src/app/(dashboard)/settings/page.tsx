@@ -63,15 +63,15 @@ export default async function SettingsPage() {
 
       {/* WhatsApp */}
       <Link href="/settings/whatsapp" className="block">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex items-center justify-between hover:border-gray-700 transition-colors">
+        <div className="bg-emerald-950 border-2 border-emerald-500 rounded-2xl p-6 flex items-center justify-between hover:border-emerald-400 hover:bg-emerald-900 transition-colors shadow-[0_0_18px_rgba(16,185,129,0.25)]">
           <div className="flex items-center gap-3">
             <span className="text-2xl">💬</span>
             <div>
-              <h2 className="text-white font-semibold text-base">WhatsApp Connection</h2>
-              <p className="text-xs text-gray-500">Connect your business WhatsApp number</p>
+              <h2 className="text-emerald-400 font-bold text-base tracking-wide">WhatsApp Connection</h2>
+              <p className="text-xs text-emerald-600">Connect your business WhatsApp number</p>
             </div>
           </div>
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </div>
