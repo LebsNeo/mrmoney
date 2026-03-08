@@ -29,6 +29,10 @@ export interface DailyDigest {
   overdueInvoices: { count: number; totalAmount: number };
   unmatchedPayouts: number;
   cashPosition: number;
+  monthCashPosition: number;
+  monthIncome: number;
+  monthExpenses: number;
+  monthRevenueTarget: number;
   topInsight: string;
 }
 
@@ -191,33 +195,45 @@ export async function generateDailyDigest(
     },
   });
 
-  // Cash position (CLEARED + RECONCILED income - expense)
+  // All-time cash position (CLEARED + RECONCILED income - expense)
   const clearedIncome = await prisma.transaction.aggregate({
-    where: {
-      propertyId,
-      type: "INCOME",
-      deletedAt: null,
-      status: { in: ["CLEARED", "RECONCILED"] },
-    },
+    where: { propertyId, type: "INCOME", deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] } },
     _sum: { amount: true },
   });
   const clearedExpense = await prisma.transaction.aggregate({
-    where: {
-      propertyId,
-      type: "EXPENSE",
-      deletedAt: null,
-      status: { in: ["CLEARED", "RECONCILED"] },
-    },
+    where: { propertyId, type: "EXPENSE", deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] } },
     _sum: { amount: true },
   });
   const cashPosition =
     parseFloat((clearedIncome._sum.amount ?? 0).toString()) -
     parseFloat((clearedExpense._sum.amount ?? 0).toString());
 
-  // Top insight — find highest revenue room this month
+  // Month-to-date cash position
   const monthStart = startOfMonth(today);
   const monthEnd = endOfMonth(today);
+  const mtdIncome = await prisma.transaction.aggregate({
+    where: { propertyId, type: "INCOME", deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] }, date: { gte: monthStart, lte: monthEnd } },
+    _sum: { amount: true },
+  });
+  const mtdExpense = await prisma.transaction.aggregate({
+    where: { propertyId, type: "EXPENSE", deletedAt: null, status: { in: ["CLEARED", "RECONCILED"] }, date: { gte: monthStart, lte: monthEnd } },
+    _sum: { amount: true },
+  });
+  const monthIncome   = parseFloat((mtdIncome._sum.amount  ?? 0).toString());
+  const monthExpenses = parseFloat((mtdExpense._sum.amount ?? 0).toString());
+  const monthCashPosition = monthIncome - monthExpenses;
 
+  // Monthly revenue target = sum of all active room rates × days in month (max potential)
+  const activeRooms = await prisma.room.findMany({
+    where: { propertyId, deletedAt: null, status: "ACTIVE" },
+    select: { baseRate: true },
+  });
+  const daysInMonth = monthEnd.getDate();
+  const monthRevenueTarget = activeRooms.reduce(
+    (sum, r) => sum + parseFloat(String(r.baseRate)) * daysInMonth, 0
+  );
+
+  // Top insight — find highest revenue room this month
   let topInsight = "Keep an eye on your cash position today.";
 
   try {
@@ -267,6 +283,10 @@ export async function generateDailyDigest(
     overdueInvoices,
     unmatchedPayouts,
     cashPosition,
+    monthCashPosition,
+    monthIncome,
+    monthExpenses,
+    monthRevenueTarget,
     topInsight,
   };
 }

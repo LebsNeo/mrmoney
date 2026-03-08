@@ -337,25 +337,51 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Cash Position Banner */}
-      <div className={`rounded-2xl border p-6 mb-8 flex items-center justify-between ${
-        data.cashPosition >= 0
-          ? "bg-emerald-500/5 border-emerald-500/20"
-          : "bg-red-500/5 border-red-500/20"
-      }`}>
-        <div>
-          <p className="text-sm text-gray-400 mb-1">Cash Position (Cleared)</p>
-          <p className={`text-3xl font-bold ${data.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {formatCurrency(data.cashPosition)}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Cleared income minus cleared expenses</p>
-        </div>
-        <div className={`p-4 rounded-xl ${data.cashPosition >= 0 ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
-          <svg className={`w-8 h-8 ${data.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75" />
-          </svg>
-        </div>
-      </div>
+      {/* Monthly Cash Position — month-to-date vs target */}
+      {digest && (() => {
+        const pct = digest.monthRevenueTarget > 0
+          ? Math.min(100, Math.round((digest.monthIncome / digest.monthRevenueTarget) * 100))
+          : 0;
+        const monthLabel = new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric", timeZone: "Africa/Johannesburg" });
+        const remaining = digest.monthRevenueTarget - digest.monthIncome;
+        const isPositive = digest.monthCashPosition >= 0;
+        return (
+          <div className={`rounded-2xl border p-6 mb-8 ${isPositive ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Monthly Position — {monthLabel}</p>
+                <p className={`text-3xl font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                  {formatCurrency(digest.monthCashPosition)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Income <span className="text-emerald-400 font-medium">{formatCurrency(digest.monthIncome)}</span>
+                  {" · "}Expenses <span className="text-red-400 font-medium">{formatCurrency(digest.monthExpenses)}</span>
+                </p>
+              </div>
+              <div className="text-right shrink-0 ml-4">
+                <p className="text-xs text-gray-500 mb-1">Revenue target</p>
+                <p className="text-sm font-bold text-white">{pct}%</p>
+                <p className="text-xs text-gray-600">{formatCurrency(digest.monthRevenueTarget)}</p>
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full bg-gray-800 rounded-full h-2.5 mb-2">
+              <div
+                className={`h-2.5 rounded-full transition-all ${pct >= 80 ? "bg-emerald-400" : pct >= 50 ? "bg-yellow-400" : "bg-red-400"}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-600">
+              {digest.monthRevenueTarget > 0
+                ? remaining > 0
+                  ? `${formatCurrency(remaining)} to reach full occupancy revenue`
+                  : "🎉 Target reached!"
+                : "Add rooms to see your monthly target"}
+            </p>
+          </div>
+        );
+      })()}
+
 
       {/* Phase 4 — Budget Alert + Break-even + Forecast Link */}
       {totalAlerts > 0 && (
