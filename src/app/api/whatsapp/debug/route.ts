@@ -22,7 +22,26 @@ export async function GET() {
       timestamp: new Date(),
     }, orgId);
 
-    return NextResponse.json({ org, property, reply, orgId });
+    // Test actual send
+    const token = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
+    const phoneId = process.env.WHATSAPP_PHONE_ID ?? "";
+    let sendResult: unknown = "skipped";
+    if (token && phoneId) {
+      const res = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", to: "27624382564", type: "text", text: { body: "DEBUG TEST: bot send check ✅" } }),
+      });
+      sendResult = await res.json();
+    }
+
+    return NextResponse.json({
+      org, property, reply, orgId,
+      tokenLen: token.length,
+      tokenPrefix: token.slice(0, 10),
+      phoneId,
+      sendResult,
+    });
   } catch (err) {
     return NextResponse.json({ error: String(err), stack: (err as Error).stack }, { status: 500 });
   }
