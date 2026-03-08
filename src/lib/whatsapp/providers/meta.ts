@@ -84,7 +84,7 @@ export const MetaProvider: WhatsAppProvider = {
 
   verifySignature(body: string, headers: Record<string, string>, _url?: string): boolean {
     // Allow per-org secret override injected by webhook router
-    const secret = headers["x-mrca-app-secret-override"] ?? process.env.WHATSAPP_APP_SECRET;
+    const secret = headers["x-mrca-app-secret-override"] ?? process.env.WHATSAPP_APP_SECRET ?? process.env.META_APP_SECRET;
     if (!secret) return true; // Skip in dev
     const sig = headers["x-hub-signature-256"] ?? "";
     const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");

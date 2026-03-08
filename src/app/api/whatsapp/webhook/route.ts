@@ -74,12 +74,12 @@ export async function POST(req: NextRequest) {
     // Fall back to env var (GolfBnB hardcoded config)
     if (!orgId) {
       orgId = process.env.WHATSAPP_ORG_ID ?? null;
-      orgAppSecret = process.env.WHATSAPP_APP_SECRET ?? null;
+      orgAppSecret = process.env.WHATSAPP_APP_SECRET ?? process.env.META_APP_SECRET ?? null;
       orgAccessToken = process.env.WHATSAPP_ACCESS_TOKEN ?? null;
     }
 
     // Verify signature — use org-specific app secret if available
-    const secretForVerification = orgAppSecret ?? process.env.WHATSAPP_APP_SECRET;
+    const secretForVerification = orgAppSecret ?? process.env.WHATSAPP_APP_SECRET ?? process.env.META_APP_SECRET;
     const headersWithSecret = secretForVerification
       ? { ...headers, "x-mrca-app-secret-override": secretForVerification }
       : headers;
