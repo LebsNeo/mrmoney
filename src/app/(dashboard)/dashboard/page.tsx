@@ -186,11 +186,23 @@ export default async function DashboardPage({
             <p className="text-2xl font-bold gradient-text-blue">{digest.todayCheckOuts}</p>
             <p className="text-[10px] text-blue-500/60 mt-1 group-hover:text-blue-400 transition-colors">View guests ↓</p>
           </Link>
-          <div className={`rounded-xl border p-4 transition-all ${digest.cashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Cash Position</p>
-            <p className={`text-base font-bold truncate ${digest.cashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {formatCurrency(digest.cashPosition)}
+          <div className={`rounded-xl border p-4 transition-all ${digest.monthCashPosition >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Cash Position</p>
+            <p className="text-[9px] text-gray-600 mb-1.5">This month</p>
+            <p className={`text-base font-bold truncate ${digest.monthCashPosition >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {formatCurrency(digest.monthCashPosition)}
             </p>
+            {digest.monthRevenueTarget > 0 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-800 rounded-full h-1">
+                  <div
+                    className={`h-1 rounded-full ${Math.round((digest.monthIncome / digest.monthRevenueTarget) * 100) >= 80 ? "bg-emerald-400" : Math.round((digest.monthIncome / digest.monthRevenueTarget) * 100) >= 50 ? "bg-yellow-400" : "bg-red-400"}`}
+                    style={{ width: `${Math.min(100, Math.round((digest.monthIncome / digest.monthRevenueTarget) * 100))}%` }}
+                  />
+                </div>
+                <p className="text-[9px] text-gray-600 mt-1">{Math.min(100, Math.round((digest.monthIncome / digest.monthRevenueTarget) * 100))}% of target</p>
+              </div>
+            )}
           </div>
           <Link href="/digest" className="glass rounded-xl p-4 hover:border-emerald-500/20 transition-all group">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Daily Digest</p>
