@@ -61,6 +61,22 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      {/* Telegram */}
+      <Link href="/settings/telegram" className="block">
+        <div className="bg-blue-950/40 border border-blue-800/50 rounded-2xl p-6 flex items-center justify-between hover:border-blue-500/60 hover:bg-blue-950/60 transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">✈️</span>
+            <div>
+              <h2 className="text-blue-300 font-bold text-base tracking-wide">Telegram Staff Bot</h2>
+              <p className="text-xs text-blue-700">Connect Telegram to manage your property hands-free</p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </div>
+      </Link>
+
       {/* WhatsApp */}
       <Link href="/settings/whatsapp" className="block">
         <div className="bg-emerald-950 border-2 border-emerald-500 rounded-2xl p-6 flex items-center justify-between hover:border-emerald-400 hover:bg-emerald-900 transition-colors shadow-[0_0_18px_rgba(16,185,129,0.25)]">
