@@ -47,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Check chat ID isn't taken by another user
     const takenRows = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM users WHERE telegram_chat_id = ${linkToken.chat_id} AND deleted_at IS NULL LIMIT 1
+      SELECT id FROM users WHERE telegram_chat_id = ${linkToken.chat_id} AND "deletedAt" IS NULL LIMIT 1
     `;
     if (takenRows.length > 0) {
       return NextResponse.json({ ok: false, error: "This Telegram account is already linked to another MrCA user" }, { status: 400 });
