@@ -1,6 +1,10 @@
 /**
  * MrCA — Telegram Staff Bot Webhook
  * POST /api/telegram/webhook
+ *
+ * /start → registration flow (no auth needed)
+ * /help  → command list
+ * everything else → GPT agent
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,16 +15,10 @@ import {
   buildLinkUrl,
   canViewFinance,
 } from "@/lib/telegram/bot";
-import {
-  cmdHelp,
-  cmdTonight,
-  cmdRevenue,
-  cmdOccupancy,
-  cmdBookings,
-  cmdDigest,
-} from "@/lib/telegram/commands";
+import { cmdHelp } from "@/lib/telegram/commands";
+import { handleTelegramMessage } from "@/lib/telegram/agent";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 interface TelegramUpdate {
   update_id: number;
@@ -39,37 +37,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const msg = update.message;
     if (!msg || !msg.text) return NextResponse.json({ ok: true });
 
-    const chatId = msg.chat.id;
-    const text   = msg.text.trim();
+    const chatId    = msg.chat.id;
+    const text      = msg.text.trim();
     const firstName = msg.from?.first_name ?? "there";
+    const cmd       = text.split("@")[0].toLowerCase();
 
-    // Strip bot username suffix (e.g. /tonight@MrCABot → /tonight)
-    const cmd = text.split("@")[0].toLowerCase();
-
-    // ── /start — registration flow ────────────────────────────────────────────
+    // ── /start — registration ─────────────────────────────────────────────────
     if (cmd === "/start") {
       const existing = await getUserByChatId(chatId);
       if (existing) {
-        await sendMessage(
-          chatId,
-          `👋 Welcome back, <b>${existing.name}</b>!\n\nYour Telegram is already linked to MrCA. Type /help to see what I can do.`
+        await sendMessage(chatId,
+          `👋 Welcome back, ${existing.name}!\n\nYour account is already linked. Just talk to me naturally — ask anything about the property.\n\nOr type /help to see example commands.`
         );
         return NextResponse.json({ ok: true });
       }
-
-      // Generate link token
       const tok = await createLinkToken(chatId);
       const url = buildLinkUrl(tok);
-
       await sendMessage(
         chatId,
-        [
-          `👋 Hey ${firstName}! Welcome to <b>MrCA Staff Bot</b>.`,
-          "",
-          "To get started, tap the button below to link your Telegram to your MrCA account.",
-          "",
-          "⏱ Link expires in <b>30 minutes</b>.",
-        ].join("\n"),
+        `👋 Hey ${firstName}! Welcome to MrCA Staff Bot.\n\nTo get started, link your Telegram to your MrCA account.\n\n⏱ Link expires in 30 minutes.`,
         "🔗 Connect My MrCA Account",
         url
       );
@@ -90,51 +76,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: true });
     }
 
-    // ── Route commands ────────────────────────────────────────────────────────
-    let reply: string;
+    // ── /help — show command examples ─────────────────────────────────────────
+    if (cmd === "/help") {
+      const helpText = [
+        `🏨 MrCA Staff Bot — ${user.name}`,
+        "",
+        "Just talk to me naturally! Examples:",
+        "",
+        "• Who's checking in today?",
+        "• What's our occupancy tonight?",
+        "• Find booking for Sipho Dlamini",
+        "• Check in guest [name]",
+        "• Check out room 3",
+        "• Is room 4 free this weekend?",
+        "• Add note to booking [ref]: late arrival",
+        "• Cancel booking for [name]",
+        canViewFinance(user.role) ? "• What did we make this month?" : "",
+        canViewFinance(user.role) ? "• Give me the morning digest" : "",
+        "",
+        "No need for slash commands — just ask.",
+      ].filter(Boolean).join("\n");
 
-    switch (cmd) {
-      case "/help":
-        reply = await cmdHelp(user.role);
-        break;
-
-      case "/tonight":
-        reply = await cmdTonight(user.organisationId);
-        break;
-
-      case "/revenue":
-        if (!canViewFinance(user.role)) {
-          reply = "⛔ You don't have permission to view financial data.";
-        } else {
-          reply = await cmdRevenue(user.organisationId);
-        }
-        break;
-
-      case "/occupancy":
-        reply = await cmdOccupancy(user.organisationId);
-        break;
-
-      case "/bookings":
-        reply = await cmdBookings(user.organisationId);
-        break;
-
-      case "/digest":
-        if (!canViewFinance(user.role)) {
-          reply = "⛔ You don't have permission to view the full digest.";
-        } else {
-          reply = await cmdDigest(user.organisationId);
-        }
-        break;
-
-      default:
-        reply = `Hey ${user.name.split(" ")[0]}! I didn't recognise that command. Type /help to see what I can do. 👋`;
+      await sendMessage(chatId, helpText);
+      return NextResponse.json({ ok: true });
     }
 
+    // ── Everything else → GPT agent ───────────────────────────────────────────
+    // Show typing indicator feel — send immediately after processing
+    const reply = await handleTelegramMessage(user, text);
     await sendMessage(chatId, reply);
     return NextResponse.json({ ok: true });
+
   } catch (err) {
     console.error("[Telegram webhook] Error:", err);
-    return NextResponse.json({ ok: true }); // always 200 to Telegram
+    return NextResponse.json({ ok: true });
   }
 }
 
