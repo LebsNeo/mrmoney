@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { RoomType, RoomStatus } from "@prisma/client";
-import { addRoom, toggleRoomStatus } from "@/app/(dashboard)/properties/actions";
+import { addRoom, toggleRoomStatus, updateRoom } from "@/app/(dashboard)/properties/actions";
 import { formatCurrency } from "@/lib/utils";
 
 interface Room {
@@ -50,6 +50,65 @@ export function PropertyRoomsCard({ propertyId, rooms }: PropertyRoomsCardProps)
     baseRate: "",
     maxOccupancy: "2",
   });
+
+  // Edit room state
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    description: string;
+    type: RoomType;
+    baseRate: string;
+    maxOccupancy: string;
+  }>({
+    name: "",
+    description: "",
+    type: RoomType.DOUBLE,
+    baseRate: "",
+    maxOccupancy: "2",
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function handleEditClick(room: Room) {
+    setEditingRoomId(room.id);
+    setEditError(null);
+    setEditForm({
+      name: room.name,
+      description: room.description ?? "",
+      type: room.type,
+      baseRate: String(getRate(room.baseRate)),
+      maxOccupancy: String(room.maxOccupancy),
+    });
+  }
+
+  function handleEditChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) {
+    setEditForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    setEditError(null);
+    const rate = parseFloat(editForm.baseRate);
+    if (!editForm.name.trim() || isNaN(rate) || rate <= 0) {
+      setEditError("Room name and a valid nightly rate are required.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateRoom(editingRoomId!, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || undefined,
+        type: editForm.type,
+        baseRate: rate,
+        maxOccupancy: parseInt(editForm.maxOccupancy) || 2,
+      });
+      if (result.success) {
+        setEditingRoomId(null);
+      } else {
+        setEditError(result.message ?? "Failed to update room");
+      }
+    });
+  }
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -157,38 +216,156 @@ export function PropertyRoomsCard({ propertyId, rooms }: PropertyRoomsCardProps)
       {/* ── Room list ── */}
       {expanded && rooms.length > 0 && (
         <div className="divide-y divide-gray-800/60">
-          {rooms.map((room) => (
-            <div key={room.id} className="flex items-center justify-between px-5 py-3.5">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm text-white font-medium">{room.name}</p>
-                  <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
-                    {roomTypeLabels[room.type] ?? room.type}
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      room.status === RoomStatus.ACTIVE
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-gray-700/50 text-gray-500"
-                    }`}
-                  >
-                    {room.status === RoomStatus.ACTIVE ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {formatCurrency(getRate(room.baseRate))}/night · {room.maxOccupancy} guests max
-                  {room.description ? ` · ${room.description}` : ""}
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle(room.id)}
-                disabled={isPending}
-                className="ml-3 text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-50 shrink-0"
+          {rooms.map((room) =>
+            editingRoomId === room.id ? (
+              /* ── Inline edit form ── */
+              <form
+                key={room.id}
+                onSubmit={handleEditSave}
+                className="px-5 py-4 bg-gray-900/70 space-y-3"
               >
-                {room.status === RoomStatus.ACTIVE ? "Deactivate" : "Activate"}
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                    Editing {room.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingRoomId(null); setEditError(null); }}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    ✕ Cancel
+                  </button>
+                </div>
+
+                {editError && (
+                  <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                    {editError}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Room name *</label>
+                    <input
+                      name="name"
+                      value={editForm.name}
+                      onChange={handleEditChange}
+                      autoFocus
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Room type</label>
+                    <select
+                      name="type"
+                      value={editForm.type}
+                      onChange={handleEditChange}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    >
+                      {roomTypes.map((t) => (
+                        <option key={t} value={t}>{roomTypeLabels[t] ?? t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Nightly rate (ZAR) *</label>
+                    <input
+                      name="baseRate"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.baseRate}
+                      onChange={handleEditChange}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Max guests</label>
+                    <input
+                      name="maxOccupancy"
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={editForm.maxOccupancy}
+                      onChange={handleEditChange}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                    Description <span className="text-gray-600 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    name="description"
+                    value={editForm.description}
+                    onChange={handleEditChange}
+                    placeholder="e.g. Garden view, en-suite bathroom"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="btn-primary flex-1 sm:flex-none"
+                  >
+                    {isPending ? "Saving…" : "Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingRoomId(null); setEditError(null); }}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* ── Normal room row ── */
+              <div key={room.id} className="flex items-center justify-between px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-white font-medium">{room.name}</p>
+                    <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+                      {roomTypeLabels[room.type] ?? room.type}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        room.status === RoomStatus.ACTIVE
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-gray-700/50 text-gray-500"
+                      }`}
+                    >
+                      {room.status === RoomStatus.ACTIVE ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatCurrency(getRate(room.baseRate))}/night · {room.maxOccupancy} guests max
+                    {room.description ? ` · ${room.description}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 ml-3 shrink-0">
+                  <button
+                    onClick={() => handleEditClick(room)}
+                    disabled={isPending}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    ✏ Edit
+                  </button>
+                  <button
+                    onClick={() => handleToggle(room.id)}
+                    disabled={isPending}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    {room.status === RoomStatus.ACTIVE ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </div>
+            )
+          )}
         </div>
       )}
 
