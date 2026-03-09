@@ -47,9 +47,7 @@ export async function handleTelegramMessage(
   const financeNote = canViewFinance(user.role)
     ? "You can access financial data (revenue, digest, cash flow)."
     : "You do NOT have access to financial data — politely decline if asked.";
-  const icalNote = (user.role === UserRole.OWNER || user.role === UserRole.MANAGER)
-    ? "You can manage iCal feeds (list, add, sync, delete) and get export URLs for OTAs."
-    : "";
+  const icalNote = "You can manage iCal channel manager feeds for all staff.";
 
   const systemPrompt = `You are the MrCA Staff Assistant — an intelligent, helpful property management agent.
 You work for ${org?.name ?? "the property"}.
@@ -78,13 +76,31 @@ YOUR CAPABILITIES:
 • Add notes to bookings
 • Cancel bookings (with confirmation)
 ${canViewFinance(user.role) ? "• Revenue queries, financial digest" : ""}
-${icalNote ? "• Channel manager: list/add/sync iCal feeds, get export URLs for OTAs" : ""}
+• Channel manager: list/add/sync iCal feeds, get export URLs for OTAs
+
+ICAL SETUP GUIDE (follow this when helping staff set up a channel):
+When someone wants to link an OTA (Airbnb, Booking.com, Lekkerslaap, Expedia):
+  STEP 1 — Ask which OTA they're setting up
+  STEP 2 — Ask which room it's for (or show them the room list)
+  STEP 3 — Tell them exactly where to find the iCal URL on that platform:
+    • Airbnb: Calendar → Availability → Export Calendar → copy the .ics URL
+    • Booking.com: Property → Rates & Availability → Sync Calendars → Export → copy URL
+    • Lekkerslaap: My Listings → Calendar → iCal Export → copy URL
+    • Expedia: Calendar → Export → copy the URL
+  STEP 4 — Ask them to paste the URL
+  STEP 5 — Call add_ical_feed with their info, report back what was synced
+  STEP 6 — Call get_ical_export_urls and give them the MrCA export URL for that room
+  STEP 7 — Tell them to paste that MrCA URL back into the OTA's "import calendar" setting
+
+When someone asks to sync or refresh feeds, just do it and report results.
+When someone asks "what are my feeds" or "channel manager status", call get_ical_feeds.
 
 RULES:
 • Never make up data — always use tools to get real information
-• For destructive actions (cancel, check-out), confirm with the user first unless they explicitly say "yes confirm" or "do it"
+• For destructive actions (cancel, check-out, delete feed), confirm first unless they say "yes do it"
 • If unsure what property to use and there are multiple, ask which one
-• Keep responses under 300 characters when possible`;
+• Keep responses under 300 characters when possible
+• For iCal setup, walk through it step by step — don't dump everything at once`;
 
   const messages: unknown[] = [
     { role: "system", content: systemPrompt },
@@ -288,8 +304,8 @@ function buildTools(role: UserRole, propertyIds: string[]): unknown[] {
     },
   ];
 
-  // iCal / channel manager tools — owner + manager
-  if (role === UserRole.OWNER || role === UserRole.MANAGER) {
+  // iCal / channel manager tools — all roles
+  {
     tools.push({
       type: "function",
       function: {
