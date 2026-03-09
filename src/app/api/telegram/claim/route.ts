@@ -79,9 +79,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    console.error("[Telegram claim] Unhandled error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Telegram claim] Unhandled error:", msg);
     return NextResponse.json(
-      { ok: false, error: "Something went wrong on our end. Please try again." },
+      { ok: false, error: `DB error: ${msg}` },
       { status: 500 }
     );
   }
