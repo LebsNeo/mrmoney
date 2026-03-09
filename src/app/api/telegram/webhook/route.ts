@@ -93,6 +93,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         "• Cancel booking for [name]",
         canViewFinance(user.role) ? "• What did we make this month?" : "",
         canViewFinance(user.role) ? "• Give me the morning digest" : "",
+        (user.role === "OWNER" || user.role === "MANAGER") ? "• Show my iCal feeds" : "",
+        (user.role === "OWNER" || user.role === "MANAGER") ? "• Add Airbnb iCal feed for Room 1: [url]" : "",
+        (user.role === "OWNER" || user.role === "MANAGER") ? "• Sync all iCal feeds" : "",
+        (user.role === "OWNER" || user.role === "MANAGER") ? "• Give me the export URLs for GolfBnB" : "",
         "",
         "No need for slash commands — just ask.",
       ].filter(Boolean).join("\n");

@@ -6,7 +6,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { canViewFinance, type TelegramUser } from "@/lib/telegram/bot";
-import { UserRole } from "@prisma/client";
+import { UserRole, OTAPlatform } from "@prisma/client";
+import { syncICalFeed, syncAllFeeds } from "@/lib/ical-sync";
+import { signToken } from "@/app/api/ical/export/[token]/route";
 
 const CONV_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour idle → fresh context
 const MAX_HISTORY = 20;
@@ -45,6 +47,9 @@ export async function handleTelegramMessage(
   const financeNote = canViewFinance(user.role)
     ? "You can access financial data (revenue, digest, cash flow)."
     : "You do NOT have access to financial data — politely decline if asked.";
+  const icalNote = (user.role === UserRole.OWNER || user.role === UserRole.MANAGER)
+    ? "You can manage iCal feeds (list, add, sync, delete) and get export URLs for OTAs."
+    : "";
 
   const systemPrompt = `You are the MrCA Staff Assistant — an intelligent, helpful property management agent.
 You work for ${org?.name ?? "the property"}.
@@ -73,6 +78,7 @@ YOUR CAPABILITIES:
 • Add notes to bookings
 • Cancel bookings (with confirmation)
 ${canViewFinance(user.role) ? "• Revenue queries, financial digest" : ""}
+${icalNote ? "• Channel manager: list/add/sync iCal feeds, get export URLs for OTAs" : ""}
 
 RULES:
 • Never make up data — always use tools to get real information
@@ -281,6 +287,93 @@ function buildTools(role: UserRole, propertyIds: string[]): unknown[] {
       },
     },
   ];
+
+  // iCal / channel manager tools — owner + manager
+  if (role === UserRole.OWNER || role === UserRole.MANAGER) {
+    tools.push({
+      type: "function",
+      function: {
+        name: "get_ical_feeds",
+        description: "List all iCal import feeds configured for a property. Shows platform, room, last sync status.",
+        parameters: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", description: "Property ID. Use first property if only one." },
+          },
+          required: ["propertyId"],
+        },
+      },
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "add_ical_feed",
+        description: "Add a new iCal import feed URL for a room from an OTA (Airbnb, Booking.com, Lekkerslaap, Expedia). Use this to link an OTA calendar to MrCA.",
+        parameters: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", description: "Property ID" },
+            roomId: { type: "string", description: "Room ID to link this feed to (optional — leave out for property-level)" },
+            platform: {
+              type: "string",
+              enum: ["AIRBNB", "BOOKING_COM", "LEKKERSLAAP", "EXPEDIA", "OTHER"],
+              description: "OTA platform name",
+            },
+            feedName: { type: "string", description: "Friendly name, e.g. 'Room 1 - Airbnb'" },
+            icalUrl: { type: "string", description: "The iCal URL from the OTA platform" },
+          },
+          required: ["propertyId", "platform", "feedName", "icalUrl"],
+        },
+      },
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "sync_ical_feeds",
+        description: "Trigger a sync of iCal feeds — pulls latest bookings from OTAs. Can sync all feeds or a specific one.",
+        parameters: {
+          type: "object",
+          properties: {
+            feedId: { type: "string", description: "Optional: specific feed ID to sync. Omit to sync all feeds for the property." },
+            propertyId: { type: "string", description: "Optional: sync all feeds for this property." },
+          },
+        },
+      },
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "get_ical_export_urls",
+        description: "Get the iCal export URLs for each room in a property. These are the URLs you give to OTAs (Booking.com, Airbnb, etc.) so they can subscribe to your availability calendar.",
+        parameters: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", description: "Property ID" },
+          },
+          required: ["propertyId"],
+        },
+      },
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "delete_ical_feed",
+        description: "Remove an iCal import feed. Confirm with user first.",
+        parameters: {
+          type: "object",
+          properties: {
+            feedId: { type: "string", description: "Feed ID to delete" },
+            confirmed: { type: "boolean", description: "True if user confirmed deletion" },
+          },
+          required: ["feedId", "confirmed"],
+        },
+      },
+    });
+  }
 
   if (canViewFinance(role)) {
     tools.push({
@@ -539,6 +632,104 @@ async function executeTool(
           data: { status: "CANCELLED" },
         });
         return { success: true, message: `❌ Booking for ${booking.guestName} has been cancelled` };
+      }
+
+      case "get_ical_feeds": {
+        const propId = (args.propertyId as string) || firstPropId;
+        const feeds = await prisma.iCalFeed.findMany({
+          where: { propertyId: propId },
+          include: { room: { select: { name: true } } },
+          orderBy: { createdAt: "asc" },
+        });
+        if (!feeds.length) return { found: false, message: "No iCal feeds configured yet. Use add_ical_feed to link an OTA." };
+        return {
+          found: true,
+          feeds: feeds.map(f => ({
+            id: f.id,
+            name: f.feedName,
+            platform: f.platform,
+            room: f.room?.name ?? "Property-level",
+            active: f.isActive,
+            lastSync: f.lastSyncAt?.toISOString() ?? "Never",
+            lastError: f.lastError ?? null,
+            url: f.icalUrl,
+          })),
+        };
+      }
+
+      case "add_ical_feed": {
+        const propId = (args.propertyId as string) || firstPropId;
+        const platform = args.platform as OTAPlatform;
+        const feed = await prisma.iCalFeed.create({
+          data: {
+            propertyId: propId,
+            roomId: (args.roomId as string) || null,
+            platform,
+            feedName: args.feedName as string,
+            icalUrl: args.icalUrl as string,
+            isActive: true,
+          },
+        });
+        // Trigger initial sync
+        try {
+          const syncResult = await syncICalFeed(feed.id);
+          return {
+            success: true,
+            feedId: feed.id,
+            message: `✅ Feed added and synced! Created ${syncResult.created} booking(s), updated ${syncResult.updated}.`,
+          };
+        } catch {
+          return { success: true, feedId: feed.id, message: "✅ Feed added. Initial sync failed — try syncing manually." };
+        }
+      }
+
+      case "sync_ical_feeds": {
+        if (args.feedId) {
+          const result = await syncICalFeed(args.feedId as string);
+          if (result.error) return { success: false, error: result.error };
+          return { success: true, message: `Synced ${result.feedName}: ${result.created} new, ${result.updated} updated, ${result.skipped} skipped.` };
+        } else {
+          const propId = (args.propertyId as string) || firstPropId;
+          const results = await syncAllFeeds(propId);
+          const total = results.reduce((s, r) => ({ created: s.created + r.created, updated: s.updated + r.updated }), { created: 0, updated: 0 });
+          const errors = results.filter(r => r.error).map(r => `${r.feedName}: ${r.error}`);
+          return {
+            success: true,
+            synced: results.length,
+            created: total.created,
+            updated: total.updated,
+            errors: errors.length ? errors : null,
+            message: `Synced ${results.length} feed(s) — ${total.created} new booking(s), ${total.updated} updated.`,
+          };
+        }
+      }
+
+      case "get_ical_export_urls": {
+        const propId = (args.propertyId as string) || firstPropId;
+        const prop = await prisma.property.findFirst({
+          where: { id: propId, organisationId: orgId },
+          include: { rooms: { where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } } },
+        });
+        if (!prop) return { error: "Property not found" };
+        const baseUrl = "https://www.mrca.co.za";
+        return {
+          property: prop.name,
+          instruction: "Give these URLs to your OTAs. They will call them to subscribe to your availability calendar.",
+          rooms: prop.rooms.map(r => ({
+            room: r.name,
+            icalUrl: `${baseUrl}/api/ical/export/${signToken(r.id, orgId)}`,
+          })),
+        };
+      }
+
+      case "delete_ical_feed": {
+        if (!args.confirmed) return { needsConfirmation: true, message: "Are you sure you want to delete this iCal feed? It won't delete existing bookings. Reply 'yes delete it' to confirm." };
+        const feed = await prisma.iCalFeed.findFirst({
+          where: { id: args.feedId as string, property: { organisationId: orgId } },
+        });
+        if (!feed) return { error: "Feed not found" };
+        await prisma.iCalFeed.delete({ where: { id: feed.id } });
+        return { success: true, message: `Deleted feed: ${feed.feedName}` };
       }
 
       case "get_revenue": {
