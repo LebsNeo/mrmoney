@@ -66,14 +66,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         [
           `👋 Hey ${firstName}! Welcome to <b>MrCA Staff Bot</b>.`,
           "",
-          "To get started, link your Telegram to your MrCA account:",
+          "To get started, tap the button below to link your Telegram to your MrCA account.",
           "",
-          `🔗 <a href="${url}">Click here to connect your account</a>`,
-          "",
-          "⏱ This link expires in <b>30 minutes</b>.",
-          "",
-          "Once connected, type /help to see available commands.",
-        ].join("\n")
+          "⏱ Link expires in <b>30 minutes</b>.",
+        ].join("\n"),
+        "🔗 Connect My MrCA Account",
+        url
       );
       return NextResponse.json({ ok: true });
     }
@@ -85,13 +83,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const url = buildLinkUrl(tok);
       await sendMessage(
         chatId,
-        [
-          "⚠️ Your Telegram isn't linked to an MrCA account yet.",
-          "",
-          `🔗 <a href="${url}">Click here to connect your account</a>`,
-          "",
-          "⏱ Link expires in 30 minutes.",
-        ].join("\n")
+        "⚠️ Your Telegram isn't linked to an MrCA account yet.\n\n⏱ Link expires in 30 minutes.",
+        "🔗 Connect My MrCA Account",
+        url
       );
       return NextResponse.json({ ok: true });
     }

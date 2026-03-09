@@ -68,7 +68,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       [
         `🎉 <b>You're all set, ${existing?.name ?? ""}!</b>`,
         "",
-        "Your MrCA account is now connected. Here's what you can do:",
+        "Your MrCA account is now connected. Try these commands:",
         "",
         "/tonight — Tonight's house status",
         "/bookings — Upcoming check-ins",

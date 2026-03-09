@@ -17,8 +17,9 @@ export function canViewFinance(role: UserRole): boolean {
 }
 
 export function buildLinkUrl(tok: string): string {
-  const base = process.env.NEXTAUTH_URL ?? "https://www.mrca.co.za";
-  return `${base}/settings/telegram/connect?token=${tok}`;
+  // Always use production domain — webhook runs on mrmoney.vercel.app
+  // but the connect page must be on the real domain for auth to work
+  return `https://www.mrca.co.za/settings/telegram/connect?token=${tok}`;
 }
 
 function token(): string {
@@ -27,16 +28,29 @@ function token(): string {
   return t;
 }
 
-export async function sendMessage(chatId: number | string, text: string): Promise<void> {
+export async function sendMessage(
+  chatId: number | string,
+  text: string,
+  buttonLabel?: string,
+  buttonUrl?: string
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  };
+
+  if (buttonLabel && buttonUrl) {
+    payload.reply_markup = {
+      inline_keyboard: [[{ text: buttonLabel, url: buttonUrl }]],
+    };
+  }
+
   await fetch(`${BASE}${token()}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
