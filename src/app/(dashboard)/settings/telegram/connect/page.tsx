@@ -26,39 +26,42 @@ export default async function TelegramConnectPage({ searchParams }: Props) {
     return <ErrorPage message="Invalid or missing link. Please type /start in the MrCA bot to get a new one." />;
   }
 
-  // Validate the token
-  const linkToken = await prisma.telegramLinkToken.findUnique({
-    where: { token },
-  });
+  // Validate the token — raw SQL to avoid Prisma client cache issues
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; chat_id: string; used_at: Date | null; expires_at: Date }>
+  >`SELECT id, chat_id, used_at, expires_at FROM telegram_link_tokens WHERE token = ${token} LIMIT 1`;
 
-  if (!linkToken) {
+  if (rows.length === 0) {
     return <ErrorPage message="This link is invalid. Please type /start in the MrCA bot to get a new one." />;
   }
 
-  if (linkToken.usedAt) {
+  const linkToken = rows[0];
+
+  if (linkToken.used_at) {
     return <ErrorPage message="This link has already been used. Your Telegram should already be connected — type /help in the bot." />;
   }
 
-  if (new Date() > linkToken.expiresAt) {
+  if (new Date() > linkToken.expires_at) {
     return <ErrorPage message="This link has expired (links are valid for 30 minutes). Please type /start in the MrCA bot to get a fresh one." />;
   }
 
   const userId = (session.user as { id: string }).id;
 
-  // Check if this user already has a Telegram linked
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true, telegramChatId: true },
-  });
+  // Check if this user already has a Telegram linked — raw SQL
+  const userRows = await prisma.$queryRaw<
+    Array<{ name: string; telegram_chat_id: string | null }>
+  >`SELECT name, telegram_chat_id FROM users WHERE id = ${userId} LIMIT 1`;
 
-  if (currentUser?.telegramChatId) {
+  const currentUser = userRows[0] ?? null;
+
+  if (currentUser?.telegram_chat_id) {
     return <ErrorPage message="Your account already has a Telegram linked. Unlink it from Settings first if you want to connect a new one." />;
   }
 
   return (
     <TelegramConnectClient
       token={token}
-      chatId={linkToken.chatId}
+      chatId={linkToken.chat_id}
       userName={currentUser?.name ?? session.user.name ?? ""}
     />
   );

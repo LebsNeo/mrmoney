@@ -1,9 +1,6 @@
 /**
  * MrCA — Telegram Link Claim
  * POST /api/telegram/claim
- *
- * Called by TelegramConnectClient when staff confirm the link.
- * Validates token, links telegramChatId to the logged-in user, notifies bot.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,50 +20,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
   }
 
-  // Validate token
-  const linkToken = await prisma.telegramLinkToken.findUnique({ where: { token } });
+  // Validate token — raw SQL
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; chat_id: string; used_at: Date | null; expires_at: Date }>
+  >`SELECT id, chat_id, used_at, expires_at FROM telegram_link_tokens WHERE token = ${token} LIMIT 1`;
 
-  if (!linkToken)              return NextResponse.json({ ok: false, error: "Invalid link" }, { status: 400 });
-  if (linkToken.usedAt)        return NextResponse.json({ ok: false, error: "Link already used" }, { status: 400 });
-  if (new Date() > linkToken.expiresAt) return NextResponse.json({ ok: false, error: "Link expired" }, { status: 400 });
+  if (rows.length === 0) return NextResponse.json({ ok: false, error: "Invalid link" }, { status: 400 });
+
+  const linkToken = rows[0];
+  if (linkToken.used_at)               return NextResponse.json({ ok: false, error: "Link already used" }, { status: 400 });
+  if (new Date() > linkToken.expires_at) return NextResponse.json({ ok: false, error: "Link expired" }, { status: 400 });
 
   const userId = (session.user as { id: string }).id;
 
-  // Make sure this user isn't already linked
-  const existing = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { telegramChatId: true, name: true },
-  });
-  if (existing?.telegramChatId) {
+  // Check this user isn't already linked
+  const userRows = await prisma.$queryRaw<
+    Array<{ telegram_chat_id: string | null; name: string }>
+  >`SELECT telegram_chat_id, name FROM users WHERE id = ${userId} LIMIT 1`;
+
+  const currentUser = userRows[0];
+  if (currentUser?.telegram_chat_id) {
     return NextResponse.json({ ok: false, error: "Account already linked to Telegram" }, { status: 400 });
   }
 
-  // Make sure chat ID isn't already claimed by another user
-  const chatTaken = await prisma.user.findFirst({
-    where: { telegramChatId: linkToken.chatId, deletedAt: null },
-  });
-  if (chatTaken) {
+  // Check chat ID isn't taken by another user
+  const takenRows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM users WHERE telegram_chat_id = ${linkToken.chat_id} AND deleted_at IS NULL LIMIT 1
+  `;
+  if (takenRows.length > 0) {
     return NextResponse.json({ ok: false, error: "This Telegram account is already linked to another user" }, { status: 400 });
   }
 
   // Link the accounts
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { telegramChatId: linkToken.chatId },
-    }),
-    prisma.telegramLinkToken.update({
-      where: { token },
-      data: { userId, usedAt: new Date() },
-    }),
-  ]);
+  await prisma.$executeRaw`UPDATE users SET telegram_chat_id = ${linkToken.chat_id} WHERE id = ${userId}`;
+  await prisma.$executeRaw`UPDATE telegram_link_tokens SET used_at = now(), user_id = ${userId} WHERE id = ${linkToken.id}`;
 
-  // Notify the bot — send a welcome message
+  // Send welcome message
   try {
     await sendMessage(
-      linkToken.chatId,
+      linkToken.chat_id,
       [
-        `🎉 <b>You're all set, ${existing?.name ?? ""}!</b>`,
+        `🎉 <b>You're all set, ${currentUser?.name ?? ""}!</b>`,
         "",
         "Your MrCA account is now connected. Try these commands:",
         "",
@@ -77,7 +71,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ].join("\n")
     );
   } catch {
-    // Non-fatal — link still worked
     console.warn("[Telegram claim] Could not send welcome message");
   }
 
