@@ -5,6 +5,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { buildDigest, formatDigestMessage } from "@/lib/whatsapp/daily-digest";
+import { UserRole } from "@prisma/client";
+import { canViewFinance } from "./bot";
 
 function R(n: number): string {
   return `R ${n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -19,18 +21,23 @@ function saToday(): { start: Date; end: Date; saDate: Date } {
 
 // ─── /help ────────────────────────────────────────────────────────────────────
 
-export async function cmdHelp(): Promise<string> {
-  return [
+export async function cmdHelp(role: UserRole): Promise<string> {
+  const lines = [
     "🏨 <b>MrCA Staff Bot</b>",
     "",
     "Available commands:",
     "/tonight — Tonight's house (arrivals, in-house, departures)",
-    "/revenue — Today's revenue + month-to-date",
     "/occupancy — Current occupancy across all properties",
     "/bookings — Next 5 upcoming check-ins",
-    "/digest — Full morning digest",
-    "/help — This menu",
-  ].join("\n");
+  ];
+
+  if (canViewFinance(role)) {
+    lines.push("/revenue — Today's revenue + month-to-date");
+    lines.push("/digest — Full morning digest");
+  }
+
+  lines.push("/help — This menu");
+  return lines.join("\n");
 }
 
 // ─── /tonight ────────────────────────────────────────────────────────────────
@@ -60,7 +67,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
         status: { in: ["CONFIRMED", "CHECKED_IN"] },
         checkIn: { gte: start, lte: end },
       },
-      select: { guestName: true, roomId: true },
+      select: { guestName: true },
     });
 
     const departing = await prisma.booking.findMany({
@@ -69,7 +76,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
         status: { in: ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"] },
         checkOut: { gte: start, lte: end },
       },
-      select: { guestName: true, roomId: true },
+      select: { guestName: true },
     });
 
     const inHouse = await prisma.booking.findMany({
@@ -79,7 +86,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
         checkIn: { lt: start },
         checkOut: { gt: end },
       },
-      select: { guestName: true, roomId: true },
+      select: { guestName: true },
     });
 
     const occupied = arriving.length + inHouse.length;
@@ -87,15 +94,9 @@ export async function cmdTonight(orgId: string): Promise<string> {
 
     lines.push(`<b>${prop.name}</b> — ${occupied}/${totalRooms} rooms (${pct}%)`);
 
-    if (arriving.length > 0) {
-      lines.push(`  🛬 Arriving: ${arriving.map((b) => b.guestName).join(", ")}`);
-    }
-    if (inHouse.length > 0) {
-      lines.push(`  🏠 In-house: ${inHouse.map((b) => b.guestName).join(", ")}`);
-    }
-    if (departing.length > 0) {
-      lines.push(`  🛫 Departing: ${departing.map((b) => b.guestName).join(", ")}`);
-    }
+    if (arriving.length > 0)  lines.push(`  🛬 Arriving: ${arriving.map((b) => b.guestName).join(", ")}`);
+    if (inHouse.length > 0)   lines.push(`  🏠 In-house: ${inHouse.map((b) => b.guestName).join(", ")}`);
+    if (departing.length > 0) lines.push(`  🛫 Departing: ${departing.map((b) => b.guestName).join(", ")}`);
     if (arriving.length === 0 && inHouse.length === 0 && departing.length === 0) {
       lines.push("  — No guests tonight");
     }
@@ -114,25 +115,17 @@ export async function cmdRevenue(orgId: string): Promise<string> {
   const [todayTx, mtdTx] = await Promise.all([
     prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: {
-        organisationId: orgId, deletedAt: null,
-        type: "INCOME",
-        date: { gte: start, lte: end },
-      },
+      where: { organisationId: orgId, deletedAt: null, type: "INCOME", date: { gte: start, lte: end } },
     }),
     prisma.transaction.aggregate({
       _sum: { amount: true },
-      where: {
-        organisationId: orgId, deletedAt: null,
-        type: "INCOME",
-        date: { gte: monthStart, lte: end },
-      },
+      where: { organisationId: orgId, deletedAt: null, type: "INCOME", date: { gte: monthStart, lte: end } },
     }),
   ]);
 
-  const todayAmount  = Number(todayTx._sum.amount  ?? 0);
-  const mtdAmount    = Number(mtdTx._sum.amount    ?? 0);
-  const monthName    = saDate.toLocaleDateString("en-ZA", { month: "long" });
+  const todayAmount = Number(todayTx._sum.amount ?? 0);
+  const mtdAmount   = Number(mtdTx._sum.amount  ?? 0);
+  const monthName   = saDate.toLocaleDateString("en-ZA", { month: "long" });
 
   return [
     "💰 <b>Revenue Summary</b>",
@@ -202,12 +195,13 @@ export async function cmdBookings(orgId: string): Promise<string> {
     },
     orderBy: { checkIn: "asc" },
     take: 5,
-    include: { property: { select: { name: true } }, room: { select: { name: true } } },
+    include: {
+      property: { select: { name: true } },
+      room:     { select: { name: true } },
+    },
   });
 
-  if (upcoming.length === 0) {
-    return "📅 No upcoming confirmed bookings.";
-  }
+  if (upcoming.length === 0) return "📅 No upcoming confirmed bookings.";
 
   const lines = ["📅 <b>Next 5 Check-ins</b>", ""];
 

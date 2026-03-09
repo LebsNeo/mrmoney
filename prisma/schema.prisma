@@ -234,17 +234,35 @@ model User {
   isActive       Boolean   @default(true)
   emailVerified  Boolean   @default(false) @map("email_verified")
   lastLoginAt    DateTime?
+  // Telegram
+  telegramChatId String?   @unique @map("telegram_chat_id")
   // Audit
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
   // Relations
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  organisation        Organisation        @relation(fields: [organisationId], references: [id])
+  telegramLinkTokens  TelegramLinkToken[]
 
   @@index([organisationId])
   @@index([email])
   @@map("users")
+}
+
+model TelegramLinkToken {
+  id        String    @id @default(uuid())
+  userId    String?   @map("user_id")   // null until user claims it
+  chatId    String    @map("chat_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([token])
+  @@map("telegram_link_tokens")
 }
 
 model Property {

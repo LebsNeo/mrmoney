@@ -1,13 +1,16 @@
 /**
  * MrCA — Telegram Staff Bot Webhook
  * POST /api/telegram/webhook
- *
- * Handles incoming Telegram updates (text commands from staff/owner).
- * Security: only chat IDs in TELEGRAM_ALLOWED_CHAT_IDS env var are served.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { sendMessage, isAllowed, getOrgId } from "@/lib/telegram/bot";
+import {
+  sendMessage,
+  getUserByChatId,
+  createLinkToken,
+  buildLinkUrl,
+  canViewFinance,
+} from "@/lib/telegram/bot";
 import {
   cmdHelp,
   cmdTonight,
@@ -34,63 +37,103 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const update: TelegramUpdate = await req.json();
     const msg = update.message;
-
-    // Ignore non-text and non-message updates
     if (!msg || !msg.text) return NextResponse.json({ ok: true });
 
-    const chatId   = msg.chat.id;
-    const text     = msg.text.trim();
-    const name     = msg.from?.first_name ?? "there";
+    const chatId = msg.chat.id;
+    const text   = msg.text.trim();
+    const firstName = msg.from?.first_name ?? "there";
 
-    // ── Security: only allow configured chat IDs ──────────────────────────────
-    if (!isAllowed(chatId)) {
-      console.warn(`[Telegram] Unauthorised chat_id: ${chatId}`);
-      await sendMessage(chatId, "⛔ You are not authorised to use this bot.");
+    // Strip bot username suffix (e.g. /tonight@MrCABot → /tonight)
+    const cmd = text.split("@")[0].toLowerCase();
+
+    // ── /start — registration flow ────────────────────────────────────────────
+    if (cmd === "/start") {
+      const existing = await getUserByChatId(chatId);
+      if (existing) {
+        await sendMessage(
+          chatId,
+          `👋 Welcome back, <b>${existing.name}</b>!\n\nYour Telegram is already linked to MrCA. Type /help to see what I can do.`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      // Generate link token
+      const tok = await createLinkToken(chatId);
+      const url = buildLinkUrl(tok);
+
+      await sendMessage(
+        chatId,
+        [
+          `👋 Hey ${firstName}! Welcome to <b>MrCA Staff Bot</b>.`,
+          "",
+          "To get started, link your Telegram to your MrCA account:",
+          "",
+          `🔗 <a href="${url}">Click here to connect your account</a>`,
+          "",
+          "⏱ This link expires in <b>30 minutes</b>.",
+          "",
+          "Once connected, type /help to see available commands.",
+        ].join("\n")
+      );
       return NextResponse.json({ ok: true });
     }
 
-    // ── Resolve org ───────────────────────────────────────────────────────────
-    const orgId = getOrgId();
-    if (!orgId) {
-      await sendMessage(chatId, "⚠️ Bot not configured — TELEGRAM_ORG_ID missing.");
+    // ── All other commands require a linked account ───────────────────────────
+    const user = await getUserByChatId(chatId);
+    if (!user) {
+      const tok = await createLinkToken(chatId);
+      const url = buildLinkUrl(tok);
+      await sendMessage(
+        chatId,
+        [
+          "⚠️ Your Telegram isn't linked to an MrCA account yet.",
+          "",
+          `🔗 <a href="${url}">Click here to connect your account</a>`,
+          "",
+          "⏱ Link expires in 30 minutes.",
+        ].join("\n")
+      );
       return NextResponse.json({ ok: true });
     }
 
     // ── Route commands ────────────────────────────────────────────────────────
-    // Strip bot username suffix (e.g. /tonight@MrCABot → /tonight)
-    const cmd = text.split("@")[0].toLowerCase();
-
     let reply: string;
 
     switch (cmd) {
-      case "/start":
       case "/help":
-        reply = await cmdHelp();
+        reply = await cmdHelp(user.role);
         break;
 
       case "/tonight":
-        reply = await cmdTonight(orgId);
+        reply = await cmdTonight(user.organisationId);
         break;
 
       case "/revenue":
-        reply = await cmdRevenue(orgId);
+        if (!canViewFinance(user.role)) {
+          reply = "⛔ You don't have permission to view financial data.";
+        } else {
+          reply = await cmdRevenue(user.organisationId);
+        }
         break;
 
       case "/occupancy":
-        reply = await cmdOccupancy(orgId);
+        reply = await cmdOccupancy(user.organisationId);
         break;
 
       case "/bookings":
-        reply = await cmdBookings(orgId);
+        reply = await cmdBookings(user.organisationId);
         break;
 
       case "/digest":
-        reply = await cmdDigest(orgId);
+        if (!canViewFinance(user.role)) {
+          reply = "⛔ You don't have permission to view the full digest.";
+        } else {
+          reply = await cmdDigest(user.organisationId);
+        }
         break;
 
       default:
-        // Friendly fallback
-        reply = `Hey ${name}! I didn't recognise that command. Type /help to see what I can do. 👋`;
+        reply = `Hey ${user.name.split(" ")[0]}! I didn't recognise that command. Type /help to see what I can do. 👋`;
     }
 
     await sendMessage(chatId, reply);
@@ -101,7 +144,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-// ── GET: health check / verify endpoint exists ────────────────────────────────
 export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ ok: true, service: "MrCA Telegram Staff Bot" });
 }
