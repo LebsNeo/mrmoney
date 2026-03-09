@@ -69,6 +69,18 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "EFT" | "CARD">("CASH");
   const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
 
+  // Field-level validation errors
+  const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
+
+  function clearFieldError(field: string) {
+    setFieldErrors(prev => {
+      if (!prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+  }
+
   // Room availability
   const [availabilityMap, setAvailabilityMap] = useState<Map<string, AvailabilityRoom>>(new Map());
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -116,6 +128,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         next.delete(roomId);
       } else {
         next.set(roomId, baseRate);
+        clearFieldError("rooms");
       }
       return next;
     });
@@ -158,8 +171,25 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
     e.preventDefault();
     setError(null);
 
-    if (!propertyId || selectedRooms.size === 0 || !guestName || !checkIn || !checkOut) {
-      setError("Please select at least one room and fill in all required fields");
+    const missing = new Set<string>();
+    if (!propertyId) missing.add("propertyId");
+    if (selectedRooms.size === 0) missing.add("rooms");
+    if (!guestName.trim()) missing.add("guestName");
+    if (!checkIn) missing.add("checkIn");
+    if (!checkOut) missing.add("checkOut");
+
+    setFieldErrors(missing);
+
+    if (missing.size > 0) {
+      const labels: Record<string, string> = {
+        propertyId: "Property",
+        rooms: "Room selection",
+        guestName: "Guest Name",
+        checkIn: "Check-in date",
+        checkOut: "Check-out date",
+      };
+      const list = Array.from(missing).map(k => labels[k]).join(", ");
+      setError(`Please complete the following required fields: ${list}`);
       return;
     }
     if (nights <= 0) {
@@ -208,6 +238,18 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const inputClass =
     "w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors";
   const labelClass = "block text-xs font-medium text-gray-400 mb-1.5";
+
+  function fieldClass(field: string) {
+    return fieldErrors.has(field)
+      ? inputClass.replace("border-gray-700", "border-red-500") + " focus:border-red-400"
+      : inputClass;
+  }
+
+  function FieldError({ field, message }: { field: string; message: string }) {
+    return fieldErrors.has(field) ? (
+      <p className="text-xs text-red-400 mt-1">⚠ {message}</p>
+    ) : null;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -317,7 +359,9 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
             </div>
           )}
           {selectedRooms.size === 0 && rooms.length > 0 && (
-            <p className="text-xs text-gray-500 mt-2">Select one or more rooms above. Tick multiple for group/family bookings.</p>
+            <p className={`text-xs mt-2 ${fieldErrors.has("rooms") ? "text-red-400" : "text-gray-500"}`}>
+              {fieldErrors.has("rooms") ? "⚠ Please select at least one room" : "Select one or more rooms above. Tick multiple for group/family bookings."}
+            </p>
           )}
         </div>
       </div>
@@ -333,10 +377,11 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
             <input
               type="text"
               value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
+              onChange={(e) => { setGuestName(e.target.value); clearFieldError("guestName"); }}
               placeholder="e.g. John Smith"
-              className={inputClass}
+              className={fieldClass("guestName")}
             />
+            <FieldError field="guestName" message="Guest name is required" />
           </div>
           <div>
             <label className={labelClass}>Email</label>
@@ -372,19 +417,21 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
             <input
               type="date"
               value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className={inputClass}
+              onChange={(e) => { setCheckIn(e.target.value); clearFieldError("checkIn"); }}
+              className={fieldClass("checkIn")}
             />
+            <FieldError field="checkIn" message="Check-in date is required" />
           </div>
           <div>
             <label className={labelClass}>Check-out *</label>
             <input
               type="date"
               value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
+              onChange={(e) => { setCheckOut(e.target.value); clearFieldError("checkOut"); }}
               min={checkIn}
-              className={inputClass}
+              className={fieldClass("checkOut")}
             />
+            <FieldError field="checkOut" message="Check-out date is required" />
           </div>
           <div>
             <label className={labelClass}>Source *</label>
