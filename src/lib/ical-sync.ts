@@ -92,6 +92,7 @@ export async function syncICalFeed(feedId: string): Promise<SyncResult> {
       });
 
       const data = {
+        organisationId: feed.property.organisationId,
         propertyId: feed.propertyId,
         roomId,
         source: feed.platform as any,
