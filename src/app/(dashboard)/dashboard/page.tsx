@@ -136,20 +136,25 @@ export default async function DashboardPage({
 
     const baseWhere = {
       property: { organisationId: orgId, id: selectedPropertyId },
-      status: { not: "CANCELLED" as const },
+      // Exclude processed/dead bookings — CHECKED_OUT guests have already left,
+      // NO_SHOW guests never arrived, CANCELLED are void.
+      status: { notIn: ["CANCELLED", "CHECKED_OUT", "NO_SHOW"] as const },
       deletedAt: null,
     };
     const bookingSelect = { id: true, guestName: true, checkIn: true, checkOut: true, room: { select: { name: true } } };
 
     [arrivals, departures, stayovers] = await Promise.all([
+      // Arriving today: checkIn falls within today's SAST day range
       prisma.booking.findMany({
         where: { ...baseWhere, checkIn: { gte: todayStart, lte: todayEnd } },
         select: bookingSelect, orderBy: { checkIn: "asc" },
       }),
+      // Departing today: checkOut falls within today's SAST day range
       prisma.booking.findMany({
         where: { ...baseWhere, checkOut: { gte: todayStart, lte: todayEnd } },
         select: bookingSelect, orderBy: { checkOut: "asc" },
       }),
+      // In-house tonight: checked in before today, checking out after today
       prisma.booking.findMany({
         where: { ...baseWhere, checkIn: { lt: todayStart }, checkOut: { gt: todayEnd } },
         select: bookingSelect, orderBy: { checkOut: "asc" },

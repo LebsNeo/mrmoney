@@ -27,23 +27,23 @@ function unfold(raw: string): string {
   return raw.replace(/\r?\n[ \t]/g, "");
 }
 
-/** Parse DATE or DATETIME value → Date at midnight local */
+/** Parse DATE or DATETIME value → Date at noon UTC (consistent with manual bookings) */
 function parseICalDate(val: string): Date | null {
   // Strip tzid params: DTSTART;TZID=Africa/Johannesburg:20260701T140000
   const clean = val.replace(/^.*:/, "").trim();
   if (clean.length === 8) {
-    // DATE: YYYYMMDD
+    // DATE: YYYYMMDD — store as noon UTC to match manual booking convention
     const y = parseInt(clean.slice(0, 4));
     const m = parseInt(clean.slice(4, 6)) - 1;
     const d = parseInt(clean.slice(6, 8));
-    return new Date(y, m, d);
+    return new Date(Date.UTC(y, m, d, 12, 0, 0, 0));
   }
   if (clean.length >= 15) {
-    // DATETIME: YYYYMMDDTHHmmss[Z]
+    // DATETIME: YYYYMMDDTHHmmss[Z] — extract date part only, store as noon UTC
     const y = parseInt(clean.slice(0, 4));
     const mo = parseInt(clean.slice(4, 6)) - 1;
     const d = parseInt(clean.slice(6, 8));
-    return new Date(y, mo, d);
+    return new Date(Date.UTC(y, mo, d, 12, 0, 0, 0));
   }
   return null;
 }
