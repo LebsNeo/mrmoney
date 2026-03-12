@@ -112,17 +112,20 @@ const SAST_OFFSET_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export function getSASTDayRange(date?: Date): { start: Date; end: Date } {
   const base = date ?? new Date();
-  // Midnight UTC of the day
-  const utcMidnight = new Date(base);
-  utcMidnight.setUTCHours(0, 0, 0, 0);
-  // Shift back 2h to get SAST midnight (= UTC 22:00 previous day)
-  const start = new Date(utcMidnight.getTime() - SAST_OFFSET_MS);
+  // Shift into SAST (+2h) first, THEN find midnight — this is the correct order.
+  // Bug with the old approach: taking UTC midnight then subtracting 2h means
+  // between 22:00–23:59 UTC (midnight–2am SAST) you'd compute the previous day's range.
+  const sastNow = new Date(base.getTime() + SAST_OFFSET_MS);
+  const sastMidnight = new Date(sastNow);
+  sastMidnight.setUTCHours(0, 0, 0, 0); // midnight in SAST "space"
+  // Shift back to UTC to get the actual UTC timestamp of SAST midnight
+  const start = new Date(sastMidnight.getTime() - SAST_OFFSET_MS);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
   return { start, end };
 }
 
 export function getSASTYesterdayRange(): { start: Date; end: Date } {
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  // Subtract 24h from now and get that day's SAST range
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
   return getSASTDayRange(yesterday);
 }
