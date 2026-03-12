@@ -10,6 +10,20 @@ import {
   TransactionSource,
 } from "@prisma/client";
 
+/**
+ * Fire-and-forget iCal sync trigger.
+ * Called internally after any booking mutation so all OTA feeds
+ * for the affected property are immediately re-synced.
+ */
+async function triggerICalSync(propertyId: string) {
+  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  const secret = process.env.ICAL_WEBHOOK_SECRET ?? process.env.CRON_SECRET ?? "";
+  const url = `${baseUrl}/api/ical/webhook?propertyId=${propertyId}&secret=${encodeURIComponent(secret)}`;
+  await fetch(url, { method: "POST", signal: AbortSignal.timeout(30000) });
+}
+
 type SessionUser = { organisationId?: string; id?: string };
 
 async function getOrgId(): Promise<string> {
@@ -324,6 +338,10 @@ export async function createBooking(input: {
       return b;
     });
 
+    // Fire-and-forget: sync all iCal feeds for this property so other OTAs
+    // see the new booking and don't double-book the same room.
+    triggerICalSync(input.propertyId).catch(() => {/* non-fatal */});
+
     return { success: true, bookingId: booking.id };
   } catch (e) {
     return { success: false, message: (e as Error).message };
@@ -387,7 +405,7 @@ export async function updateBookingStatus(
     const orgId = await getOrgId();
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, property: { organisationId: orgId } },
-      select: { id: true },
+      select: { id: true, propertyId: true },
     });
     if (!booking) return { success: false, message: "Booking not found" };
 
@@ -395,6 +413,12 @@ export async function updateBookingStatus(
       where: { id: bookingId },
       data: { status },
     });
+
+    // Cancellations free availability — re-sync so OTAs can rebook the slot
+    if (status === "CANCELLED" || status === "NO_SHOW") {
+      triggerICalSync(booking.propertyId).catch(() => {/* non-fatal */});
+    }
+
     return { success: true };
   } catch (e) {
     return { success: false, message: (e as Error).message };
@@ -410,7 +434,7 @@ export async function deleteBooking(
     const orgId = await getOrgId();
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, property: { organisationId: orgId } },
-      select: { id: true },
+      select: { id: true, propertyId: true },
     });
     if (!booking) return { success: false, message: "Booking not found" };
 
@@ -418,6 +442,10 @@ export async function deleteBooking(
       where: { id: bookingId },
       data: { deletedAt: new Date() },
     });
+
+    // Re-sync feeds — a deletion frees availability; OTAs should see it
+    triggerICalSync(booking.propertyId).catch(() => {/* non-fatal */});
+
     return { success: true };
   } catch (e) {
     return { success: false, message: (e as Error).message };
