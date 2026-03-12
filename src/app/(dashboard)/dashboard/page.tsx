@@ -129,6 +129,7 @@ export default async function DashboardPage({
   let arrivals: HouseBooking[] = [];
   let departures: HouseBooking[] = [];
   let stayovers: HouseBooking[] = [];
+  let overdueCheckouts: HouseBooking[] = [];
 
   if (orgId && selectedPropertyId) {
     // SAST-aware day range (Vercel runs UTC, dates stored as midnight SAST = UTC-2h)
@@ -143,7 +144,7 @@ export default async function DashboardPage({
     };
     const bookingSelect = { id: true, guestName: true, checkIn: true, checkOut: true, room: { select: { name: true } } };
 
-    [arrivals, departures, stayovers] = await Promise.all([
+    [arrivals, departures, stayovers, overdueCheckouts] = await Promise.all([
       // Arriving today: checkIn falls within today's SAST day range
       prisma.booking.findMany({
         where: { ...baseWhere, checkIn: { gte: todayStart, lte: todayEnd } },
@@ -157,6 +158,16 @@ export default async function DashboardPage({
       // In-house tonight: checked in before today, checking out after today
       prisma.booking.findMany({
         where: { ...baseWhere, checkIn: { lt: todayStart }, checkOut: { gt: todayEnd } },
+        select: bookingSelect, orderBy: { checkOut: "asc" },
+      }),
+      // Overdue checkouts: should have left before today but never marked CHECKED_OUT
+      prisma.booking.findMany({
+        where: {
+          property: { organisationId: orgId, id: selectedPropertyId },
+          status: { notIn: ["CANCELLED", "CHECKED_OUT", "NO_SHOW"] as const },
+          deletedAt: null,
+          checkOut: { lt: todayStart },
+        },
         select: bookingSelect, orderBy: { checkOut: "asc" },
       }),
     ]);
@@ -291,13 +302,37 @@ export default async function DashboardPage({
                   <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
                     <div className="min-w-0">
                       <p className="text-sm text-white font-medium truncate group-hover:text-blue-400 transition-colors">{b.guestName}</p>
-                      <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · in {formatDate(b.checkIn)}</p>
+                      <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · out {formatDate(b.checkOut)}</p>
                     </div>
                     <svg className="w-3 h-3 text-gray-600 group-hover:text-blue-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
                   </Link>
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Overdue Checkouts — guests who should have left but aren't marked CHECKED_OUT */}
+      {overdueCheckouts.length > 0 && (
+        <div className="mb-6 bg-red-950/30 border border-red-800/40 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-red-800/40 flex items-center gap-2">
+            <span className="text-base">⚠️</span>
+            <div>
+              <p className="text-xs font-semibold text-red-400">Overdue Checkouts</p>
+              <p className="text-[10px] text-red-600">{overdueCheckouts.length} guest{overdueCheckouts.length !== 1 ? "s" : ""} should have left already — mark as checked out</p>
+            </div>
+          </div>
+          <div className="divide-y divide-red-900/30">
+            {overdueCheckouts.map(b => (
+              <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-red-900/20 transition-colors group">
+                <div className="min-w-0">
+                  <p className="text-sm text-white font-medium truncate group-hover:text-red-400 transition-colors">{b.guestName}</p>
+                  <p className="text-xs text-red-500">{b.room?.name ?? "Room"} · was due out {formatDate(b.checkOut)}</p>
+                </div>
+                <svg className="w-3 h-3 text-red-700 group-hover:text-red-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+              </Link>
+            ))}
           </div>
         </div>
       )}
