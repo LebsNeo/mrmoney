@@ -17,6 +17,7 @@ import {
 } from "@/lib/telegram/bot";
 import { cmdHelp } from "@/lib/telegram/commands";
 import { handleTelegramMessage } from "@/lib/telegram/agent";
+import { linkEmployeeByToken, getEmployeeByChatId } from "@/lib/telegram/employee-bot";
 
 export const maxDuration = 60;
 
@@ -42,8 +43,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const firstName = msg.from?.first_name ?? "there";
     const cmd       = text.split("@")[0].toLowerCase();
 
-    // ── /start — registration ─────────────────────────────────────────────────
-    if (cmd === "/start") {
+    // ── /start — registration (staff + employee) ─────────────────────────────
+    if (cmd.startsWith("/start")) {
+      const param = text.split(" ")[1]?.trim() ?? "";
+
+      // Employee self-registration: /start emp_<token>
+      if (param.startsWith("emp_")) {
+        const token = param.slice(4);
+        const result = await linkEmployeeByToken(token, chatId);
+        if (result.ok) {
+          await sendMessage(
+            chatId,
+            `✅ Hi ${result.employeeName}! Your Telegram is now linked to MrCA.\n\nYou'll receive your payslips and important updates right here. 🎉`
+          );
+        } else {
+          await sendMessage(chatId, `❌ ${result.error}`);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Staff registration: /start (no param)
       const existing = await getUserByChatId(chatId);
       if (existing) {
         await sendMessage(chatId,

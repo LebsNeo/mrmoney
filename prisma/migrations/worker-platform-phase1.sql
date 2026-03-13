@@ -157,3 +157,21 @@ BEGIN
     ON DELETE RESTRICT ON UPDATE CASCADE;
   END IF;
 END $$;
+
+-- Employee Telegram fields
+ALTER TABLE "employees"
+ADD COLUMN IF NOT EXISTS "telegramChatId" TEXT UNIQUE,
+ADD COLUMN IF NOT EXISTS "telegramOptIn" BOOLEAN NOT NULL DEFAULT false;
+
+-- Employee Telegram link tokens (for self-registration flow)
+CREATE TABLE IF NOT EXISTS "employee_telegram_tokens" (
+  "id" TEXT NOT NULL,
+  "employeeId" TEXT NOT NULL,
+  "token" TEXT NOT NULL UNIQUE,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "usedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "employee_telegram_tokens_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "employee_telegram_tokens_token_idx" ON "employee_telegram_tokens"("token");
+CREATE INDEX IF NOT EXISTS "employee_telegram_tokens_employeeId_idx" ON "employee_telegram_tokens"("employeeId");

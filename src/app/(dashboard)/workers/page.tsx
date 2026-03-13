@@ -67,6 +67,8 @@ export default async function WorkersPage() {
     propertyName: employee.property?.name ?? "All Properties",
     whatsappNumber: employee.whatsappNumber,
     whatsappOptIn: employee.whatsappOptIn,
+    telegramChatId: employee.telegramChatId,
+    telegramOptIn: employee.telegramOptIn,
     tipsThisMonth: tipsByEmployee.get(employee.id) ?? 0,
     activeSavingsGoals: goalsByEmployee.get(employee.id) ?? 0,
   }));

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { MetaProvider } from "@/lib/whatsapp/providers/meta";
 import { TwilioProvider } from "@/lib/whatsapp/providers/twilio";
+import { sendPayslipViaTelegram } from "@/lib/telegram/employee-bot";
 
 type SendResult =
   | { ok: true; sent: number; failed: number }
@@ -129,6 +130,8 @@ export async function sendPayrollRunPayslipsForOrg(
               name: true,
               whatsappNumber: true,
               whatsappOptIn: true,
+              telegramChatId: true,
+              telegramOptIn: true,
             },
           },
         },
@@ -139,7 +142,9 @@ export async function sendPayrollRunPayslipsForOrg(
   if (!run) return { ok: false, error: "Payroll run not found.", sent: 0, failed: 0 };
 
   const optedInEntries = run.entries.filter(
-    (entry) => entry.employee.whatsappNumber && entry.employee.whatsappOptIn
+    (entry) =>
+      (entry.employee.whatsappNumber && entry.employee.whatsappOptIn) ||
+      (entry.employee.telegramChatId && entry.employee.telegramOptIn)
   );
 
   if (optedInEntries.length === 0) {
@@ -183,7 +188,26 @@ export async function sendPayrollRunPayslipsForOrg(
         netPay: Number(entry.netPay),
       });
 
-      await sendWhatsAppForOrganisation(organisationId, entry.employee.whatsappNumber!, message);
+      // Send via WhatsApp if opted in
+      if (entry.employee.whatsappNumber && entry.employee.whatsappOptIn) {
+        await sendWhatsAppForOrganisation(organisationId, entry.employee.whatsappNumber, message);
+      }
+      // Send via Telegram if opted in
+      if (entry.employee.telegramChatId && entry.employee.telegramOptIn) {
+        await sendPayslipViaTelegram(entry.employee.telegramChatId, {
+          employeeName: entry.employee.name,
+          propertyName: run.property?.name ?? "MrCA",
+          periodMonth: run.periodMonth,
+          periodYear: run.periodYear,
+          grossPay: Number(entry.grossPay),
+          overtime: Number(entry.overtime),
+          bonus: Number(entry.bonus),
+          tips: tipsByEmployee.get(entry.employeeId) ?? 0,
+          uifEmployee: Number(entry.uifEmployee),
+          otherDeductions: Number(entry.otherDeductions),
+          netPay: Number(entry.netPay),
+        });
+      }
       sent += 1;
     } catch (error) {
       failed += 1;
@@ -209,12 +233,16 @@ export async function sendLatestTestPayslipForEmployee(
       name: true,
       whatsappNumber: true,
       whatsappOptIn: true,
+      telegramChatId: true,
+      telegramOptIn: true,
     },
   });
 
   if (!employee) return { ok: false, error: "Employee not found.", sent: 0, failed: 0 };
-  if (!employee.whatsappNumber || !employee.whatsappOptIn) {
-    return { ok: false, error: "Employee must have a WhatsApp number and opt in enabled.", sent: 0, failed: 0 };
+  const hasWhatsApp = employee.whatsappNumber && employee.whatsappOptIn;
+  const hasTelegram = employee.telegramChatId && employee.telegramOptIn;
+  if (!hasWhatsApp && !hasTelegram) {
+    return { ok: false, error: "Employee has no active WhatsApp or Telegram linked.", sent: 0, failed: 0 };
   }
 
   const latestEntry = await prisma.payrollEntry.findFirst({
@@ -263,7 +291,24 @@ export async function sendLatestTestPayslipForEmployee(
       netPay: Number(latestEntry.netPay),
     });
 
-    await sendWhatsAppForOrganisation(organisationId, employee.whatsappNumber, message);
+    if (employee.whatsappNumber && employee.whatsappOptIn) {
+      await sendWhatsAppForOrganisation(organisationId, employee.whatsappNumber, message);
+    }
+    if (employee.telegramChatId && employee.telegramOptIn) {
+      await sendPayslipViaTelegram(employee.telegramChatId, {
+        employeeName: employee.name,
+        propertyName: run.property?.name ?? "MrCA",
+        periodMonth: run.periodYear,
+        periodYear: run.periodMonth,
+        grossPay: Number(latestEntry.grossPay),
+        overtime: Number(latestEntry.overtime),
+        bonus: Number(latestEntry.bonus),
+        tips: Number(tips._sum.amount ?? 0),
+        uifEmployee: Number(latestEntry.uifEmployee),
+        otherDeductions: Number(latestEntry.otherDeductions),
+        netPay: Number(latestEntry.netPay),
+      });
+    }
     return { ok: true, sent: 1, failed: 0 };
   } catch (error) {
     console.error("sendLatestTestPayslipForEmployee failed:", {

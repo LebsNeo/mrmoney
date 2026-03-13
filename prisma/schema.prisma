@@ -815,6 +815,8 @@ model Employee {
   bankBranch     String?
   whatsappNumber String?
   whatsappOptIn  Boolean        @default(false)
+  telegramChatId String?        @unique @map("telegram_chat_id")
+  telegramOptIn  Boolean        @default(false)  @map("telegram_opt_in")
   startDate      DateTime       @db.Date
   endDate        DateTime?      @db.Date
   isActive       Boolean        @default(true)
@@ -833,10 +835,26 @@ model Employee {
   savingsGoals     WorkerSavingsGoal[]
   stokvelMemberships StokvelMember[]
   stokvelContributions StokvelContribution[]
+  telegramTokens   EmployeeTelegramToken[]
 
   @@index([organisationId])
   @@index([propertyId])
   @@map("employees")
+}
+
+model EmployeeTelegramToken {
+  id         String    @id @default(uuid())
+  employeeId String
+  token      String    @unique
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now())
+
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([employeeId])
+  @@map("employee_telegram_tokens")
 }
 
 model TipEntry {
