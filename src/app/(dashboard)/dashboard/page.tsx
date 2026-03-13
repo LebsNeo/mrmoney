@@ -301,7 +301,7 @@ export default async function DashboardPage({
                     <Link key={b.id} href={`/bookings/${b.id}`} className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
                       <div className="min-w-0">
                         <p className="text-sm text-white font-medium truncate group-hover:text-blue-400 transition-colors">{b.guestName}</p>
-                        <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · in {formatSASTDate(b.checkIn)} · {nights}n</p>
+                        <p className="text-xs text-gray-500">{b.room?.name ?? "Room"} · {nights} night{nights !== 1 ? "s" : ""} · checked in {formatSASTDate(b.checkIn)}</p>
                       </div>
                       <svg className="w-3 h-3 text-gray-600 group-hover:text-blue-400 shrink-0 ml-2 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
                     </Link>
