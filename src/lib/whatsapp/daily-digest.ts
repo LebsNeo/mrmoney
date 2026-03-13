@@ -63,23 +63,24 @@ export async function buildDigest(organisationId: string): Promise<DigestData | 
       },
     });
 
-    // Check-ins today
+    // Check-ins today — date-driven
     const checkInsToday = await prisma.booking.count({
       where: {
         propertyId: prop.id,
         deletedAt: null,
-        status: { in: ["CONFIRMED", "CHECKED_IN"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
         checkIn: { gte: todayStart, lte: todayEnd },
       },
     });
 
-    // Check-outs today
+    // Check-outs today — purely date-driven, no status dependency
     const checkOutsToday = await prisma.booking.count({
       where: {
         propertyId: prop.id,
         deletedAt: null,
-        status: { in: ["CHECKED_OUT", "CONFIRMED", "CHECKED_IN"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
         checkOut: { gte: todayStart, lte: todayEnd },
+        checkIn: { lt: todayStart }, // at least 1 night stayed
       },
     });
 
