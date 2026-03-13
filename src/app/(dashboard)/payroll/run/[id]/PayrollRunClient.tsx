@@ -2,9 +2,11 @@
 
 import { useState, useTransition, useRef } from "react";
 import { updatePayrollEntry } from "@/lib/actions/payroll";
+import { sendPayrollRunPayslips } from "@/app/actions/payroll-whatsapp";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
 
 type Entry = {
   id: string;
@@ -23,6 +25,7 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 function fmt(v: any) { return formatCurrency(Number(v)); }
 
 export function PayrollRunClient({ run }: { run: Run }) {
+  const { showToast } = useToast();
   const [entries, setEntries] = useState<Entry[]>(run.entries);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editVals, setEditVals] = useState({ overtime: 0, bonus: 0, otherAdditions: 0, otherDeductions: 0, notes: "" });
@@ -69,6 +72,18 @@ export function PayrollRunClient({ run }: { run: Run }) {
       window.print();
       setPrintingId(null);
     }, 300);
+  }
+
+  function handleSendPayslips() {
+    setError(null);
+    startTransition(async () => {
+      const result = await sendPayrollRunPayslips(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      showToast(`Payslips sent: ${result.sent}. Failed: ${result.failed}.`, result.failed > 0 ? "warning" : "success");
+    });
   }
 
   const totalNet = entries.reduce((s, e) => s + Number(e.netPay), 0);
@@ -141,6 +156,16 @@ export function PayrollRunClient({ run }: { run: Run }) {
             </span>
           </p>
         </div>
+        {run.status === "PAID" && (
+          <button
+            type="button"
+            onClick={handleSendPayslips}
+            disabled={isPending}
+            className="ml-auto px-4 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-sm font-medium disabled:opacity-50 transition-colors"
+          >
+            Send Payslips via WhatsApp
+          </button>
+        )}
       </div>
 
       {error && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}

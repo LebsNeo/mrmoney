@@ -5,8 +5,21 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { BookingActions } from "@/components/BookingActions";
 import { ProofOfPaymentUpload } from "@/components/ProofOfPaymentUpload";
 import { PageHeader } from "@/components/PageHeader";
+import { BookingTipsCard } from "@/components/BookingTipsCard";
 import { formatCurrency, formatDate, toNumber } from "@/lib/utils";
 import { calcNights } from "@/lib/kpi";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import type { ComponentProps } from "react";
+
+function serialize<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj, (_key, value) => {
+    if (value !== null && typeof value === "object" && typeof value.toFixed === "function") return Number(value);
+    if (value instanceof Date) return value.toISOString();
+    return value;
+  }));
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -32,6 +45,32 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
   const invoice = booking.invoices?.[0];
   const transactions = booking.transactions ?? [];
+  const session = await getServerSession(authOptions);
+  const organisationId = (session?.user as { organisationId?: string } | undefined)?.organisationId;
+
+  const [employees, tips] = organisationId ? await Promise.all([
+    prisma.employee.findMany({
+      where: {
+        organisationId,
+        isActive: true,
+        deletedAt: null,
+        OR: [{ propertyId: booking.property.id }, { propertyId: null }],
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.tipEntry.findMany({
+      where: {
+        organisationId,
+        bookingId: booking.id,
+        deletedAt: null,
+      },
+      include: {
+        employee: { select: { name: true } },
+      },
+      orderBy: [{ tipDate: "desc" }, { createdAt: "desc" }],
+    }),
+  ]) : [[], []];
 
   return (
     <div className="max-w-5xl">
@@ -134,6 +173,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
               existingNote={booking.proofOfPaymentNote ?? null}
             />
           </div>
+
+          <BookingTipsCard
+            bookingId={booking.id}
+            employees={serialize(employees)}
+            tips={serialize(tips) as unknown as ComponentProps<typeof BookingTipsCard>["tips"]}
+          />
 
           {/* Financial Breakdown */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">

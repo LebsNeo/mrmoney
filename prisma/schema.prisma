@@ -215,8 +215,11 @@ model Organisation {
   otaChannelConfigs     OTAChannelConfig[]
   alerts                Alert[]
   employees             Employee[]
+  tipEntries            TipEntry[]
   payrollRuns           PayrollRun[]
   employeeAdvances      EmployeeAdvance[]
+  workerSavingsGoals    WorkerSavingsGoal[]
+  stokvels              Stokvel[]
   whatsappConnection    WhatsAppConnection?
   whatsappConversations WhatsAppConversation[]
 
@@ -306,6 +309,7 @@ model Property {
   recurringExpenses RecurringExpense[]
   icalFeeds         ICalFeed[]
   employees         Employee[]
+  tipEntries        TipEntry[]
   payrollRuns       PayrollRun[]
   employeeAdvances  EmployeeAdvance[]
 
@@ -416,6 +420,7 @@ model Booking {
   transactions             Transaction[]
   invoices                 Invoice[]
   otaPayoutItems           OTAPayoutItem[]
+  tipEntries               TipEntry[]
   whatsappConversations    WhatsAppConversation[]
 
   @@index([propertyId])
@@ -808,6 +813,8 @@ model Employee {
   bankName       String?
   bankAccount    String?
   bankBranch     String?
+  whatsappNumber String?
+  whatsappOptIn  Boolean        @default(false)
   startDate      DateTime       @db.Date
   endDate        DateTime?      @db.Date
   isActive       Boolean        @default(true)
@@ -822,10 +829,104 @@ model Employee {
   property         Property?         @relation(fields: [propertyId], references: [id])
   payrollEntries   PayrollEntry[]
   advances         EmployeeAdvance[]
+  tipEntries       TipEntry[]
+  savingsGoals     WorkerSavingsGoal[]
+  stokvelMemberships StokvelMember[]
+  stokvelContributions StokvelContribution[]
 
   @@index([organisationId])
   @@index([propertyId])
   @@map("employees")
+}
+
+model TipEntry {
+  id             String   @id @default(uuid())
+  organisationId String
+  employeeId     String
+  propertyId     String?
+  bookingId      String?
+  amount         Decimal  @db.Decimal(19, 4)
+  tipDate        DateTime @db.Date
+  source         String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  property       Property?    @relation(fields: [propertyId], references: [id])
+  booking        Booking?     @relation(fields: [bookingId], references: [id])
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([bookingId])
+  @@map("tip_entries")
+}
+
+model WorkerSavingsGoal {
+  id             String    @id @default(uuid())
+  employeeId     String
+  organisationId String
+  label          String
+  targetAmount   Decimal   @db.Decimal(19, 4)
+  savedAmount    Decimal   @default(0) @db.Decimal(19, 4)
+  weeklyTarget   Decimal?  @db.Decimal(19, 4)
+  deadline       DateTime? @db.Date
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+
+  @@index([employeeId])
+  @@index([organisationId])
+  @@map("worker_savings_goals")
+}
+
+model Stokvel {
+  id             String   @id @default(uuid())
+  organisationId String
+  name           String
+  description    String?
+  monthlyAmount  Decimal  @db.Decimal(19, 4)
+  totalBalance   Decimal  @default(0) @db.Decimal(19, 4)
+  payoutMonth    Int?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organisation   Organisation          @relation(fields: [organisationId], references: [id])
+  members        StokvelMember[]
+  contributions  StokvelContribution[]
+
+  @@index([organisationId])
+  @@map("stokvels")
+}
+
+model StokvelMember {
+  id          String   @id @default(uuid())
+  stokvelId   String
+  employeeId  String
+  joinedAt    DateTime @default(now())
+  isActive    Boolean  @default(true)
+  stokvel     Stokvel  @relation(fields: [stokvelId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([stokvelId, employeeId])
+  @@map("stokvel_members")
+}
+
+model StokvelContribution {
+  id          String   @id @default(uuid())
+  stokvelId   String
+  employeeId  String
+  amount      Decimal  @db.Decimal(19, 4)
+  period      String
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  stokvel     Stokvel  @relation(fields: [stokvelId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("stokvel_contributions")
 }
 
 model PayrollRun {

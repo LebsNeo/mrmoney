@@ -120,6 +120,15 @@ const navItems = [
     ),
   },
   {
+    href: "/workers",
+    label: "Workers",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a8.94 8.94 0 003.75.78 8.96 8.96 0 01-3.75.78m0-1.56a4.5 4.5 0 00-8.245-2.474M18 18.72V19.5m0-.78a4.5 4.5 0 00-8.245-2.474M9.755 16.246A4.5 4.5 0 1112 7.5a4.5 4.5 0 01-2.245 8.746zM6 20.25a8.96 8.96 0 013.755-.78" />
+      </svg>
+    ),
+  },
+  {
     href: "/intelligence",
     label: "Intelligence",
     icon: (

@@ -54,6 +54,7 @@ const moreNav = [
   { href: "/profitability", label: "Profitability", emoji: "📊" },
   { href: "/properties", label: "Properties", emoji: "🏨" },
   { href: "/payroll", label: "Payroll", emoji: "💼" },
+  { href: "/workers", label: "Workers", emoji: "🧑‍🍳" },
   { href: "/automation", label: "Automation", emoji: "✨" },
   { href: "/digest", label: "Daily Digest", emoji: "📰" },
   { href: "/reports", label: "Reports", emoji: "📋" },

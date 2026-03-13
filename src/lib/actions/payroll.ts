@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { TransactionCategory, TransactionType, TransactionStatus, TransactionSource } from "@prisma/client";
+import { sendPayrollRunPayslipsForOrg } from "@/lib/whatsapp/worker-payslips";
 
 // ─── UIF constants (2025) ─────────────────────────────────────────────────
 const UIF_RATE = 0.01;
@@ -16,6 +17,13 @@ function calcUIF(gross: number): number {
 
 function calcNet(gross: number, overtime: number, bonus: number, additions: number, uifEmp: number, otherDed: number): number {
   return parseFloat((gross + overtime + bonus + additions - uifEmp - otherDed).toFixed(2));
+}
+
+function getPayrollPeriodRange(periodYear: number, periodMonth: number) {
+  return {
+    start: new Date(Date.UTC(periodYear, periodMonth - 1, 1)),
+    end: new Date(Date.UTC(periodYear, periodMonth, 1)),
+  };
 }
 
 // ─── Serialize Decimal/Date → plain JS (required for Server→Client boundary)
@@ -107,8 +115,13 @@ export async function updateEmployee(id: string, data: Partial<{
   try {
     const orgId = await getOrgId();
     if (!orgId) return { ok: false, error: "Not authenticated" };
+    const existing = await prisma.employee.findFirst({
+      where: { id, organisationId: orgId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false, error: "Employee not found." };
     await prisma.employee.update({
-      where: { id, organisationId: orgId },
+      where: { id: existing.id },
       data: { ...data, ...(data.startDate ? { startDate: new Date(data.startDate) } : {}) },
     });
     revalidatePath("/payroll");
@@ -122,8 +135,13 @@ export async function deleteEmployee(id: string): Promise<ActionResult> {
   try {
     const orgId = await getOrgId();
     if (!orgId) return { ok: false, error: "Not authenticated" };
+    const existing = await prisma.employee.findFirst({
+      where: { id, organisationId: orgId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return { ok: false, error: "Employee not found." };
     await prisma.employee.update({
-      where: { id, organisationId: orgId },
+      where: { id: existing.id },
       data: { isActive: false, deletedAt: new Date() },
     });
     revalidatePath("/payroll");
@@ -217,10 +235,23 @@ export async function createPayrollRun(data: {
     const pendingAdvances = await prisma.employeeAdvance.findMany({
       where: { organisationId: orgId, status: "ACTIVE", employeeId: { in: employees.map((e) => e.id) } },
     });
+    const { start, end } = getPayrollPeriodRange(data.periodYear, data.periodMonth);
+    const tipTotals = await prisma.tipEntry.groupBy({
+      by: ["employeeId"],
+      where: {
+        organisationId: orgId,
+        employeeId: { in: employees.map((e) => e.id) },
+        deletedAt: null,
+        tipDate: { gte: start, lt: end },
+      },
+      _sum: { amount: true },
+    });
+    const tipsByEmployee = new Map(tipTotals.map((row) => [row.employeeId, Number(row._sum.amount ?? 0)]));
 
     // Build entries with auto-calculated UIF + advance deduction suggestions
     const entries = employees.map((emp) => {
       const gross = Number(emp.grossSalary);
+      const tips = tipsByEmployee.get(emp.id) ?? 0;
       // Find pending advance/loan for this employee
       const advance = pendingAdvances.find((a) => a.employeeId === emp.id);
       let suggestedDeduction = 0;
@@ -230,15 +261,18 @@ export async function createPayrollRun(data: {
           : Number(advance.remainingBalance); // full deduction for one-time advance
         suggestedDeduction = parseFloat(suggestedDeduction.toFixed(2));
       }
-      const uif = calcUIF(gross);
-      const net = calcNet(gross, 0, 0, 0, uif, suggestedDeduction);
+      const uif = calcUIF(gross + tips);
+      const net = calcNet(gross, 0, 0, tips, uif, suggestedDeduction);
       return {
         employeeId: emp.id,
-        grossPay: gross, overtime: 0, bonus: 0, otherAdditions: 0,
+        grossPay: gross, overtime: 0, bonus: 0, otherAdditions: tips,
         paye: 0, uifEmployee: uif, uifEmployer: uif,
         otherDeductions: suggestedDeduction,  // pre-filled but editable
         netPay: net,
-        notes: advance ? `Advance deduction (${advance.type === "LOAN" ? "loan instalment" : "salary advance"}) — remaining: R${Number(advance.remainingBalance).toFixed(2)}` : null,
+        notes: [
+          tips > 0 ? `Tips included: R${tips.toFixed(2)}` : null,
+          advance ? `Advance deduction (${advance.type === "LOAN" ? "loan instalment" : "salary advance"}) — remaining: R${Number(advance.remainingBalance).toFixed(2)}` : null,
+        ].filter(Boolean).join(" · ") || null,
       };
     });
 
@@ -425,6 +459,7 @@ export async function markPayrollPaid(id: string, propertyId: string): Promise<A
     revalidatePath("/payroll");
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
+    await sendPayrollRunPayslipsForOrg(orgId, id);
     return { ok: true, data: undefined };
   } catch (e: any) {
     console.error("markPayrollPaid error:", e);

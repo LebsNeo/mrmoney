@@ -17,6 +17,7 @@ import { generateDailyDigest } from "@/lib/digest";
 import { getSASTDayRange } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
+import { BookingStatus } from "@prisma/client";
 
 export default async function DashboardPage({
   searchParams,
@@ -134,15 +135,16 @@ export default async function DashboardPage({
   if (orgId && selectedPropertyId) {
     // SAST-aware day range (Vercel runs UTC, dates stored as midnight SAST = UTC-2h)
     const { start: todayStart, end: todayEnd } = getSASTDayRange();
+    const inactiveStatuses: BookingStatus[] = ["CANCELLED", "CHECKED_OUT", "NO_SHOW"];
 
     const baseWhere = {
       property: { organisationId: orgId, id: selectedPropertyId },
       // Exclude processed/dead bookings — CHECKED_OUT guests have already left,
       // NO_SHOW guests never arrived, CANCELLED are void.
-      status: { notIn: ["CANCELLED", "CHECKED_OUT", "NO_SHOW"] as const },
+      status: { notIn: inactiveStatuses },
       deletedAt: null,
     };
-    const bookingSelect = { id: true, guestName: true, checkIn: true, checkOut: true, room: { select: { name: true } } };
+    const bookingSelect = { id: true, guestName: true, checkIn: true, checkOut: true, room: { select: { name: true } } } as const;
 
     [arrivals, departures, stayovers, overdueCheckouts] = await Promise.all([
       // Arriving today: checkIn falls within today's SAST day range
@@ -164,7 +166,7 @@ export default async function DashboardPage({
       prisma.booking.findMany({
         where: {
           property: { organisationId: orgId, id: selectedPropertyId },
-          status: { notIn: ["CANCELLED", "CHECKED_OUT", "NO_SHOW"] as const },
+          status: { notIn: inactiveStatuses },
           deletedAt: null,
           checkOut: { lt: todayStart },
         },

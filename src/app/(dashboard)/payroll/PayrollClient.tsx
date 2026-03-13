@@ -6,9 +6,11 @@ import {
   createEmployee, deleteEmployee,
 } from "@/lib/actions/payroll";
 import { recordAdvance, settleAdvanceManually } from "@/lib/actions/advances";
+import { sendPayrollRunPayslips } from "@/app/actions/payroll-whatsapp";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useToast } from "@/context/ToastContext";
 
 type Employee = {
   id: string; name: string; jobTitle: string | null; employmentType: string;
@@ -50,6 +52,7 @@ export function PayrollClient({
   advances: Advance[];
   properties: { id: string; name: string }[];
 }) {
+  const { showToast } = useToast();
   const [tab, setTab] = useState<"runs" | "employees" | "advances">("runs");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +82,18 @@ export function PayrollClient({
   function notify(msg: string) {
     setSuccess(msg);
     setTimeout(() => setSuccess(null), 4000);
+  }
+
+  function handleSendPayslips(id: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await sendPayrollRunPayslips(id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      showToast(`Payslips sent: ${result.sent}. Failed: ${result.failed}.`, result.failed > 0 ? "warning" : "success");
+    });
   }
 
   function handleCreateRun() {
@@ -263,6 +278,7 @@ export function PayrollClient({
                       <Link href={`/payroll/run/${run.id}`} className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium transition-colors">View / Edit</Link>
                       {run.status === "DRAFT" && <button onClick={() => handleApprove(run.id)} disabled={isPending} className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-medium transition-colors disabled:opacity-50">Approve</button>}
                       {run.status === "APPROVED" && <button onClick={() => handlePaid(run.id)} disabled={isPending} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors disabled:opacity-50">Mark Paid</button>}
+                      {run.status === "PAID" && <button onClick={() => handleSendPayslips(run.id)} disabled={isPending} className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-colors disabled:opacity-50">Send Payslips via WhatsApp</button>}
                       {run.status === "PAID" && run.paidAt && <span className="text-xs text-emerald-400 self-center">✓ Paid {new Date(run.paidAt).toLocaleDateString("en-ZA")}</span>}
                     </div>
                   </div>
