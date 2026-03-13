@@ -66,6 +66,26 @@ export function formatDate(date: Date | string, pattern = "dd MMM yyyy"): string
   return format(d, pattern);
 }
 
+/**
+ * SAST-aware date formatter for @db.Date fields.
+ * Dates stored as midnight SAST (UTC-2). On Vercel (UTC) they arrive as midnight UTC+2 = 22:00 UTC prior day.
+ * Adding SAST_OFFSET_MS before formatting ensures the correct calendar date shows regardless of server timezone.
+ */
+export function formatSASTDate(date: Date | string, pattern = "dd MMM yyyy"): string {
+  const d = typeof date === "string" ? parseISO(date) : date;
+  const sast = new Date(d.getTime() + SAST_OFFSET_MS);
+  return format(sast, pattern);
+}
+
+/**
+ * Calculate nights between two @db.Date values (SAST-stored).
+ */
+export function calcNightsSAST(checkIn: Date | string, checkOut: Date | string): number {
+  const inD = typeof checkIn === "string" ? parseISO(checkIn) : checkIn;
+  const outD = typeof checkOut === "string" ? parseISO(checkOut) : checkOut;
+  return Math.round((outD.getTime() - inD.getTime()) / (24 * 60 * 60 * 1000));
+}
+
 export function formatDateShort(date: Date | string): string {
   return formatDate(date, "dd/MM/yyyy");
 }
