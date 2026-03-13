@@ -152,9 +152,10 @@ export default async function DashboardPage({
         where: { ...baseWhere, checkIn: { gte: todayStart, lte: todayEnd } },
         select: bookingSelect, orderBy: { checkIn: "asc" },
       }),
-      // Departing today: checkOut falls within today's SAST day range
+      // Departing today: checkOut = today AND checkIn was before today (at least 1 night stayed)
+      // Excludes same-day check-in/check-out bookings which belong in arrivals only
       prisma.booking.findMany({
-        where: { ...baseWhere, checkOut: { gte: todayStart, lte: todayEnd } },
+        where: { ...baseWhere, checkOut: { gte: todayStart, lte: todayEnd }, checkIn: { lt: todayStart } },
         select: bookingSelect, orderBy: { checkOut: "asc" },
       }),
       // In-house tonight: anyone physically present tonight
