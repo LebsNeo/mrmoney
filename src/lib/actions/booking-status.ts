@@ -10,6 +10,7 @@ import {
   onBookingCancelled,
   onBookingNoShow,
 } from "@/lib/booking-finance";
+import { sendBookingEmail } from "@/lib/actions/bookings";
 
 // ─────────────────────────────────────────────
 // SCHEMAS
@@ -60,6 +61,9 @@ export async function confirmReservation(id: string) {
     revalidatePath(`/bookings/${id}`);
     revalidatePath("/dashboard");
     revalidatePath("/calendar");
+
+    // Send confirmation email (fire-and-forget)
+    sendBookingEmail(id).catch(() => {/* non-fatal */});
 
     return { success: true, message: `${booking.guestName}'s reservation confirmed — payment received.` };
   } catch (err) {

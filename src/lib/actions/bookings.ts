@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { bookingConfirmationEmailTemplate, sendEmail } from "@/lib/email-templates";
+import { formatCurrency } from "@/lib/utils";
 import {
   BookingSource,
   BookingStatus,
@@ -350,6 +352,11 @@ export async function createBooking(input: {
     // see the new booking and don't double-book the same room.
     triggerICalSync(input.propertyId).catch(() => {/* non-fatal */});
 
+    // Fire-and-forget: send confirmation email if guest has email
+    if (input.guestEmail) {
+      sendBookingEmail(booking.id).catch(() => {/* non-fatal */});
+    }
+
     return { success: true, bookingId: booking.id };
   } catch (e) {
     return { success: false, message: (e as Error).message };
@@ -402,6 +409,43 @@ export async function removeProofOfPayment(
     return { success: true };
   } catch (e) {
     return { success: false, message: (e as Error).message };
+  }
+}
+
+// ─── Send booking confirmation email ──────────────────────────────────────────
+
+export async function sendBookingEmail(bookingId: string): Promise<void> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        property: { select: { name: true, email: true, phone: true } },
+        room: { select: { name: true } },
+      },
+    });
+    if (!booking?.guestEmail) return;
+
+    const nights = Math.round((booking.checkOut.getTime() - booking.checkIn.getTime()) / 86400000);
+    const checkInStr = booking.checkIn.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+    const checkOutStr = booking.checkOut.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+    const { subject, html, text } = bookingConfirmationEmailTemplate({
+      guestName: booking.guestName,
+      propertyName: booking.property.name,
+      propertyEmail: booking.property.email,
+      propertyPhone: booking.property.phone,
+      roomName: booking.room?.name ?? "Room",
+      checkIn: checkInStr,
+      checkOut: checkOutStr,
+      nights,
+      totalAmount: formatCurrency(booking.grossAmount),
+      status: booking.status as "CONFIRMED" | "RESERVED",
+      bookingRef: booking.externalRef,
+    });
+
+    await sendEmail({ to: booking.guestEmail, subject, html, text });
+  } catch (e) {
+    console.error("sendBookingEmail failed (non-fatal):", e);
   }
 }
 
