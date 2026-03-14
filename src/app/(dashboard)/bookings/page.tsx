@@ -23,6 +23,7 @@ interface PageProps {
     page?: string;
     dateFrom?: string;
     dateTo?: string;
+    dateField?: "checkIn" | "checkOut";
   }>;
 }
 
@@ -33,6 +34,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const source = params.source as BookingSource | undefined;
   const dateFrom = params.dateFrom;
   const dateTo = params.dateTo;
+  const dateField = params.dateField ?? "checkIn";
 
   const session = await getServerSession(authOptions);
   const orgId = (session?.user as any)?.organisationId as string | undefined;
@@ -55,6 +57,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     propertyId: params.propertyId,
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
     dateTo: dateTo ? new Date(dateTo + "T23:59:59") : undefined,
+    dateField,
   });
 
   function buildQuery(overrides: Record<string, string | undefined>) {
@@ -63,6 +66,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     if (source) q.set("source", source);
     if (dateFrom) q.set("dateFrom", dateFrom);
     if (dateTo) q.set("dateTo", dateTo);
+    if (dateField !== "checkIn") q.set("dateField", dateField);
     q.set("page", String(page));
     for (const [k, v] of Object.entries(overrides)) {
       if (v === undefined) q.delete(k);
@@ -115,7 +119,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6 items-center">
         <Suspense fallback={null}>
-          <BookingsDateFilter dateFrom={dateFrom} dateTo={dateTo} />
+          <BookingsDateFilter dateFrom={dateFrom} dateTo={dateTo} dateField={dateField} />
         </Suspense>
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-400 font-medium">Status:</label>

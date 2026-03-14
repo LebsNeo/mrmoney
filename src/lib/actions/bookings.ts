@@ -97,6 +97,7 @@ export async function getBookings(filters?: {
   to?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  dateField?: "checkIn" | "checkOut"; // which date column to filter on
   page?: number;
   limit?: number;
   organisationId?: string; // ignored — always scoped from session
@@ -107,20 +108,25 @@ export async function getBookings(filters?: {
     const limit = filters?.limit ?? 20;
     const skip = (page - 1) * limit;
 
+    // Build the date filter against the chosen field (default: checkIn)
+    const dateFilterField = filters?.dateField ?? "checkIn";
+    const hasDateFilter = filters?.from || filters?.to || filters?.dateFrom || filters?.dateTo;
+    const dateFilter = hasDateFilter
+      ? {
+          [dateFilterField]: {
+            ...(filters?.dateFrom ? { gte: filters.dateFrom } : filters?.from ? { gte: new Date(filters.from) } : {}),
+            ...(filters?.dateTo ? { lte: filters.dateTo } : filters?.to ? { lte: new Date(filters.to) } : {}),
+          },
+        }
+      : {};
+
     const where = {
       property: { organisationId: orgId },
       deletedAt: null as null,
       ...(filters?.propertyId ? { propertyId: filters.propertyId } : {}),
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.source ? { source: filters.source } : {}),
-      ...(filters?.from || filters?.to || filters?.dateFrom || filters?.dateTo
-        ? {
-            checkIn: {
-              ...(filters?.dateFrom ? { gte: filters.dateFrom } : filters?.from ? { gte: new Date(filters.from) } : {}),
-              ...(filters?.dateTo ? { lte: filters.dateTo } : filters?.to ? { lte: new Date(filters.to) } : {}),
-            },
-          }
-        : {}),
+      ...dateFilter,
     };
 
     const [bookings, total] = await Promise.all([

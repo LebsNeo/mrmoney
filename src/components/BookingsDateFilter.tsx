@@ -2,12 +2,16 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
+type DateField = "checkIn" | "checkOut";
+
 export function BookingsDateFilter({
   dateFrom,
   dateTo,
+  dateField = "checkIn",
 }: {
   dateFrom?: string;
   dateTo?: string;
+  dateField?: DateField;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,10 +28,21 @@ export function BookingsDateFilter({
     [router, pathname, searchParams]
   );
 
+  const setDateField = useCallback(
+    (field: DateField) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("dateField", field);
+      params.set("page", "1");
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
   const clearDates = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("dateFrom");
     params.delete("dateTo");
+    params.delete("dateField");
     params.set("page", "1");
     router.push(`${pathname}?${params.toString()}`);
   }, [router, pathname, searchParams]);
@@ -36,7 +51,31 @@ export function BookingsDateFilter({
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <label className="text-xs text-gray-400 font-medium">Check-in:</label>
+      {/* Field toggle */}
+      <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
+        <button
+          onClick={() => setDateField("checkIn")}
+          className={`px-2.5 py-1 font-medium transition-colors ${
+            dateField === "checkIn"
+              ? "bg-emerald-500/20 text-emerald-400"
+              : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          Check-in
+        </button>
+        <button
+          onClick={() => setDateField("checkOut")}
+          className={`px-2.5 py-1 font-medium transition-colors border-l border-gray-700 ${
+            dateField === "checkOut"
+              ? "bg-emerald-500/20 text-emerald-400"
+              : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          Check-out
+        </button>
+      </div>
+
+      {/* Date range inputs */}
       <div className="flex items-center gap-1.5">
         <input
           type="date"
