@@ -82,6 +82,7 @@ export interface PayslipData {
   overtime: number;
   bonus: number;
   tips: number;
+  paye: number;
   uifEmployee: number;
   otherDeductions: number;
   netPay: number;
@@ -97,6 +98,9 @@ function R(n: number): string {
 
 export function buildPayslipMessage(data: PayslipData): string {
   const period = monthName(data.periodMonth, data.periodYear);
+  const totalEarnings = data.grossPay + data.overtime + data.bonus + data.tips;
+  const totalDeductions = data.paye + data.uifEmployee + data.otherDeductions;
+
   const lines = [
     `💼 <b>MrCA Payslip — ${period}</b>`,
     `🏨 ${data.propertyName}`,
@@ -104,19 +108,25 @@ export function buildPayslipMessage(data: PayslipData): string {
     `<b>Employee:</b> ${data.employeeName}`,
     `<b>Period:</b> ${period}`,
     ``,
-    `<b>Earnings</b>`,
-    `Basic Salary:  ${R(data.grossPay)}`,
+    `<b>EARNINGS</b>`,
+    `Basic Salary:       ${R(data.grossPay)}`,
   ];
-  if (data.overtime > 0) lines.push(`Overtime:      ${R(data.overtime)}`);
-  if (data.bonus > 0) lines.push(`Bonus:         ${R(data.bonus)}`);
-  if (data.tips > 0) lines.push(`Tips:          ${R(data.tips)}`);
+  if (data.overtime > 0) lines.push(`Overtime:           ${R(data.overtime)}`);
+  if (data.bonus > 0)    lines.push(`Bonus:              ${R(data.bonus)}`);
+  if (data.tips > 0)     lines.push(`Tips:               ${R(data.tips)}`);
+  lines.push(`<b>Total Earnings:     ${R(totalEarnings)}</b>`);
+
   lines.push(``);
-  lines.push(`<b>Deductions</b>`);
-  lines.push(`UIF:           ${R(data.uifEmployee)}`);
-  if (data.otherDeductions > 0) lines.push(`Other:         ${R(data.otherDeductions)}`);
+  lines.push(`<b>DEDUCTIONS</b>`);
+  if (data.paye > 0) lines.push(`PAYE (Income Tax):  ${R(data.paye)}`);
+  lines.push(`UIF (Employee 1%):  ${R(data.uifEmployee)}`);
+  if (data.otherDeductions > 0) lines.push(`Advance/Loan:       ${R(data.otherDeductions)}`);
+  lines.push(`<b>Total Deductions:   ${R(totalDeductions)}</b>`);
+
   lines.push(``);
   lines.push(`<b>NET PAY:  ${R(data.netPay)}</b>`);
   lines.push(``);
+  lines.push(`<i>BCEA Section 32 compliant payslip</i>`);
   lines.push(`Questions? Reply to this message or contact your manager.`);
 
   return lines.join("\n");

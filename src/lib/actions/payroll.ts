@@ -7,17 +7,8 @@ import { revalidatePath } from "next/cache";
 import { TransactionCategory, TransactionType, TransactionStatus, TransactionSource } from "@prisma/client";
 import { sendPayrollRunPayslipsForOrg } from "@/lib/whatsapp/worker-payslips";
 
-// ─── UIF constants (2025) ─────────────────────────────────────────────────
-const UIF_RATE = 0.01;
-const UIF_CAP = 17712; // Monthly remuneration cap
-
-function calcUIF(gross: number): number {
-  return parseFloat((Math.min(gross, UIF_CAP) * UIF_RATE).toFixed(2));
-}
-
-function calcNet(gross: number, overtime: number, bonus: number, additions: number, uifEmp: number, otherDed: number): number {
-  return parseFloat((gross + overtime + bonus + additions - uifEmp - otherDed).toFixed(2));
-}
+// ─── SA tax & payroll helpers (SARS 2025/2026) ───────────────────────────
+import { calcUIF, calcMonthlyPAYE, calcNetPay } from "@/lib/sa-tax";
 
 function getPayrollPeriodRange(periodYear: number, periodMonth: number) {
   return {
@@ -248,7 +239,7 @@ export async function createPayrollRun(data: {
     });
     const tipsByEmployee = new Map(tipTotals.map((row) => [row.employeeId, Number(row._sum.amount ?? 0)]));
 
-    // Build entries with auto-calculated UIF + advance deduction suggestions
+    // Build entries with auto-calculated PAYE, UIF + advance deduction suggestions
     const entries = employees.map((emp) => {
       const gross = Number(emp.grossSalary);
       const tips = tipsByEmployee.get(emp.id) ?? 0;
@@ -261,12 +252,17 @@ export async function createPayrollRun(data: {
           : Number(advance.remainingBalance); // full deduction for one-time advance
         suggestedDeduction = parseFloat(suggestedDeduction.toFixed(2));
       }
-      const uif = calcUIF(gross + tips);
-      const net = calcNet(gross, 0, 0, tips, uif, suggestedDeduction);
+      const totalGrossForDeductions = gross + tips;
+      const uif = calcUIF(totalGrossForDeductions);
+      const paye = calcMonthlyPAYE(totalGrossForDeductions);
+      const net = calcNetPay({
+        grossPay: gross, overtime: 0, bonus: 0, otherAdditions: tips,
+        paye, uifEmployee: uif, otherDeductions: suggestedDeduction,
+      });
       return {
         employeeId: emp.id,
         grossPay: gross, overtime: 0, bonus: 0, otherAdditions: tips,
-        paye: 0, uifEmployee: uif, uifEmployer: uif,
+        paye, uifEmployee: uif, uifEmployer: uif,
         otherDeductions: suggestedDeduction,  // pre-filled but editable
         netPay: net,
         notes: [
@@ -328,11 +324,15 @@ export async function updatePayrollEntry(entryId: string, data: {
 
     const totalGross = gross + overtime + bonus + otherAdditions;
     const uif = calcUIF(totalGross);
-    const net = calcNet(gross, overtime, bonus, otherAdditions, uif, otherDeductions);
+    const paye = calcMonthlyPAYE(totalGross);
+    const net = calcNetPay({
+      grossPay: gross, overtime, bonus, otherAdditions,
+      paye, uifEmployee: uif, otherDeductions,
+    });
 
     await prisma.payrollEntry.update({
       where: { id: entryId },
-      data: { overtime, bonus, otherAdditions, otherDeductions, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: data.notes ?? entry.notes },
+      data: { overtime, bonus, otherAdditions, otherDeductions, paye, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: data.notes ?? entry.notes },
     });
 
     await recalcRunTotals(entry.payrollRunId);
@@ -347,12 +347,13 @@ export async function updatePayrollEntry(entryId: string, data: {
 async function recalcRunTotals(runId: string) {
   const entries = await prisma.payrollEntry.findMany({ where: { payrollRunId: runId } });
   const totalGross = parseFloat(entries.reduce((s, e) => s + Number(e.grossPay) + Number(e.overtime) + Number(e.bonus) + Number(e.otherAdditions), 0).toFixed(2));
+  const totalPaye = parseFloat(entries.reduce((s, e) => s + Number(e.paye), 0).toFixed(2));
   const totalUifEmployee = parseFloat(entries.reduce((s, e) => s + Number(e.uifEmployee), 0).toFixed(2));
   const totalUifEmployer = parseFloat(entries.reduce((s, e) => s + Number(e.uifEmployer), 0).toFixed(2));
   const totalNet = parseFloat(entries.reduce((s, e) => s + Number(e.netPay), 0).toFixed(2));
   await prisma.payrollRun.update({
     where: { id: runId },
-    data: { totalGross, totalUifEmployee, totalUifEmployer, totalNet, totalEmployerCost: parseFloat((totalGross + totalUifEmployer).toFixed(2)) },
+    data: { totalGross, totalPaye, totalUifEmployee, totalUifEmployer, totalNet, totalEmployerCost: parseFloat((totalGross + totalUifEmployer).toFixed(2)) },
   });
 }
 

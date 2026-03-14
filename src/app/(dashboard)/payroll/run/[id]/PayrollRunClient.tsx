@@ -52,15 +52,19 @@ export function PayrollRunClient({ run }: { run: Run }) {
     startTransition(async () => {
       const result = await updatePayrollEntry(entryId, editVals);
       if (!result.ok) { setError(result.error); return; }
-      // Optimistic: recalc locally
+      // Optimistic: recalc locally (server recalculates authoritatively)
       setEntries((prev) => prev.map((e) => {
         if (e.id !== entryId) return e;
         const gross = Number(e.grossPay);
         const totalGross = gross + editVals.overtime + editVals.bonus + editVals.otherAdditions;
         const uif = parseFloat((Math.min(totalGross, 17712) * 0.01).toFixed(2));
-        const net = parseFloat((totalGross - uif - editVals.otherDeductions).toFixed(2));
+        // PAYE approximation for optimistic update — server uses full SARS brackets
+        const annualised = totalGross * 12;
+        const annualTax = annualised <= 95750 ? 0 : Math.max(0, annualised * 0.18 - 17235);
+        const paye = parseFloat((annualTax / 12).toFixed(2));
+        const net = parseFloat((totalGross - paye - uif - editVals.otherDeductions).toFixed(2));
         return { ...e, overtime: editVals.overtime, bonus: editVals.bonus, otherAdditions: editVals.otherAdditions,
-          otherDeductions: editVals.otherDeductions, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: editVals.notes };
+          otherDeductions: editVals.otherDeductions, paye, uifEmployee: uif, uifEmployer: uif, netPay: net, notes: editVals.notes };
       }));
       setEditingId(null);
     });
@@ -95,51 +99,106 @@ export function PayrollRunClient({ run }: { run: Run }) {
 
   return (
     <div>
-      {/* Print pay slip — hidden unless printing */}
-      {printEntry && (
+      {/* Print pay slip — BCEA Section 32 compliant — hidden unless printing */}
+      {printEntry && (() => {
+        const peGross = Number(printEntry.grossPay) + Number(printEntry.overtime) + Number(printEntry.bonus) + Number(printEntry.otherAdditions);
+        const pePaye = Number(printEntry.paye);
+        const peUif = Number(printEntry.uifEmployee);
+        const peOtherDed = Number(printEntry.otherDeductions);
+        const peTotalDed = pePaye + peUif + peOtherDed;
+        return (
         <div id="payslip-print" className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999]">
-          <div className="max-w-md mx-auto">
-            <div className="flex justify-between items-start mb-6 pb-4 border-b">
+          <div className="max-w-lg mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-4 pb-3 border-b-2 border-black">
               <div>
-                <h1 className="text-xl font-bold">PAY SLIP</h1>
-                <p className="text-sm text-gray-600">{run.property?.name ?? "MrCA"}</p>
+                <h1 className="text-xl font-bold tracking-tight">PAYSLIP</h1>
+                <p className="text-sm font-medium">{run.property?.name ?? "MrCA"}</p>
+                <p className="text-xs text-gray-500 mt-1">BCEA Section 32 compliant</p>
               </div>
-              <div className="text-right text-sm text-gray-600">
-                <p>{monthName} {run.periodYear}</p>
-                <p>Pay Date: {run.paidAt ? new Date(run.paidAt).toLocaleDateString("en-ZA") : "—"}</p>
+              <div className="text-right text-sm">
+                <p className="font-semibold">{monthName} {run.periodYear}</p>
+                <p className="text-gray-600">Pay Date: {run.paidAt ? new Date(run.paidAt).toLocaleDateString("en-ZA") : "—"}</p>
               </div>
             </div>
-            <div className="mb-6">
-              <p className="font-semibold text-lg">{printEntry.employee.name}</p>
-              <p className="text-sm text-gray-600">{printEntry.employee.jobTitle ?? printEntry.employee.employmentType.replace("_", " ")}</p>
-              {printEntry.employee.idNumber && <p className="text-sm text-gray-500">ID: {printEntry.employee.idNumber}</p>}
+
+            {/* Employee details */}
+            <div className="mb-5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              <div><span className="text-gray-500">Employee:</span> <span className="font-semibold">{printEntry.employee.name}</span></div>
+              <div><span className="text-gray-500">Position:</span> {printEntry.employee.jobTitle ?? printEntry.employee.employmentType.replace("_", " ")}</div>
+              {printEntry.employee.idNumber && <div><span className="text-gray-500">ID Number:</span> {printEntry.employee.idNumber}</div>}
+              <div><span className="text-gray-500">Period:</span> {monthName} {run.periodYear}</div>
             </div>
-            <table className="w-full text-sm mb-6">
-              <tbody className="divide-y divide-gray-200">
-                <tr><td className="py-2 text-gray-600">Basic Salary</td><td className="py-2 text-right font-medium">{fmt(printEntry.grossPay)}</td></tr>
-                {Number(printEntry.overtime) > 0 && <tr><td className="py-2 text-gray-600">Overtime</td><td className="py-2 text-right">{fmt(printEntry.overtime)}</td></tr>}
-                {Number(printEntry.bonus) > 0 && <tr><td className="py-2 text-gray-600">Bonus</td><td className="py-2 text-right">{fmt(printEntry.bonus)}</td></tr>}
-                {Number(printEntry.otherAdditions) > 0 && <tr><td className="py-2 text-gray-600">Other Additions</td><td className="py-2 text-right">{fmt(printEntry.otherAdditions)}</td></tr>}
-                <tr className="font-semibold"><td className="py-2">Gross Pay</td><td className="py-2 text-right">{fmt(Number(printEntry.grossPay) + Number(printEntry.overtime) + Number(printEntry.bonus) + Number(printEntry.otherAdditions))}</td></tr>
-                <tr className="text-red-600"><td className="py-2">UIF (Employee 1%)</td><td className="py-2 text-right">-{fmt(printEntry.uifEmployee)}</td></tr>
-                <tr><td className="py-2 text-gray-600">PAYE</td><td className="py-2 text-right">R0.00 (below threshold)</td></tr>
-                {Number(printEntry.otherDeductions) > 0 && <tr className="text-red-600"><td className="py-2">Other Deductions</td><td className="py-2 text-right">-{fmt(printEntry.otherDeductions)}</td></tr>}
+
+            {/* Earnings */}
+            <table className="w-full text-sm mb-1">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="text-left py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Earnings</th>
+                  <th className="text-right py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr><td className="py-1.5">Basic Salary</td><td className="py-1.5 text-right">{fmt(printEntry.grossPay)}</td></tr>
+                {Number(printEntry.overtime) > 0 && <tr><td className="py-1.5">Overtime</td><td className="py-1.5 text-right">{fmt(printEntry.overtime)}</td></tr>}
+                {Number(printEntry.bonus) > 0 && <tr><td className="py-1.5">Bonus</td><td className="py-1.5 text-right">{fmt(printEntry.bonus)}</td></tr>}
+                {Number(printEntry.otherAdditions) > 0 && <tr><td className="py-1.5">Tips & Other Additions</td><td className="py-1.5 text-right">{fmt(printEntry.otherAdditions)}</td></tr>}
+                <tr className="border-t border-gray-300 font-semibold"><td className="py-2">Total Earnings</td><td className="py-2 text-right">{fmt(peGross)}</td></tr>
               </tbody>
             </table>
-            <div className="bg-gray-100 rounded-lg p-4 flex justify-between items-center">
+
+            {/* Deductions */}
+            <table className="w-full text-sm mb-1">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="text-left py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Deductions</th>
+                  <th className="text-right py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr><td className="py-1.5">PAYE (Income Tax)</td><td className="py-1.5 text-right">{pePaye > 0 ? fmt(pePaye) : "R 0.00 (below threshold)"}</td></tr>
+                <tr><td className="py-1.5">UIF (Employee 1%)</td><td className="py-1.5 text-right">{fmt(peUif)}</td></tr>
+                {peOtherDed > 0 && <tr><td className="py-1.5">Advance / Loan Deduction</td><td className="py-1.5 text-right">{fmt(peOtherDed)}</td></tr>}
+                <tr className="border-t border-gray-300 font-semibold"><td className="py-2">Total Deductions</td><td className="py-2 text-right">{fmt(peTotalDed)}</td></tr>
+              </tbody>
+            </table>
+
+            {/* Employer contributions */}
+            <table className="w-full text-sm mb-4">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="text-left py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employer Contributions</th>
+                  <th className="text-right py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td className="py-1.5">UIF (Employer 1%)</td><td className="py-1.5 text-right">{fmt(printEntry.uifEmployer)}</td></tr>
+              </tbody>
+            </table>
+
+            {/* Net pay */}
+            <div className="bg-gray-100 rounded-lg p-4 flex justify-between items-center mb-4 border border-gray-300">
               <span className="font-bold text-lg">NET PAY</span>
               <span className="font-bold text-2xl">{fmt(printEntry.netPay)}</span>
             </div>
+
+            {/* Banking details */}
             {printEntry.employee.bankName && (
-              <div className="mt-4 text-sm text-gray-500">
+              <div className="mb-4 text-sm border border-gray-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Payment Details</p>
                 <p>Bank: {printEntry.employee.bankName}</p>
                 {printEntry.employee.bankAccount && <p>Account: {printEntry.employee.bankAccount}</p>}
               </div>
             )}
-            <p className="mt-6 text-xs text-gray-400 text-center">Generated by MrCA · Confidential</p>
+
+            <div className="mt-6 pt-3 border-t border-gray-200 flex justify-between text-xs text-gray-400">
+              <span>Generated by MrCA · Confidential</span>
+              <span>BCEA Section 32 · SARS 2025/2026</span>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Back + header */}
       <div className="flex items-center gap-4 mb-6">
@@ -208,7 +267,7 @@ export function PayrollRunClient({ run }: { run: Run }) {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">PAYE</p>
-                    <p className="text-sm text-gray-500">R0.00</p>
+                    <p className={cn("text-sm", Number(entry.paye) > 0 ? "text-amber-400" : "text-gray-500")}>{Number(entry.paye) > 0 ? `-${fmt(entry.paye)}` : "R0.00"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Net Pay</p>

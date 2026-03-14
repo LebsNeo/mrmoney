@@ -43,34 +43,40 @@ function buildPayslipMessage(input: {
   tips: number;
   overtime: number;
   bonus: number;
+  paye: number;
   uif: number;
   otherDeductions: number;
   netPay: number;
 }) {
+  const totalEarnings = input.basicSalary + input.overtime + input.bonus + input.tips;
+  const totalDeductions = input.paye + input.uif + input.otherDeductions;
+
   const lines = [
-    `*MrCA Payslip - ${input.monthYear}*`,
+    `*MrCA Payslip — ${input.monthYear}*`,
     input.propertyName,
     "",
     `Employee: ${input.employeeName}`,
     `Period: ${input.monthYear}`,
     "",
-    "*Earnings*",
-    `Basic Salary: R${formatRand(input.basicSalary)}`,
-    `Tips: R${formatRand(input.tips)}`,
-    `Overtime: R${formatRand(input.overtime)}`,
-    `Bonus: R${formatRand(input.bonus)}`,
-    "",
-    "*Deductions*",
-    `UIF: R${formatRand(input.uif)}`,
+    "*EARNINGS*",
+    `Basic Salary:      R${formatRand(input.basicSalary)}`,
   ];
+  if (input.overtime > 0) lines.push(`Overtime:           R${formatRand(input.overtime)}`);
+  if (input.bonus > 0)    lines.push(`Bonus:              R${formatRand(input.bonus)}`);
+  if (input.tips > 0)     lines.push(`Tips:               R${formatRand(input.tips)}`);
+  lines.push(`*Total Earnings:    R${formatRand(totalEarnings)}*`);
 
-  if (input.otherDeductions > 0) {
-    lines.push(`Other Deductions: R${formatRand(input.otherDeductions)}`);
-  }
+  lines.push("");
+  lines.push("*DEDUCTIONS*");
+  if (input.paye > 0) lines.push(`PAYE (Income Tax):  R${formatRand(input.paye)}`);
+  lines.push(`UIF (Employee 1%):  R${formatRand(input.uif)}`);
+  if (input.otherDeductions > 0) lines.push(`Advance/Loan:       R${formatRand(input.otherDeductions)}`);
+  lines.push(`*Total Deductions:  R${formatRand(totalDeductions)}*`);
 
   lines.push("");
   lines.push(`*NET PAY: R${formatRand(input.netPay)}*`);
   lines.push("");
+  lines.push("_BCEA Section 32 compliant payslip_");
   lines.push("Questions? Reply HELP");
 
   return lines.join("\n");
@@ -183,6 +189,7 @@ export async function sendPayrollRunPayslipsForOrg(
         tips: tipsByEmployee.get(entry.employeeId) ?? 0,
         overtime: Number(entry.overtime),
         bonus: Number(entry.bonus),
+        paye: Number(entry.paye),
         uif: Number(entry.uifEmployee),
         otherDeductions: Number(entry.otherDeductions),
         netPay: Number(entry.netPay),
@@ -203,6 +210,7 @@ export async function sendPayrollRunPayslipsForOrg(
           overtime: Number(entry.overtime),
           bonus: Number(entry.bonus),
           tips: tipsByEmployee.get(entry.employeeId) ?? 0,
+          paye: Number(entry.paye),
           uifEmployee: Number(entry.uifEmployee),
           otherDeductions: Number(entry.otherDeductions),
           netPay: Number(entry.netPay),
@@ -286,6 +294,7 @@ export async function sendLatestTestPayslipForEmployee(
       tips: Number(tips._sum.amount ?? 0),
       overtime: Number(latestEntry.overtime),
       bonus: Number(latestEntry.bonus),
+      paye: Number(latestEntry.paye),
       uif: Number(latestEntry.uifEmployee),
       otherDeductions: Number(latestEntry.otherDeductions),
       netPay: Number(latestEntry.netPay),
@@ -298,12 +307,13 @@ export async function sendLatestTestPayslipForEmployee(
       await sendPayslipViaTelegram(employee.telegramChatId, {
         employeeName: employee.name,
         propertyName: run.property?.name ?? "MrCA",
-        periodMonth: run.periodYear,
-        periodYear: run.periodMonth,
+        periodMonth: run.periodMonth,
+        periodYear: run.periodYear,
         grossPay: Number(latestEntry.grossPay),
         overtime: Number(latestEntry.overtime),
         bonus: Number(latestEntry.bonus),
         tips: Number(tips._sum.amount ?? 0),
+        paye: Number(latestEntry.paye),
         uifEmployee: Number(latestEntry.uifEmployee),
         otherDeductions: Number(latestEntry.otherDeductions),
         netPay: Number(latestEntry.netPay),
