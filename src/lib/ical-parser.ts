@@ -48,6 +48,34 @@ function parseICalDate(val: string): Date | null {
   return null;
 }
 
+/**
+ * Parse DTEND value → checkout Date.
+ * Per RFC 5545, DTEND for DATE-only (all-day) events is EXCLUSIVE —
+ * i.e. DTEND is the day AFTER the last occupied night.
+ * Booking.com, Airbnb, and Lekkerslaap all follow this convention.
+ * So for a check-out on March 30, iCal sends DTEND:20260331 → subtract 1 day.
+ * DATETIME values already include the exact time so no adjustment needed.
+ */
+function parseICalCheckOut(val: string): Date | null {
+  const clean = val.replace(/^.*:/, "").trim();
+  if (clean.length === 8) {
+    // DATE-only: subtract 1 day (exclusive end → inclusive checkout)
+    const y = parseInt(clean.slice(0, 4));
+    const m = parseInt(clean.slice(4, 6)) - 1;
+    const d = parseInt(clean.slice(6, 8));
+    // d - 1: Date.UTC handles month rollover automatically
+    return new Date(Date.UTC(y, m, d - 1, 12, 0, 0, 0));
+  }
+  if (clean.length >= 15) {
+    // DATETIME: use as-is (exact timestamp)
+    const y = parseInt(clean.slice(0, 4));
+    const mo = parseInt(clean.slice(4, 6)) - 1;
+    const d = parseInt(clean.slice(6, 8));
+    return new Date(Date.UTC(y, mo, d, 12, 0, 0, 0));
+  }
+  return null;
+}
+
 /** Extract a single VEVENT block's property */
 function prop(block: string, key: string): string {
   const re = new RegExp(`^${key}[^:]*:(.*)$`, "im");
@@ -138,8 +166,8 @@ export function parseICalFeed(raw: string, platform?: ICalPlatform): ParsedICalE
     const summary = prop(block, "SUMMARY").replace(/\\n/g, " ").replace(/\\/g, "");
     const description = prop(block, "DESCRIPTION").replace(/\\n/g, "\n").replace(/\\/g, "");
 
-    const checkIn = parseICalDate(dtstart);
-    const checkOut = parseICalDate(dtend);
+    const checkIn  = parseICalDate(dtstart);
+    const checkOut = parseICalCheckOut(dtend); // DTEND is exclusive for DATE-only events
 
     if (!uid || !checkIn || !checkOut) continue;
     if (checkOut <= checkIn) continue;
