@@ -296,7 +296,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
           </div>
 
           {/* Actions Card */}
-          {(booking.status === "CONFIRMED" || booking.status === "CHECKED_IN") && (
+          {(booking.status === "RESERVED" || booking.status === "CONFIRMED" || booking.status === "CHECKED_IN") && (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Actions
