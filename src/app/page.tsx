@@ -55,6 +55,150 @@ const PROOF_POINTS = [
   { icon: "🎯", text: "Budget alerts and break-even tracking built in" },
 ];
 
+// ─── Logo data — add your client logos to /public/logos/ ──────────────────────
+// Images go in public/logos/  (e.g. public/logos/golfbnb.png)
+// Then add an entry here with the filename and company name.
+const CLIENT_LOGOS: { src: string; alt: string }[] = [
+  // { src: "/logos/golfbnb.png",        alt: "GolfBnB" },
+  // { src: "/logos/sunset-lodge.png",    alt: "Sunset Lodge" },
+  // { src: "/logos/kalahari-bush.png",   alt: "Kalahari Bush Lodge" },
+  // { src: "/logos/example-hotel.png",   alt: "Example Hotel" },
+  // Uncomment and add your real logos above ↑
+];
+
+// Placeholder logos shown when no real logos are configured yet
+const PLACEHOLDER_LOGOS: { initials: string; name: string }[] = [
+  { initials: "GB", name: "GolfBnB" },
+  { initials: "SH", name: "Sunset Hospitality" },
+  { initials: "KL", name: "Kalahari Lodge" },
+  { initials: "MB", name: "Mbombela Suites" },
+  { initials: "CP", name: "Cape Point B&B" },
+  { initials: "DG", name: "Drakensberg Guest" },
+];
+
+function LogoSlider() {
+  const hasRealLogos = CLIENT_LOGOS.length > 0;
+  // Double the items for seamless infinite scroll
+  const items = hasRealLogos ? [...CLIENT_LOGOS, ...CLIENT_LOGOS] : [...PLACEHOLDER_LOGOS, ...PLACEHOLDER_LOGOS];
+
+  return (
+    <section
+      style={{
+        padding: "60px 24px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ maxWidth: 1120, margin: "0 auto", textAlign: "center" }}>
+        <p
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#10b981",
+            letterSpacing: "3px",
+            textTransform: "uppercase",
+            marginBottom: 8,
+          }}
+        >
+          Trusted by
+        </p>
+        <p
+          style={{
+            fontSize: "clamp(18px, 2.5vw, 24px)",
+            fontWeight: 700,
+            color: "#fff",
+            letterSpacing: "-0.5px",
+            margin: "0 0 40px",
+          }}
+        >
+          Used and loved by hospitality businesses across South Africa
+        </p>
+      </div>
+
+      {/* Infinite scroll track */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 48,
+            alignItems: "center",
+            width: "max-content",
+            animation: "logo-scroll 25s linear infinite",
+          }}
+        >
+          {items.map((item, i) =>
+            hasRealLogos ? (
+              <img
+                key={i}
+                src={(item as { src: string; alt: string }).src}
+                alt={(item as { src: string; alt: string }).alt}
+                style={{
+                  height: 40,
+                  width: "auto",
+                  opacity: 0.6,
+                  filter: "grayscale(100%) brightness(2)",
+                  transition: "opacity 0.3s, filter 0.3s",
+                  flexShrink: 0,
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.filter = "grayscale(0%) brightness(1)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.opacity = "0.6"; e.currentTarget.style.filter = "grayscale(100%) brightness(2)"; }}
+              />
+            ) : (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  flexShrink: 0,
+                  opacity: 0.5,
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(59,130,246,0.15))",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#10b981",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  {(item as { initials: string }).initials}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#6b7280", whiteSpace: "nowrap" }}>
+                  {(item as { name: string }).name}
+                </span>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* CSS animation */}
+      <style>{`
+        @keyframes logo-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+    </section>
+  );
+}
+
 // ─── Components ───────────────────────────────────────────────────────────────
 
 function GradientText({
@@ -595,6 +739,9 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      {/* ── TRUSTED BY ──────────────────────────────────────────────────── */}
+      <LogoSlider />
 
       {/* ── VALUE PROPS ──────────────────────────────────────────────────── */}
       <section style={{ padding: "100px 24px" }}>
