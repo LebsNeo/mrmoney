@@ -26,6 +26,49 @@ const CancelSchema = z.object({
 // ─────────────────────────────────────────────
 
 /**
+ * Confirm a reservation → transitions RESERVED → CONFIRMED (payment received)
+ */
+export async function confirmReservation(id: string) {
+  const parsed = IdSchema.safeParse(id);
+  if (!parsed.success) {
+    return { success: false, message: parsed.error.issues[0].message };
+  }
+
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      select: { status: true, guestName: true },
+    });
+
+    if (!booking) {
+      return { success: false, message: "Booking not found" };
+    }
+
+    if (booking.status !== BookingStatus.RESERVED) {
+      return {
+        success: false,
+        message: `Cannot confirm — booking status is ${booking.status}, expected RESERVED.`,
+      };
+    }
+
+    await prisma.booking.update({
+      where: { id },
+      data: { status: BookingStatus.CONFIRMED },
+    });
+
+    revalidatePath("/bookings");
+    revalidatePath(`/bookings/${id}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/calendar");
+
+    return { success: true, message: `${booking.guestName}'s reservation confirmed — payment received.` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, message: msg };
+  }
+}
+
+/**
  * Confirm a booking → creates DRAFT invoice via finance engine
  */
 export async function confirmBooking(id: string) {
@@ -63,10 +106,10 @@ export async function checkInBooking(id: string) {
       return { success: false, message: "Booking not found" };
     }
 
-    if (booking.status !== BookingStatus.CONFIRMED) {
+    if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.RESERVED) {
       return {
         success: false,
-        message: `Cannot check in booking with status ${booking.status}. Must be CONFIRMED.`,
+        message: `Cannot check in booking with status ${booking.status}. Must be CONFIRMED or RESERVED.`,
       };
     }
 

@@ -15,6 +15,7 @@ export enum BookingSource {
 }
 
 export enum BookingStatus {
+  RESERVED = "RESERVED",
   CONFIRMED = "CONFIRMED",
   CHECKED_IN = "CHECKED_IN",
   CHECKED_OUT = "CHECKED_OUT",

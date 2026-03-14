@@ -1,0 +1,2 @@
+-- Add RESERVED to BookingStatus enum
+ALTER TYPE "BookingStatus" ADD VALUE IF NOT EXISTS 'RESERVED' BEFORE 'CONFIRMED';

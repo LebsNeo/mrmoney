@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   confirmBooking,
+  confirmReservation,
   checkInBooking,
   checkOutBooking,
   cancelBooking,
@@ -70,6 +71,27 @@ export function BookingActions({ bookingId, currentStatus }: BookingActionsProps
       )}
 
       <div className="flex flex-wrap gap-2">
+        {/* RESERVED → Confirm (payment received) */}
+        {currentStatus === "RESERVED" && (
+          <button
+            disabled={!!loading}
+            onClick={() => handleAction(() => confirmReservation(bookingId), "confirmRes")}
+            className={`${btnBase} bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20`}
+          >
+            {loading === "confirmRes" ? "Confirming..." : "Confirm — Payment Received"}
+          </button>
+        )}
+
+        {/* RESERVED → Edit booking details */}
+        {currentStatus === "RESERVED" && (
+          <a
+            href={`/bookings/${bookingId}/edit`}
+            className={`${btnBase} bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 inline-flex items-center`}
+          >
+            Edit Reservation
+          </a>
+        )}
+
         {/* Confirm → DRAFT invoice */}
         {currentStatus === "CONFIRMED" && (
           <button
@@ -82,7 +104,7 @@ export function BookingActions({ bookingId, currentStatus }: BookingActionsProps
         )}
 
         {/* Check In */}
-        {currentStatus === "CONFIRMED" && (
+        {(currentStatus === "CONFIRMED" || currentStatus === "RESERVED") && (
           <button
             disabled={!!loading}
             onClick={() => handleAction(() => checkInBooking(bookingId), "checkin")}
@@ -104,7 +126,7 @@ export function BookingActions({ bookingId, currentStatus }: BookingActionsProps
         )}
 
         {/* Cancel */}
-        {(currentStatus === "CONFIRMED" || currentStatus === "CHECKED_IN") && (
+        {(currentStatus === "RESERVED" || currentStatus === "CONFIRMED" || currentStatus === "CHECKED_IN") && (
           <button
             disabled={!!loading}
             onClick={() => setShowCancelModal(true)}

@@ -75,7 +75,8 @@ enum BookingSource {
 }
 
 enum BookingStatus {
-  CONFIRMED
+  RESERVED      // Room held, pending payment — guest can arrive and pay on site
+  CONFIRMED     // Payment received or booking confirmed
   CHECKED_IN
   CHECKED_OUT
   CANCELLED

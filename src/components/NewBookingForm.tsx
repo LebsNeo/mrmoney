@@ -64,6 +64,9 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
   const [isVatInclusive, setIsVatInclusive] = useState(false);
   const [vatEnabled, setVatEnabled] = useState(false);
 
+  // Reservation vs confirmed booking
+  const [isReservation, setIsReservation] = useState(false);
+
   // Payment at booking creation
   const [collectPayment, setCollectPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "EFT" | "CARD">("CASH");
@@ -216,6 +219,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         collectPayment,
         paymentMethod: paymentMethod as "CASH" | "EFT" | "CARD",
         paymentAmount: paymentAmount ?? undefined,
+        isReservation: !collectPayment && isReservation,
       });
 
       if (!result.success) {
@@ -223,7 +227,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         showToast(msg, "error");
         setError(msg);
       } else {
-        showToast("Booking created successfully!", "success");
+        showToast(isReservation && !collectPayment ? "Reservation created — pending payment" : "Booking created successfully!", "success");
         router.push(`/bookings/${result.bookingId}`);
       }
     } catch (err) {
@@ -539,7 +543,36 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         </div>
       )}
 
+      {/* Booking Type: Reservation or Confirmed */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Payment Status</h2>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => { setIsReservation(false); }}
+            className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors ${
+              !isReservation
+                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+            }`}>
+            Confirmed Booking
+          </button>
+          <button type="button" onClick={() => { setIsReservation(true); setCollectPayment(false); }}
+            className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-colors ${
+              isReservation
+                ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
+                : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+            }`}>
+            Reserve — Pay Later
+          </button>
+        </div>
+        {isReservation && (
+          <p className="text-xs text-amber-400">
+            Room will be held for the guest. Booking stays as &quot;Reserved&quot; until payment is received and you confirm it.
+          </p>
+        )}
+      </div>
+
       {/* Collect Payment Now */}
+      {!isReservation && (
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -603,6 +636,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Submit */}
       <div className="flex justify-end gap-3">
@@ -615,9 +649,9 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="btn-primary"
+          className={isReservation ? "px-5 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white transition-colors disabled:opacity-50" : "btn-primary"}
         >
-          {loading ? "Creating..." : "Create Booking"}
+          {loading ? "Creating..." : isReservation ? "Reserve Room" : "Create Booking"}
         </button>
       </div>
     </form>

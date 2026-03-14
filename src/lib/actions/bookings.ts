@@ -238,6 +238,7 @@ export async function createBooking(input: {
   collectPayment?: boolean;
   paymentMethod?: PaymentMethod;
   paymentAmount?: number;
+  isReservation?: boolean;
 }): Promise<{ success: boolean; bookingId?: string; message?: string }> {
   try {
     const orgId = await getOrgId();
@@ -305,7 +306,7 @@ export async function createBooking(input: {
           vatRate,
           vatAmount,
           isVatInclusive: input.isVatInclusive ?? false,
-          status: "CONFIRMED",
+          status: input.isReservation ? "RESERVED" : "CONFIRMED",
           externalRef: input.externalRef ?? null,
           notes: input.notes ?? null,
         },
