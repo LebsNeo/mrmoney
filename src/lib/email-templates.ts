@@ -265,6 +265,73 @@ export function welcomeEmailTemplate(opts: {
 }
 
 
+export function inviteEmailTemplate(opts: {
+  inviterName: string;
+  organisationName: string;
+  role: string;
+  inviteUrl: string;
+}): { subject: string; html: string; text: string } {
+  const { inviterName, organisationName, role, inviteUrl } = opts;
+  const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0a0a0a;min-height:100vh;">
+    <tr><td align="center" style="padding:48px 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+        style="max-width:560px;background:#111111;border:1px solid #1f1f1f;border-radius:20px;overflow:hidden;">
+        <tr><td style="height:4px;background:linear-gradient(90deg,#10b981 0%,#059669 50%,#0ea5e9 100%);"></td></tr>
+        <tr><td style="padding:40px 48px 24px;text-align:center;">
+          <div style="margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#ffffff;">Mr<span style="color:#10b981;">CA</span></span>
+            <div style="margin-top:4px;font-size:11px;letter-spacing:2px;color:#4b5563;text-transform:uppercase;">Hospitality Financial OS</div>
+          </div>
+          <div style="font-size:40px;margin-bottom:20px;">🤝</div>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">You've been invited!</h1>
+          <p style="margin:0;font-size:15px;color:#6b7280;line-height:1.5;">
+            ${inviterName} has invited you to join <strong style="color:#fff;">${organisationName}</strong> as a <strong style="color:#10b981;">${roleLabel}</strong>.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
+        <tr><td style="padding:32px 48px;">
+          <p style="margin:0 0 24px;font-size:15px;color:#9ca3af;line-height:1.7;">
+            Click the button below to create your account and start collaborating. No credit card required.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr><td align="center" style="padding:8px 0 28px;">
+              <a href="${inviteUrl}" style="display:inline-block;padding:16px 40px;background:#10b981;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;">
+                Accept Invite →
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0 0 6px;font-size:12px;color:#4b5563;">Button not working? Copy this link:</p>
+          <p style="margin:0;font-size:11px;color:#374151;word-break:break-all;font-family:monospace;background:#0d0d0d;border:1px solid #1f1f1f;border-radius:8px;padding:10px 12px;">${inviteUrl}</p>
+        </td></tr>
+        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
+        <tr><td style="padding:24px 48px 36px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:12px;color:#4b5563;">This invite expires in <strong style="color:#6b7280;">7 days</strong>.</p>
+          <p style="margin:12px 0 0;font-size:11px;color:#374151;">© ${new Date().getFullYear()} MrCA · Hospitality Financial OS</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const text = `You've been invited to ${organisationName}!
+
+${inviterName} has invited you to join ${organisationName} as a ${roleLabel} on MrCA.
+
+Accept your invite: ${inviteUrl}
+
+This link expires in 7 days.
+
+— The MrCA Team`.trim();
+
+  return { subject: `You're invited to join ${organisationName} on MrCA`, html, text };
+}
+
 // ─── Shared Resend sender ─────────────────────────────────────────────────────
 
 export async function sendEmail(opts: {

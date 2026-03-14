@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { PasswordChangeForm } from "./PasswordChangeForm";
+import { TeamManagement } from "./TeamManagement";
 import { FinancePinSettings } from "@/components/FinancePinSettings";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
@@ -60,6 +61,9 @@ export default async function SettingsPage() {
           <span className="text-sm text-white font-medium">{orgName}</span>
         </div>
       </div>
+
+      {/* Team */}
+      <TeamManagement userRole={role} />
 
       {/* Telegram */}
       <Link href="/settings/telegram" className="block">

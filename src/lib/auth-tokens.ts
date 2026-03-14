@@ -42,6 +42,33 @@ export function verifyResetToken(token: string): string | null {
   }
 }
 
+// ─── Team Invite Token ────────────────────────
+
+const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+export function signInviteToken(email: string, organisationId: string, role: string): string {
+  const expiry = Date.now() + INVITE_EXPIRY_MS;
+  const data = b64(JSON.stringify({ email, organisationId, role }));
+  const payload = `invite.${data}.${expiry}`;
+  const sig = hmac(payload);
+  return `${payload}.${sig}`;
+}
+
+export function verifyInviteToken(token: string): { email: string; organisationId: string; role: string } | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 4) return null;
+    const [prefix, data, expiry, sig] = parts;
+    if (prefix !== "invite") return null;
+    const payload = `${prefix}.${data}.${expiry}`;
+    if (hmac(payload) !== sig) return null;
+    if (Date.now() > parseInt(expiry, 10)) return null;
+    return JSON.parse(fromb64(data));
+  } catch {
+    return null;
+  }
+}
+
 // ─── Email Verification Token ─────────────────
 
 export function signVerifyToken(email: string): string {
