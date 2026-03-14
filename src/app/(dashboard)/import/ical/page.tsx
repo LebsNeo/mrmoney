@@ -53,6 +53,7 @@ export default function ICalPage() {
     icalUrl: "",
   });
   const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [exportPropertyId, setExportPropertyId] = useState<string>("");
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   function showToast(msg: string, ok: boolean) {
@@ -72,10 +73,11 @@ export default function ICalPage() {
       setFeeds(feedsData.data ?? []);
       const props = propsData.data ?? propsData;
       setProperties(Array.isArray(props) ? props : []);
-      if (Array.isArray(props) && props.length > 0 && !form.propertyId) {
-        const firstId = props[0].id;
-        setForm(f => ({ ...f, propertyId: firstId }));
+      if (Array.isArray(props) && props.length > 0) {
+        if (!form.propertyId) setForm(f => ({ ...f, propertyId: props[0].id }));
         // Load export URLs for first property
+        const firstId = props[0].id;
+        setExportPropertyId(firstId);
         fetch(`/api/ical/export-urls?propertyId=${firstId}`)
           .then(r => r.json())
           .then(d => setExportData(d.data ?? null))
@@ -356,21 +358,48 @@ export default function ICalPage() {
       </div>
 
       {/* Export: MrCA → OTA */}
-      {exportData && exportData.rooms.length > 0 && (
+      {properties.length > 0 && (
         <div className="mt-8">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-white">📤 Export MrCA Calendar to OTAs</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Copy a room&apos;s iCal URL and paste it into Booking.com, Airbnb, or Lekkerslaap to block dates and prevent double-bookings.
-            </p>
+          <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-sm font-semibold text-white">📤 Export MrCA Calendar to OTAs</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Copy a room&apos;s iCal URL and paste it into Booking.com, Airbnb, or Lekkerslaap to block dates and prevent double-bookings.
+              </p>
+            </div>
+            {/* Property selector for export URLs */}
+            {properties.length > 1 && (
+              <select
+                value={exportPropertyId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setExportPropertyId(id);
+                  setExportData(null);
+                  fetch(`/api/ical/export-urls?propertyId=${id}`)
+                    .then(r => r.json())
+                    .then(d => setExportData(d.data ?? null))
+                    .catch(() => {});
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs bg-gray-800 text-gray-300 border border-gray-700 focus:border-emerald-500 focus:outline-none"
+              >
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{exportData.propertyName} — Room Export URLs</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {exportData ? `${exportData.propertyName} — Room Export URLs` : "Loading..."}
+              </p>
             </div>
             <div className="divide-y divide-gray-800">
-              {exportData.rooms.map(room => (
+              {!exportData && (
+                <p className="px-4 py-6 text-xs text-gray-600 text-center">Loading rooms...</p>
+              )}
+              {exportData?.rooms.map(room => (
                 <div key={room.roomId} className="px-4 py-3 flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white font-medium">{room.roomName}</p>
