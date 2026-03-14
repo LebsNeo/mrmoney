@@ -5,7 +5,7 @@
 
 import { prisma } from "./prisma";
 import { subDays, startOfMonth, endOfMonth } from "date-fns";
-import { getSASTDayRange, getSASTYesterdayRange } from "./utils";
+import { getSASTDateRange } from "./utils";
 
 export interface ArrivalPaymentInfo {
   bookingId: string;
@@ -41,8 +41,10 @@ export async function generateDailyDigest(
   propertyId: string
 ): Promise<DailyDigest> {
   const today = new Date();
-  const { start: todayStart, end: todayEnd } = getSASTDayRange();
-  const { start: yesterdayStart, end: yesterdayEnd } = getSASTYesterdayRange();
+  // checkIn/checkOut are @db.Date — use date-only range helpers
+  const { todayDate, tomorrowDate } = getSASTDateRange();
+  // Yesterday = shift back 1 day
+  const yesterdayDate = new Date(todayDate.getTime() - 86400000);
 
   // Yesterday revenue
   const yesterdayRevResult = await prisma.transaction.aggregate({
@@ -50,7 +52,7 @@ export async function generateDailyDigest(
       propertyId,
       type: "INCOME",
       deletedAt: null,
-      date: { gte: yesterdayStart, lte: yesterdayEnd },
+      date: { gte: yesterdayDate, lt: todayDate },
     },
     _sum: { amount: true },
   });
@@ -62,7 +64,7 @@ export async function generateDailyDigest(
       propertyId,
       deletedAt: null,
       status: { not: "CANCELLED" },
-      checkOut: { gte: yesterdayStart, lte: yesterdayEnd },
+      checkOut: { gte: yesterdayDate, lt: todayDate },
     },
   });
 
@@ -72,7 +74,7 @@ export async function generateDailyDigest(
       propertyId,
       deletedAt: null,
       status: { not: "CANCELLED" },
-      checkIn: { gte: todayStart, lte: todayEnd },
+      checkIn: { gte: todayDate, lt: tomorrowDate },
     },
   });
 
@@ -82,7 +84,7 @@ export async function generateDailyDigest(
       propertyId,
       deletedAt: null,
       status: { not: "CANCELLED" },
-      checkIn: { gte: todayStart, lte: todayEnd },
+      checkIn: { gte: todayDate, lt: tomorrowDate },
     },
     include: {
       room: true,
@@ -164,7 +166,7 @@ export async function generateDailyDigest(
       propertyId,
       deletedAt: null,
       status: { not: "CANCELLED" },
-      checkOut: { gte: todayStart, lte: todayEnd },
+      checkOut: { gte: todayDate, lt: tomorrowDate },
     },
   });
 

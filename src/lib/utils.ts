@@ -125,20 +125,38 @@ export function formatPercent(value: number, decimals = 1): string {
 
 // ─────────────────────────────────────────────
 // SAST DATE RANGES (UTC+2)
-// Vercel runs in UTC. Dates stored in DB as midnight SAST = UTC-2h.
-// Always use these helpers for day-based queries.
+// Vercel runs in UTC. checkIn/checkOut are stored as @db.Date (SQL DATE) columns.
+// DATE columns have no time component — always use date-only helpers for those queries.
 // ─────────────────────────────────────────────
-const SAST_OFFSET_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SAST_OFFSET_MS = 2 * 60 * 60 * 1000; // SAST = UTC+2
 
+/**
+ * Returns today's date boundaries in SAST as plain Date objects at midnight UTC.
+ * Use this for @db.Date (SQL DATE) column queries — checkIn, checkOut, etc.
+ * e.g. departures: checkOut >= todayDate && checkOut < tomorrowDate
+ */
+export function getSASTDateRange(date?: Date): { todayDate: Date; tomorrowDate: Date } {
+  // Shift the current UTC time forward by 2h to get the "local" SAST wall-clock date
+  const sastNow = new Date((date ?? new Date()).getTime() + SAST_OFFSET_MS);
+  const y = sastNow.getUTCFullYear();
+  const m = sastNow.getUTCMonth();
+  const d = sastNow.getUTCDate();
+  return {
+    todayDate:    new Date(Date.UTC(y, m, d)),       // midnight UTC = DATE 'YYYY-MM-DD'
+    tomorrowDate: new Date(Date.UTC(y, m, d + 1)),
+  };
+}
+
+/**
+ * @deprecated Use getSASTDateRange() for @db.Date columns.
+ * Only valid for timestamp/timestamptz columns (not used on bookings).
+ */
 export function getSASTDayRange(date?: Date): { start: Date; end: Date } {
   const base = date ?? new Date();
-  // Shift into SAST (+2h) first, THEN find midnight — this is the correct order.
-  // Bug with the old approach: taking UTC midnight then subtracting 2h means
-  // between 22:00–23:59 UTC (midnight–2am SAST) you'd compute the previous day's range.
+  // Shift into SAST (+2h) first, THEN find midnight — correct order.
   const sastNow = new Date(base.getTime() + SAST_OFFSET_MS);
   const sastMidnight = new Date(sastNow);
-  sastMidnight.setUTCHours(0, 0, 0, 0); // midnight in SAST "space"
-  // Shift back to UTC to get the actual UTC timestamp of SAST midnight
+  sastMidnight.setUTCHours(0, 0, 0, 0);
   const start = new Date(sastMidnight.getTime() - SAST_OFFSET_MS);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
   return { start, end };

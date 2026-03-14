@@ -12,11 +12,15 @@ function R(n: number): string {
   return `R ${n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function saToday(): { start: Date; end: Date; saDate: Date } {
-  const sa = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Johannesburg" }));
-  const start = new Date(sa); start.setHours(0, 0, 0, 0);
-  const end   = new Date(sa); end.setHours(23, 59, 59, 999);
-  return { start, end, saDate: sa };
+function saToday(): { start: Date; end: Date; tomorrow: Date; saDate: Date } {
+  // checkIn/checkOut are @db.Date — use UTC midnight dates for SAST day boundaries
+  const SAST_OFFSET_MS = 2 * 60 * 60 * 1000;
+  const sastNow = new Date(Date.now() + SAST_OFFSET_MS);
+  const y = sastNow.getUTCFullYear(), m = sastNow.getUTCMonth(), d = sastNow.getUTCDate();
+  const start    = new Date(Date.UTC(y, m, d));
+  const tomorrow = new Date(Date.UTC(y, m, d + 1));
+  const end      = new Date(tomorrow.getTime() - 1);
+  return { start, end, tomorrow, saDate: sastNow };
 }
 
 // ─── /help ────────────────────────────────────────────────────────────────────
@@ -43,7 +47,7 @@ export async function cmdHelp(role: UserRole): Promise<string> {
 // ─── /tonight ────────────────────────────────────────────────────────────────
 
 export async function cmdTonight(orgId: string): Promise<string> {
-  const { start, end, saDate } = saToday();
+  const { start, end, tomorrow, saDate } = saToday();
   const todayStr = saDate.toLocaleDateString("en-ZA", {
     weekday: "long", day: "numeric", month: "long",
   });
@@ -65,7 +69,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
       where: {
         propertyId: prop.id, deletedAt: null,
         status: { in: ["CONFIRMED", "CHECKED_IN"] },
-        checkIn: { gte: start, lte: end },
+        checkIn: { gte: start, lt: tomorrow },
       },
       select: { guestName: true },
     });
@@ -74,7 +78,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
       where: {
         propertyId: prop.id, deletedAt: null,
         status: { in: ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"] },
-        checkOut: { gte: start, lte: end },
+        checkOut: { gte: start, lt: tomorrow },
       },
       select: { guestName: true },
     });
@@ -84,7 +88,7 @@ export async function cmdTonight(orgId: string): Promise<string> {
         propertyId: prop.id, deletedAt: null,
         status: { in: ["CONFIRMED", "CHECKED_IN"] },
         checkIn: { lt: start },
-        checkOut: { gt: end },
+        checkOut: { gt: start },
       },
       select: { guestName: true },
     });

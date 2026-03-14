@@ -14,7 +14,7 @@ import { getBreakEvenRate } from "@/lib/forecasting";
 import { generateProfitabilityInsights } from "@/lib/profitability";
 import { getKPITrends, getPerformanceBenchmarks } from "@/lib/kpi-engine";
 import { generateDailyDigest } from "@/lib/digest";
-import { getSASTDayRange } from "@/lib/utils";
+import { getSASTDateRange } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BookingStatus } from "@prisma/client";
@@ -132,8 +132,12 @@ export default async function DashboardPage({
   let stayovers: HouseBooking[] = [];
 
   if (orgId && selectedPropertyId) {
-    // SAST-aware day range (Vercel runs UTC, dates stored as midnight SAST = UTC-2h)
-    const { start: todayStart, end: todayEnd } = getSASTDayRange();
+    // checkIn/checkOut are @db.Date (SQL DATE) — no time component.
+    // Use getSASTDateRange() to get today's date in SAST as plain midnight-UTC Date objects.
+    // This prevents Prisma from truncating a timestamp gte/lte to a date, which would
+    // incorrectly include yesterday's checkouts (e.g. checkOut='2026-03-13' matching
+    // gte='2026-03-13T22:00Z' because Postgres strips the time on the DATE column).
+    const { todayDate, tomorrowDate } = getSASTDateRange();
 
     // Date is the source of truth — no manual checkout needed.
     // Only void bookings (cancelled, no-shows) are excluded. CHECKED_OUT status is
@@ -150,18 +154,17 @@ export default async function DashboardPage({
     [arrivals, departures, stayovers] = await Promise.all([
       // Arriving today: checkIn = today
       prisma.booking.findMany({
-        where: { ...baseWhere, checkIn: { gte: todayStart, lte: todayEnd } },
+        where: { ...baseWhere, checkIn: { gte: todayDate, lt: tomorrowDate } },
         select: bookingSelect, orderBy: { checkIn: "asc" },
       }),
       // Departing today: checkOut = today AND checkIn was before today (stayed at least 1 night)
       prisma.booking.findMany({
-        where: { ...baseWhere, checkOut: { gte: todayStart, lte: todayEnd }, checkIn: { lt: todayStart } },
+        where: { ...baseWhere, checkOut: { gte: todayDate, lt: tomorrowDate } },
         select: bookingSelect, orderBy: { checkOut: "asc" },
       }),
-      // In-house tonight: checked in today or earlier, checking out tomorrow or later
-      // Guests with checkOut < today are automatically treated as departed — no manual action needed
+      // In-house tonight: checked in before today, checking out after today
       prisma.booking.findMany({
-        where: { ...baseWhere, checkIn: { lte: todayEnd }, checkOut: { gt: todayEnd } },
+        where: { ...baseWhere, checkIn: { lt: todayDate }, checkOut: { gt: todayDate } },
         select: bookingSelect, orderBy: { checkOut: "asc" },
       }),
     ]);
