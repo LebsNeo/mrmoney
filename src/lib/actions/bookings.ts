@@ -404,6 +404,68 @@ export async function removeProofOfPayment(
   }
 }
 
+export async function updateBookingDetails(
+  bookingId: string,
+  data: {
+    guestName?: string;
+    guestEmail?: string | null;
+    guestPhone?: string | null;
+    checkIn?: string;
+    checkOut?: string;
+    roomId?: string;
+    notes?: string | null;
+  }
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const orgId = await getOrgId();
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, property: { organisationId: orgId }, deletedAt: null },
+      select: { id: true, status: true, propertyId: true, roomRate: true },
+    });
+    if (!booking) return { success: false, message: "Booking not found" };
+
+    const updateData: Record<string, unknown> = {};
+    if (data.guestName?.trim()) updateData.guestName = data.guestName.trim();
+    if (data.guestEmail !== undefined) updateData.guestEmail = data.guestEmail?.trim() || null;
+    if (data.guestPhone !== undefined) updateData.guestPhone = data.guestPhone?.trim() || null;
+    if (data.notes !== undefined) updateData.notes = data.notes?.trim() || null;
+
+    if (data.roomId) {
+      const room = await prisma.room.findFirst({
+        where: { id: data.roomId, propertyId: booking.propertyId, deletedAt: null },
+      });
+      if (!room) return { success: false, message: "Room not found" };
+      updateData.roomId = data.roomId;
+    }
+
+    if (data.checkIn && data.checkOut) {
+      const checkIn = new Date(data.checkIn + "T12:00:00Z");
+      const checkOut = new Date(data.checkOut + "T12:00:00Z");
+      const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000);
+      if (nights <= 0) return { success: false, message: "Check-out must be after check-in" };
+      updateData.checkIn = checkIn;
+      updateData.checkOut = checkOut;
+      // Recalculate amounts based on new dates
+      const rate = Number(booking.roomRate);
+      const gross = rate * nights;
+      updateData.grossAmount = gross;
+      updateData.netAmount = gross; // simplified — OTA commission handled separately
+    }
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: updateData,
+    });
+
+    revalidatePath("/bookings");
+    revalidatePath(`/bookings/${bookingId}`);
+    revalidatePath("/calendar");
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: (e as Error).message };
+  }
+}
+
 export async function updateBookingStatus(
   bookingId: string,
   status: BookingStatus
