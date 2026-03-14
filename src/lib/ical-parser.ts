@@ -49,25 +49,26 @@ function parseICalDate(val: string): Date | null {
 }
 
 /**
- * Parse DTEND value → checkout Date.
+ * Parse DTEND value → checkout (departure) Date.
  * Per RFC 5545, DTEND for DATE-only (all-day) events is EXCLUSIVE —
- * i.e. DTEND is the day AFTER the last occupied night.
- * Booking.com, Airbnb, and Lekkerslaap all follow this convention.
- * So for a check-out on March 30, iCal sends DTEND:20260331 → subtract 1 day.
- * DATETIME values already include the exact time so no adjustment needed.
+ * i.e. DTEND is the day AFTER the last occupied night, which in hotel
+ * terms IS the departure/checkout date. No subtraction needed.
+ *
+ * Example: 1-night stay checking in March 14, departing March 15
+ *   DTSTART:20260314  DTEND:20260315
+ *   checkIn = March 14, checkOut = March 15, nights = 1 ✓
  */
 function parseICalCheckOut(val: string): Date | null {
   const clean = val.replace(/^.*:/, "").trim();
   if (clean.length === 8) {
-    // DATE-only: subtract 1 day (exclusive end → inclusive checkout)
+    // DATE-only: DTEND is already the departure date — use as-is
     const y = parseInt(clean.slice(0, 4));
     const m = parseInt(clean.slice(4, 6)) - 1;
     const d = parseInt(clean.slice(6, 8));
-    // d - 1: Date.UTC handles month rollover automatically
-    return new Date(Date.UTC(y, m, d - 1, 12, 0, 0, 0));
+    return new Date(Date.UTC(y, m, d, 12, 0, 0, 0));
   }
   if (clean.length >= 15) {
-    // DATETIME: use as-is (exact timestamp)
+    // DATETIME: extract date part, store as noon UTC
     const y = parseInt(clean.slice(0, 4));
     const mo = parseInt(clean.slice(4, 6)) - 1;
     const d = parseInt(clean.slice(6, 8));
