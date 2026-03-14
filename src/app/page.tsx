@@ -102,17 +102,7 @@ function LogoSlider() {
         >
           Trusted by
         </p>
-        <p
-          style={{
-            fontSize: "clamp(18px, 2.5vw, 24px)",
-            fontWeight: 700,
-            color: "#fff",
-            letterSpacing: "-0.5px",
-            margin: "0 0 40px",
-          }}
-        >
-          Used and loved by hospitality businesses across South Africa
-        </p>
+        <div style={{ marginBottom: 40 }} />
       </div>
 
       {/* Infinite scroll track */}
