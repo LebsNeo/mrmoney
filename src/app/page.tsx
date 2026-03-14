@@ -1054,10 +1054,11 @@ export default function LandingPage() {
                 Pro
               </p>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
-                <span style={{ fontSize: 52, fontWeight: 900, letterSpacing: "-2px", color: "#fff" }}>R499</span>
+                <span style={{ fontSize: 52, fontWeight: 900, letterSpacing: "-2px", color: "#fff" }}>R299</span>
                 <span style={{ fontSize: 14, color: "#4b5563", paddingBottom: 12 }}>/month</span>
               </div>
-              <p style={{ fontSize: 13, color: "#374151", marginBottom: 32 }}>Everything, unlimited</p>
+              <p style={{ fontSize: 13, color: "#10b981", fontWeight: 600, marginBottom: 4 }}>First 3 months FREE</p>
+              <p style={{ fontSize: 13, color: "#374151", marginBottom: 32 }}>Everything, unlimited — no card needed to start</p>
               {[
                 "Unlimited properties",
                 "OTA reconciliation",

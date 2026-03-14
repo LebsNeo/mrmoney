@@ -52,14 +52,18 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hash(password, 12);
     const slug = await uniqueSlug(organisationName);
 
-    // Create org + user — emailVerified = false
+    // Create org + user — PRO plan with 3-month free trial, emailVerified = false
+    const trialEndsAt = new Date();
+    trialEndsAt.setMonth(trialEndsAt.getMonth() + 3);
+
     const user = await prisma.$transaction(async (tx) => {
       const org = await tx.organisation.create({
         data: {
           name: organisationName.trim(),
           slug,
-          plan: "FREE",
+          plan: "PRO",
           currency: "ZAR",
+          trialEndsAt,
         },
       });
       return tx.user.create({
