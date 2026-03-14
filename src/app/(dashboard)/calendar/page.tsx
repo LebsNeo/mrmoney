@@ -129,12 +129,15 @@ export default function CalendarPage() {
   const totalCells    = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
 
   const bookingsOnDay = (day: number) => {
-    const d = new Date(year, month - 1, day);
+    // Use Date.UTC — checkIn/checkOut are @db.Date stored as UTC midnight.
+    // new Date(year, month-1, day) = LOCAL midnight which on UTC+2 is 2h before UTC midnight,
+    // causing bookings to vanish because checkIn (UTC midnight) > local midnight.
+    const d = new Date(Date.UTC(year, month - 1, day));
     return bookings.filter(b => new Date(b.checkIn) <= d && new Date(b.checkOut) > d);
   };
 
   const bookingForRoomDay = (roomId: string, day: number) => {
-    const d = new Date(year, month - 1, day);
+    const d = new Date(Date.UTC(year, month - 1, day));
     return bookings.find(b => {
       const inRange = new Date(b.checkIn) <= d && new Date(b.checkOut) > d;
       if (!inRange) return false;
