@@ -419,7 +419,7 @@ export async function sendBookingEmail(bookingId: string): Promise<void> {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        property: { select: { name: true, email: true, phone: true } },
+        property: { select: { name: true, email: true, phone: true, logoUrl: true, website: true, invoiceFooter: true, address: true, city: true } },
         room: { select: { name: true } },
       },
     });
@@ -434,6 +434,10 @@ export async function sendBookingEmail(bookingId: string): Promise<void> {
       propertyName: booking.property.name,
       propertyEmail: booking.property.email,
       propertyPhone: booking.property.phone,
+      propertyLogoUrl: booking.property.logoUrl,
+      propertyWebsite: booking.property.website,
+      propertyFooter: booking.property.invoiceFooter,
+      propertyAddress: [booking.property.address, booking.property.city].filter(Boolean).join(", ") || null,
       roomName: booking.room?.name ?? "Room",
       checkIn: checkInStr,
       checkOut: checkOutStr,

@@ -337,6 +337,10 @@ export function bookingConfirmationEmailTemplate(opts: {
   propertyName: string;
   propertyEmail?: string | null;
   propertyPhone?: string | null;
+  propertyLogoUrl?: string | null;
+  propertyWebsite?: string | null;
+  propertyFooter?: string | null;
+  propertyAddress?: string | null;
   roomName: string;
   checkIn: string;
   checkOut: string;
@@ -345,74 +349,91 @@ export function bookingConfirmationEmailTemplate(opts: {
   status: "CONFIRMED" | "RESERVED";
   bookingRef?: string | null;
 }): { subject: string; html: string; text: string } {
-  const { guestName, propertyName, roomName, checkIn, checkOut, nights, totalAmount, status, bookingRef, propertyEmail, propertyPhone } = opts;
+  const {
+    guestName, propertyName, roomName, checkIn, checkOut, nights, totalAmount,
+    status, bookingRef, propertyEmail, propertyPhone, propertyLogoUrl,
+    propertyWebsite, propertyFooter, propertyAddress,
+  } = opts;
   const firstName = guestName.split(" ")[0];
   const isReserved = status === "RESERVED";
   const statusLabel = isReserved ? "Reserved — Pending Payment" : "Confirmed";
   const statusColor = isReserved ? "#f59e0b" : "#10b981";
   const statusIcon = isReserved ? "🕐" : "✅";
 
+  // White-label: use property logo if available, otherwise show property name as text
+  const logoSection = propertyLogoUrl
+    ? `<img src="${propertyLogoUrl}" alt="${propertyName}" style="max-height:60px;max-width:200px;margin-bottom:20px;" />`
+    : `<div style="font-size:24px;font-weight:800;color:#ffffff;margin-bottom:20px;letter-spacing:-0.5px;">${propertyName}</div>`;
+
+  // Contact section
+  const contactLines: string[] = [];
+  if (propertyEmail) contactLines.push(`<a href="mailto:${propertyEmail}" style="color:${statusColor};text-decoration:none;">${propertyEmail}</a>`);
+  if (propertyPhone) contactLines.push(propertyPhone);
+  if (propertyWebsite) contactLines.push(`<a href="${propertyWebsite.startsWith("http") ? propertyWebsite : `https://${propertyWebsite}`}" style="color:${statusColor};text-decoration:none;">${propertyWebsite.replace(/^https?:\/\//, "")}</a>`);
+  if (propertyAddress) contactLines.push(propertyAddress);
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0a0a0a;min-height:100vh;">
-    <tr><td align="center" style="padding:48px 16px;">
+<body style="margin:0;padding:0;background-color:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#fafafa;">
+    <tr><td align="center" style="padding:40px 16px;">
+
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-        style="max-width:560px;background:#111111;border:1px solid #1f1f1f;border-radius:20px;overflow:hidden;">
-        <tr><td style="height:4px;background:linear-gradient(90deg,#10b981 0%,#059669 50%,#0ea5e9 100%);"></td></tr>
-        <tr><td style="padding:40px 48px 24px;text-align:center;">
-          <div style="margin-bottom:24px;">
-            <span style="font-size:28px;font-weight:800;color:#ffffff;">Mr<span style="color:#10b981;">CA</span></span>
-          </div>
-          <div style="font-size:40px;margin-bottom:16px;">${statusIcon}</div>
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">
+        style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+
+        <!-- Property branded header -->
+        <tr><td style="padding:36px 48px 24px;text-align:center;border-bottom:1px solid #f3f4f6;">
+          ${logoSection}
+          <div style="font-size:40px;margin-bottom:12px;">${statusIcon}</div>
+          <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827;">
             Booking ${statusLabel}
           </h1>
           <p style="margin:0;font-size:15px;color:#6b7280;">
             Hi ${firstName}, ${isReserved ? "your room has been reserved." : "your booking is confirmed!"}
           </p>
         </td></tr>
-        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
-        <tr><td style="padding:32px 48px;">
+
+        <!-- Booking details card -->
+        <tr><td style="padding:28px 48px;">
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-            style="background:#0a0a0a;border:1px solid #1f1f1f;border-radius:12px;">
+            style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
             <tr><td style="padding:20px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Property</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;font-weight:600;">${propertyName}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;font-weight:600;">${propertyName}</td>
                 </tr>
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Room</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;">${roomName}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;">${roomName}</td>
                 </tr>
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Check-in</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;">${checkIn}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;">${checkIn}</td>
                 </tr>
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Check-out</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;">${checkOut}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;">${checkOut}</td>
                 </tr>
                 <tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Nights</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;">${nights}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;">${nights}</td>
                 </tr>
                 ${bookingRef ? `<tr>
                   <td style="padding:6px 0;font-size:13px;color:#6b7280;">Reference</td>
-                  <td style="padding:6px 0;font-size:13px;color:#fff;text-align:right;font-family:monospace;">${bookingRef}</td>
+                  <td style="padding:6px 0;font-size:13px;color:#111827;text-align:right;font-family:monospace;">${bookingRef}</td>
                 </tr>` : ""}
                 <tr>
-                  <td colspan="2" style="padding:10px 0 0;border-top:1px solid #1f1f1f;"></td>
+                  <td colspan="2" style="padding:10px 0 0;border-top:1px solid #e5e7eb;"></td>
                 </tr>
                 <tr>
-                  <td style="padding:6px 0;font-size:14px;color:#fff;font-weight:700;">Total</td>
-                  <td style="padding:6px 0;font-size:14px;color:${statusColor};text-align:right;font-weight:700;">${totalAmount}</td>
+                  <td style="padding:6px 0;font-size:15px;color:#111827;font-weight:700;">Total</td>
+                  <td style="padding:6px 0;font-size:15px;color:${statusColor};text-align:right;font-weight:700;">${totalAmount}</td>
                 </tr>
                 <tr>
-                  <td colspan="2" style="padding:4px 0 0;">
-                    <span style="font-size:11px;color:${statusColor};font-weight:600;background:${statusColor}15;padding:3px 10px;border-radius:20px;">
+                  <td colspan="2" style="padding:6px 0 0;">
+                    <span style="font-size:11px;color:${statusColor};font-weight:600;background:${statusColor}18;padding:4px 12px;border-radius:20px;">
                       ${statusLabel}
                     </span>
                   </td>
@@ -421,19 +442,25 @@ export function bookingConfirmationEmailTemplate(opts: {
             </td></tr>
           </table>
 
-          ${isReserved ? `<p style="margin:24px 0 0;font-size:14px;color:#f59e0b;line-height:1.6;background:#f59e0b10;border:1px solid #f59e0b30;border-radius:10px;padding:14px 18px;">
+          ${isReserved ? `<div style="margin:20px 0 0;font-size:14px;color:#92400e;line-height:1.6;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;">
             Your room is held for you. Please arrange payment before arrival to confirm your booking.
-          </p>` : ""}
+          </div>` : ""}
 
-          ${propertyEmail || propertyPhone ? `<p style="margin:24px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">
-            Questions? Contact ${propertyName}${propertyEmail ? ` at <a href="mailto:${propertyEmail}" style="color:#10b981;">${propertyEmail}</a>` : ""}${propertyPhone ? ` or call ${propertyPhone}` : ""}.
-          </p>` : ""}
+          ${contactLines.length > 0 ? `<div style="margin:20px 0 0;padding:16px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;">
+            <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Contact Us</p>
+            <p style="margin:0;font-size:13px;color:#374151;line-height:1.8;">${contactLines.join("<br />")}</p>
+          </div>` : ""}
+
+          ${propertyFooter ? `<p style="margin:20px 0 0;font-size:13px;color:#6b7280;line-height:1.6;font-style:italic;">${propertyFooter}</p>` : ""}
         </td></tr>
-        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
-        <tr><td style="padding:24px 48px 36px;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#374151;">© ${new Date().getFullYear()} MrCA · Hospitality Financial OS</p>
+
+        <!-- Footer -->
+        <tr><td style="padding:20px 48px 28px;text-align:center;border-top:1px solid #f3f4f6;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} ${propertyName}</p>
+          <p style="margin:0;font-size:10px;color:#d1d5db;">Powered by <span style="font-weight:600;">MrCA</span></p>
         </td></tr>
       </table>
+
     </td></tr>
   </table>
 </body></html>`;
@@ -453,10 +480,14 @@ Total: ${totalAmount}
 ${bookingRef ? `Reference: ${bookingRef}` : ""}
 Status: ${statusLabel}
 
-${propertyEmail ? `Contact: ${propertyEmail}` : ""}
+${propertyEmail ? `Email: ${propertyEmail}` : ""}
 ${propertyPhone ? `Phone: ${propertyPhone}` : ""}
+${propertyAddress ? `Address: ${propertyAddress}` : ""}
+${propertyWebsite ? `Website: ${propertyWebsite}` : ""}
+${propertyFooter ? `\n${propertyFooter}` : ""}
 
-— ${propertyName}`.trim();
+— ${propertyName}
+Powered by MrCA`.trim();
 
   return {
     subject: isReserved
