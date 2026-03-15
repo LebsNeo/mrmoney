@@ -220,6 +220,10 @@ export async function createStokvel(input: {
         monthlyAmount: input.monthlyAmount,
         payoutMonth: input.payoutMonth ?? null,
         description: input.description?.trim() || null,
+        type: (input as any).type ?? "SAVINGS",
+        autoDeduct: (input as any).autoDeduct ?? false,
+        meetingDay: (input as any).meetingDay ?? null,
+        meetingTime: (input as any).meetingTime ?? null,
       },
     });
 

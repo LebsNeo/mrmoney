@@ -431,6 +431,46 @@ export async function markPayrollPaid(id: string, propertyId: string): Promise<A
         });
       }
 
+      // Auto-deduct stokvel contributions for members of auto-deduct stokvels
+      const period = `${run.periodYear}-${String(run.periodMonth).padStart(2, "0")}`;
+      const autoDeductStokvels = await tx.stokvel.findMany({
+        where: { organisationId: orgId, isActive: true, autoDeduct: true },
+        include: { members: { where: { isActive: true }, select: { employeeId: true } } },
+      });
+
+      for (const stokvel of autoDeductStokvels) {
+        for (const member of stokvel.members) {
+          // Only deduct if employee is in this payroll run
+          const entry = run.entries.find(e => e.employeeId === member.employeeId);
+          if (!entry) continue;
+
+          // Check if already contributed this period
+          const existing = await tx.stokvelContribution.findFirst({
+            where: { stokvelId: stokvel.id, employeeId: member.employeeId, period },
+          });
+          if (existing) continue;
+
+          const amount = Number(stokvel.monthlyAmount);
+          await tx.stokvelContribution.create({
+            data: {
+              stokvelId: stokvel.id,
+              employeeId: member.employeeId,
+              amount,
+              period,
+              paidAt: new Date(),
+              paymentMethod: "PAYROLL_DEDUCTION",
+              payrollEntryId: entry.id,
+            },
+          });
+
+          // Update stokvel balance
+          await tx.stokvel.update({
+            where: { id: stokvel.id },
+            data: { totalBalance: { increment: amount } },
+          });
+        }
+      }
+
       // Settle advance repayments for each entry that had deductions
       for (const entry of run.entries) {
         if (Number(entry.otherDeductions) <= 0) continue;

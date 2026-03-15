@@ -49,7 +49,7 @@ export default async function StokvelsPage() {
             employee: { select: { id: true, name: true } },
           },
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 50,
         },
       },
       orderBy: { createdAt: "desc" },

@@ -21,9 +21,13 @@ type Stokvel = {
   id: string;
   name: string;
   description: string | null;
+  type: string;
   monthlyAmount: number;
   totalBalance: number;
   payoutMonth: number | null;
+  autoDeduct: boolean;
+  meetingDay: number | null;
+  meetingTime: string | null;
   isActive: boolean;
   members: Array<{
     id: string;
@@ -34,9 +38,18 @@ type Stokvel = {
     amount: number;
     period: string;
     paidAt: string | null;
+    paymentMethod: string | null;
     createdAt: string;
     employee: Employee;
   }>;
+};
+
+const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
+  SAVINGS: { label: "Savings", emoji: "💰" },
+  ROTATING: { label: "Rotating", emoji: "🔄" },
+  GROCERY: { label: "Grocery", emoji: "🛒" },
+  BURIAL: { label: "Burial", emoji: "🕊" },
+  INVESTMENT: { label: "Investment", emoji: "📈" },
 };
 
 const MONTHS = [
@@ -71,6 +84,8 @@ export function StokvelsClient({
     name: "",
     monthlyAmount: "",
     payoutMonth: "",
+    type: "SAVINGS",
+    autoDeduct: false,
   });
 
   const [memberSelections, setMemberSelections] = useState<Record<string, string>>({});
@@ -98,7 +113,9 @@ export function StokvelsClient({
         name: createForm.name,
         monthlyAmount: parseFloat(createForm.monthlyAmount),
         payoutMonth: createForm.payoutMonth ? parseInt(createForm.payoutMonth, 10) : undefined,
-      });
+        type: createForm.type,
+        autoDeduct: createForm.autoDeduct,
+      } as any);
       setPendingKey(null);
       if (!result.ok) {
         showToast(result.error, "error");
@@ -183,20 +200,29 @@ export function StokvelsClient({
             Back to Workers
           </Link>
         </div>
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
           <input
             value={createForm.name}
             onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Name"
+            placeholder="Stokvel name"
             className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
           />
+          <select
+            value={createForm.type}
+            onChange={(event) => setCreateForm((current) => ({ ...current, type: event.target.value }))}
+            className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
+          >
+            {Object.entries(TYPE_LABELS).map(([val, { label, emoji }]) => (
+              <option key={val} value={val}>{emoji} {label}</option>
+            ))}
+          </select>
           <input
             type="number"
             min="0"
             step="0.01"
             value={createForm.monthlyAmount}
             onChange={(event) => setCreateForm((current) => ({ ...current, monthlyAmount: event.target.value }))}
-            placeholder="Monthly amount"
+            placeholder="Monthly amount (R)"
             className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
           />
           <select
@@ -204,20 +230,27 @@ export function StokvelsClient({
             onChange={(event) => setCreateForm((current) => ({ ...current, payoutMonth: event.target.value }))}
             className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
           >
-            <option value="">Payout month</option>
+            <option value="">Payout month (optional)</option>
             {MONTHS.map((month, index) => (
-              <option key={month} value={index + 1}>
-                {month}
-              </option>
+              <option key={month} value={index + 1}>{month}</option>
             ))}
           </select>
+          <label className="flex items-center gap-2 px-3 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={createForm.autoDeduct}
+              onChange={(e) => setCreateForm((current) => ({ ...current, autoDeduct: e.target.checked }))}
+              className="w-4 h-4 rounded accent-emerald-500"
+            />
+            <span className="text-sm text-gray-300">Auto-deduct from payroll</span>
+          </label>
           <button
             type="button"
             onClick={handleCreateStokvel}
             disabled={isPending && pendingKey === "create"}
             className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:opacity-50 transition-colors"
           >
-            Create
+            Create Stokvel
           </button>
         </div>
       </div>
@@ -235,15 +268,26 @@ export function StokvelsClient({
 
             return (
               <div key={stokvel.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-5">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div>
-                    <p className="text-white text-lg font-semibold">{stokvel.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {formatCurrency(stokvel.monthlyAmount)} monthly
-                      {stokvel.payoutMonth ? ` · Payout ${MONTHS[stokvel.payoutMonth - 1]}` : ""}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-white text-lg font-semibold">{stokvel.name}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">
+                        {(TYPE_LABELS[stokvel.type] ?? TYPE_LABELS.SAVINGS).emoji} {(TYPE_LABELS[stokvel.type] ?? TYPE_LABELS.SAVINGS).label}
+                      </span>
+                      {stokvel.autoDeduct && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                          Auto-deduct
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatCurrency(stokvel.monthlyAmount)}/month
+                      {stokvel.payoutMonth ? ` · Payout in ${MONTHS[stokvel.payoutMonth - 1]}` : ""}
+                      {stokvel.meetingDay ? ` · Meets on the ${stokvel.meetingDay}${stokvel.meetingDay === 1 ? "st" : stokvel.meetingDay === 2 ? "nd" : stokvel.meetingDay === 3 ? "rd" : "th"}` : ""}
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 min-w-[220px]">
+                  <div className="grid grid-cols-2 gap-4 min-w-[200px]">
                     <div>
                       <p className="text-xs text-gray-500">Balance</p>
                       <p className="text-emerald-400 font-semibold">{formatCurrency(stokvel.totalBalance)}</p>
@@ -254,6 +298,39 @@ export function StokvelsClient({
                     </div>
                   </div>
                 </div>
+
+                {/* Payment Status — who paid / who owes this month */}
+                {stokvel.members.length > 0 && (() => {
+                  const paidIds = new Set(
+                    stokvel.contributions
+                      .filter(c => c.period === defaultPeriod && c.paidAt)
+                      .map(c => c.employee.id)
+                  );
+                  const paid = stokvel.members.filter(m => paidIds.has(m.employee.id));
+                  const owing = stokvel.members.filter(m => !paidIds.has(m.employee.id));
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1">Paid ({defaultPeriod})</p>
+                        {paid.length === 0
+                          ? <p className="text-xs text-gray-500">No one yet</p>
+                          : paid.map(m => (
+                            <p key={m.id} className="text-xs text-emerald-300">{m.employee.name}</p>
+                          ))
+                        }
+                      </div>
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1">Outstanding ({defaultPeriod})</p>
+                        {owing.length === 0
+                          ? <p className="text-xs text-gray-500">All paid!</p>
+                          : owing.map(m => (
+                            <p key={m.id} className="text-xs text-amber-300">{m.employee.name} — {formatCurrency(stokvel.monthlyAmount)}</p>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid gap-5 lg:grid-cols-2">
                   <div className="space-y-3">
@@ -348,7 +425,12 @@ export function StokvelsClient({
                           <div key={contribution.id} className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-950 px-3 py-2">
                             <div>
                               <p className="text-sm text-gray-200">{contribution.employee.name}</p>
-                              <p className="text-xs text-gray-500">{contribution.period}</p>
+                              <p className="text-xs text-gray-500">
+                                {contribution.period}
+                                {contribution.paymentMethod === "PAYROLL_DEDUCTION" && <span className="ml-1 text-emerald-500">· Payroll</span>}
+                                {contribution.paymentMethod === "CASH" && <span className="ml-1">· Cash</span>}
+                                {contribution.paymentMethod === "EFT" && <span className="ml-1">· EFT</span>}
+                              </p>
                             </div>
                             <span className="text-sm font-semibold text-emerald-400">{formatCurrency(contribution.amount)}</span>
                           </div>

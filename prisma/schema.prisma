@@ -904,20 +904,37 @@ model WorkerSavingsGoal {
   @@map("worker_savings_goals")
 }
 
+enum StokvelType {
+  SAVINGS        // General savings pool — annual or target-based payout
+  ROTATING       // Each member gets the full pot on rotation (monthly)
+  GROCERY        // Pool for bulk grocery purchases (e.g. December)
+  BURIAL         // Funeral/burial cover contributions
+  INVESTMENT     // Pool for income-generating assets
+}
+
 model Stokvel {
-  id             String   @id @default(uuid())
-  organisationId String
-  name           String
-  description    String?
-  monthlyAmount  Decimal  @db.Decimal(19, 4)
-  totalBalance   Decimal  @default(0) @db.Decimal(19, 4)
-  payoutMonth    Int?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  organisation   Organisation          @relation(fields: [organisationId], references: [id])
-  members        StokvelMember[]
-  contributions  StokvelContribution[]
+  id               String      @id @default(uuid())
+  organisationId   String
+  name             String
+  description      String?
+  type             StokvelType @default(SAVINGS)
+  monthlyAmount    Decimal     @db.Decimal(19, 4)
+  totalBalance     Decimal     @default(0) @db.Decimal(19, 4)
+  // Payout config
+  payoutMonth      Int?        // For SAVINGS: month of annual payout (1-12)
+  // Meeting scheduler
+  meetingDay       Int?        // Day of month for meetings (1-31)
+  meetingTime      String?     // e.g. "14:00"
+  nextMeetingHost  String?     // employeeId of next meeting host
+  // Auto-deduct from payroll
+  autoDeduct       Boolean     @default(false)
+  // Status
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  organisation     Organisation          @relation(fields: [organisationId], references: [id])
+  members          StokvelMember[]
+  contributions    StokvelContribution[]
 
   @@index([organisationId])
   @@map("stokvels")
@@ -937,15 +954,17 @@ model StokvelMember {
 }
 
 model StokvelContribution {
-  id          String   @id @default(uuid())
-  stokvelId   String
-  employeeId  String
-  amount      Decimal  @db.Decimal(19, 4)
-  period      String
-  paidAt      DateTime?
-  createdAt   DateTime @default(now())
-  stokvel     Stokvel  @relation(fields: [stokvelId], references: [id])
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  id             String   @id @default(uuid())
+  stokvelId      String
+  employeeId     String
+  amount         Decimal  @db.Decimal(19, 4)
+  period         String   // YYYY-MM
+  paidAt         DateTime?
+  paymentMethod  String?  // PAYROLL_DEDUCTION, CASH, EFT, MANUAL
+  payrollEntryId String?  // Link to PayrollEntry if auto-deducted
+  createdAt      DateTime @default(now())
+  stokvel        Stokvel  @relation(fields: [stokvelId], references: [id])
+  employee       Employee @relation(fields: [employeeId], references: [id])
 
   @@map("stokvel_contributions")
 }
