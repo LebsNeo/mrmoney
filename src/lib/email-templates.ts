@@ -265,6 +265,82 @@ export function welcomeEmailTemplate(opts: {
 }
 
 
+export function passwordResetEmailTemplate(opts: {
+  name: string;
+  resetUrl: string;
+}): { subject: string; html: string; text: string } {
+  const { name, resetUrl } = opts;
+  const firstName = name.split(" ")[0];
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#0a0a0a;min-height:100vh;">
+    <tr><td align="center" style="padding:48px 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+        style="max-width:560px;background:#111111;border:1px solid #1f1f1f;border-radius:20px;overflow:hidden;">
+        <tr><td style="height:4px;background:linear-gradient(90deg,#10b981 0%,#059669 50%,#0ea5e9 100%);"></td></tr>
+        <tr><td style="padding:40px 48px 24px;text-align:center;">
+          <div style="margin-bottom:24px;">
+            <span style="font-size:28px;font-weight:800;color:#ffffff;">Mr<span style="color:#10b981;">CA</span></span>
+            <div style="margin-top:4px;font-size:11px;letter-spacing:2px;color:#4b5563;text-transform:uppercase;">Hospitality Financial OS</div>
+          </div>
+          <div style="display:inline-block;width:64px;height:64px;background:#f59e0b;border-radius:50%;margin-bottom:20px;line-height:64px;text-align:center;font-size:28px;">
+            🔑
+          </div>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Reset your password</h1>
+          <p style="margin:0;font-size:15px;color:#6b7280;line-height:1.5;">
+            Hi ${firstName}, we received a request to reset your password.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
+        <tr><td style="padding:32px 48px;">
+          <p style="margin:0 0 24px;font-size:15px;color:#9ca3af;line-height:1.7;">
+            Click the button below to choose a new password. This link expires in <strong style="color:#f59e0b;">1 hour</strong>.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr><td align="center" style="padding:8px 0 28px;">
+              <a href="${resetUrl}" style="display:inline-block;padding:16px 40px;background:#f59e0b;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;">
+                Reset Password →
+              </a>
+            </td></tr>
+          </table>
+          <div style="background:#0f1a18;border:1px solid #1a3028;border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+            <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
+              🔒 <strong style="color:#9ca3af;">Security notice:</strong> If you didn't request this reset,
+              you can safely ignore this email — your password will not be changed.
+            </p>
+          </div>
+          <p style="margin:0 0 6px;font-size:12px;color:#4b5563;">Button not working? Copy this link:</p>
+          <p style="margin:0;font-size:11px;color:#374151;word-break:break-all;font-family:monospace;background:#0d0d0d;border:1px solid #1f1f1f;border-radius:8px;padding:10px 12px;">
+            ${resetUrl}
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 48px;"><div style="height:1px;background:#1f1f1f;"></div></td></tr>
+        <tr><td style="padding:24px 48px 36px;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#374151;">© ${new Date().getFullYear()} MrCA · Hospitality Financial OS</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const text = `Reset your MrCA password
+
+Hi ${firstName},
+
+We received a request to reset your password. Click the link below — it expires in 1 hour.
+
+Reset here: ${resetUrl}
+
+If you didn't request this, ignore this email — your password won't change.
+
+— The MrCA Team`.trim();
+
+  return { subject: "Reset your MrCA password", html, text };
+}
+
 export function inviteEmailTemplate(opts: {
   inviterName: string;
   organisationName: string;

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       return apiSuccess({ sent: true });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://mrmoney.vercel.app";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.mrca.co.za";
     const token = signVerifyToken(user.email);
     const verifyUrl = `${appUrl}/verify-email?token=${encodeURIComponent(token)}`;
 

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // Send welcome email (fire and forget)
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://mrmoney.vercel.app";
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.mrca.co.za";
       const { subject, html, text } = welcomeEmailTemplate({
         name: user.name,
         dashboardUrl: `${appUrl}/dashboard`,
