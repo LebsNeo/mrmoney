@@ -264,7 +264,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       )}
 
       {/* Property & Rooms */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
             Property & Rooms
@@ -348,7 +348,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
                             step="0.01"
                             value={price}
                             onChange={(e) => setRoomPrice(r.id, parseFloat(e.target.value) || 0)}
-                            className="w-24 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-emerald-500"
+                            className="w-20 sm:w-24 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white text-right focus:outline-none focus:border-emerald-500"
                           />
                           <span className="text-xs text-gray-500">/night</span>
                         </div>
@@ -371,11 +371,11 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       </div>
 
       {/* Guest Info */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Guest Information
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="sm:col-span-2">
             <label className={labelClass}>Guest Name *</label>
             <input
@@ -411,11 +411,11 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       </div>
 
       {/* Dates & Source */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Stay & Source
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
           <div>
             <label className={labelClass}>Check-in *</label>
             <input
@@ -453,7 +453,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <label className={labelClass}>OTA Commission %</label>
             <input
@@ -544,7 +544,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
       )}
 
       {/* Booking Type: Reservation or Confirmed */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Payment Status</h2>
         <div className="flex gap-3">
           <button type="button" onClick={() => { setIsReservation(false); }}
@@ -573,7 +573,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
 
       {/* Collect Payment Now */}
       {!isReservation && (
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
@@ -596,7 +596,7 @@ export function NewBookingForm({ properties }: NewBookingFormProps) {
         </div>
 
         {collectPayment && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className={labelClass}>Payment Method</label>
               <div className="flex gap-2">

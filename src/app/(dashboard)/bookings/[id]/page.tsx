@@ -92,11 +92,11 @@ export default async function BookingDetailPage({ params }: PageProps) {
         {/* Left column — main info */}
         <div className="lg:col-span-2 space-y-6">
           {/* Guest & Stay Info */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
               Booking Details
             </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Guest Name</p>
                 <p className="text-white font-medium">{booking.guestName}</p>
@@ -181,7 +181,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
           />
 
           {/* Financial Breakdown */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
               Financial Breakdown
             </h2>
@@ -219,7 +219,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
           {/* Related Transactions */}
           {transactions.length > 0 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Transactions ({transactions.length})
               </h2>
@@ -228,7 +228,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 {transactions.map((tx: any) => (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-gray-800 last:border-0"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-white text-sm truncate">{tx.description}</p>
@@ -257,7 +257,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
         {/* Right column — sidebar */}
         <div className="space-y-6">
           {/* Invoice Card */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
               Invoice
             </h2>
@@ -297,7 +297,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
           {/* Actions Card */}
           {(booking.status === "RESERVED" || booking.status === "CONFIRMED" || booking.status === "CHECKED_IN") && (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Actions
               </h2>

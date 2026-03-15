@@ -188,7 +188,7 @@ export default async function DashboardPage({
 
       {/* Phase 7 — Daily Digest Preview */}
       {digest && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-6">
           <Link href="#tonight" className="glass rounded-xl p-4 hover:border-emerald-500/30 transition-all group cursor-pointer">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Check-ins Today</p>
             <p className="text-2xl font-bold gradient-text">{digest.todayCheckIns}</p>
@@ -226,7 +226,7 @@ export default async function DashboardPage({
 
       {/* Tonight's House */}
       {(arrivals.length > 0 || stayovers.length > 0 || departures.length > 0) && (
-        <div id="tonight" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 scroll-mt-6">
+        <div id="tonight" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 scroll-mt-6">
           {/* Arrivals */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
@@ -317,7 +317,7 @@ export default async function DashboardPage({
       )}
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4 mb-8">
         <KPICard
           label="Total Revenue"
           value={formatCurrency(data.totalRevenue)}
@@ -546,7 +546,7 @@ export default async function DashboardPage({
 
       {/* Phase 6 — KPI Widgets */}
       {kpiTrends.length > 0 && (
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
           {/* RevPAR Trend */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:col-span-2">
             <div className="flex items-center justify-between mb-3">
@@ -653,7 +653,7 @@ export default async function DashboardPage({
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {topInsights.map((insight, idx) => {
                 const isWarning = insight.includes("low margin") || insight.includes("up ");
                 const isPositive = insight.includes("more profitable");

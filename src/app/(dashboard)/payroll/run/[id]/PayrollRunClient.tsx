@@ -230,7 +230,7 @@ export function PayrollRunClient({ run }: { run: Run }) {
       {error && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
       {/* Summary totals */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-6">
         {[
           { label: "Total Gross", value: fmt(totalGross), color: "text-white" },
           { label: "UIF (both sides)", value: fmt(totalUifEmp + totalUifEmr), color: "text-amber-400" },
@@ -251,12 +251,12 @@ export function PayrollRunClient({ run }: { run: Run }) {
           const isEditing = editingId === entry.id;
           return (
             <div key={entry.id} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 flex items-center justify-between">
+              <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-white font-semibold">{entry.employee.name}</p>
                   <p className="text-xs text-gray-500">{entry.employee.jobTitle ?? entry.employee.employmentType.replace("_", " ")}</p>
                 </div>
-                <div className="flex items-center gap-6 text-right">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-right">
                   <div>
                     <p className="text-xs text-gray-500">Gross</p>
                     <p className="text-sm text-gray-300">{fmt(grossTotal)}</p>
@@ -290,8 +290,8 @@ export function PayrollRunClient({ run }: { run: Run }) {
 
               {/* Edit form */}
               {isEditing && (
-                <div className="border-t border-gray-800 px-6 py-4 bg-gray-800/30">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="border-t border-gray-800 px-4 sm:px-6 py-4 bg-gray-800/30">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3">
                     {[
                       { label: "Overtime (R)", key: "overtime" },
                       { label: "Bonus (R)", key: "bonus" },

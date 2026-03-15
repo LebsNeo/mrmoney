@@ -132,9 +132,9 @@ export default function EditBookingPage() {
 
       <div className="space-y-6">
         {/* Guest Info */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Guest Information</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="sm:col-span-2">
               <label className={labelClass}>Guest Name *</label>
               <input value={guestName} onChange={e => setGuestName(e.target.value)} className={inputClass} placeholder="Guest name" />
@@ -151,9 +151,9 @@ export default function EditBookingPage() {
         </div>
 
         {/* Dates & Room */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Stay Details</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <div>
               <label className={labelClass}>Check-in *</label>
               <input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} className={inputClass} />
@@ -172,7 +172,7 @@ export default function EditBookingPage() {
         </div>
 
         {/* Notes */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 sm:p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Notes</h2>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="Internal notes..." />
         </div>
