@@ -20,7 +20,10 @@ export default function PrivacyPage() {
           <Link href="/" style={{ fontSize: 18, fontWeight: 800, color: "#fff", textDecoration: "none" }}>
             Mr<span style={{ color: "#10b981" }}>CA</span>
           </Link>
-          <Link href="/login" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Sign In</Link>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <Link href="/terms" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Terms</Link>
+            <Link href="/login" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Sign In</Link>
+          </div>
         </div>
       </header>
 

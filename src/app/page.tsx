@@ -1191,6 +1191,8 @@ export default function LandingPage() {
             </span>
           </span>
           <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+            <Link href="/privacy" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Privacy</Link>
+            <Link href="/terms" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Terms</Link>
             <Link href="/login" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Sign in</Link>
             <Link href="/register" style={{ fontSize: 13, color: "#374151", textDecoration: "none" }}>Register</Link>
             <span style={{ fontSize: 12, color: "#111827" }}>© {new Date().getFullYear()} MrCA</span>
